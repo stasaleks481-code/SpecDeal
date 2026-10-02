@@ -29,6 +29,8 @@ export async function handleStart(ctx: Context): Promise<void> {
     .eq('telegram_id', tg.id)
     .maybeSingle<UserRow>()
 
+  console.log('[start] lookup result:', { found: !!user, error: lookupErr?.message })
+
   if (lookupErr) {
     console.error('[start] lookup error:', lookupErr)
     await ctx.reply('⚠️ Ошибка базы данных. Попробуй через минуту.')

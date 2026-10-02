@@ -35,22 +35,27 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     await bot.handleUpdate(body)
     return NextResponse.json({ ok: true })
   } catch (err) {
-    console.error('[telegram] webhook handler error:', err)
+    const errMsg = err instanceof Error ? `${err.name}: ${err.message}` : String(err)
+    const stack = err instanceof Error ? err.stack?.split('\n').slice(0, 5).join(' | ') : ''
+    console.error('[telegram] webhook handler error:', errMsg)
+    if (stack) console.error('[telegram] stack:', stack)
     // Return 200 anyway — Telegram retries aggressively on non-2xx and we
     // don't want to be flooded with duplicate updates for transient errors.
-    return NextResponse.json({ ok: true, error: 'handled' })
+    return NextResponse.json({ ok: true, error: 'handled', detail: errMsg })
   }
 }
 
 /**
- * GET endpoint — useful for sanity-checking that the webhook is reachable.
- * Hit `/api/telegram` in your browser to confirm deployment.
+ * GET endpoint — useful for sanity-checking that the webhook is reachable
+ * AND that env vars are loaded (helps diagnose Vercel env var propagation).
  */
 export async function GET(): Promise<NextResponse> {
   return NextResponse.json({
     ok: true,
     name: 'Spec Deal Telegram Webhook',
     bot_id: env.telegramBotToken.split(':')[0],
+    supabase_url: env.supabaseUrl,
+    supabase_key_prefix: env.supabaseAnonKey.slice(0, 20) + '...',
     timestamp: new Date().toISOString(),
   })
 }
