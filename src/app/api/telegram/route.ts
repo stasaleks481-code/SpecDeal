@@ -31,20 +31,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   try {
     const body = await req.json()
-    console.log('[telegram] received update:', JSON.stringify(body).slice(0, 300))
     await ensureBotReady()
-    console.log('[telegram] bot ready, dispatching update')
     await bot.handleUpdate(body)
-    console.log('[telegram] update dispatched successfully')
     return NextResponse.json({ ok: true })
   } catch (err) {
+    // grammY throws BotError when handlers call Telegram API methods that
+    // fail (e.g. sendMessage to a user who hasn't /start'd the bot yet).
+    // Telegram retries aggressively on non-2xx responses, so we always
+    // return 200 — the error is logged for diagnostics.
     const errMsg = err instanceof Error ? `${err.name}: ${err.message}` : String(err)
-    const stack = err instanceof Error ? err.stack?.split('\n').slice(0, 5).join(' | ') : ''
     console.error('[telegram] webhook handler error:', errMsg)
-    if (stack) console.error('[telegram] stack:', stack)
-    // Return 200 anyway — Telegram retries aggressively on non-2xx and we
-    // don't want to be flooded with duplicate updates for transient errors.
-    return NextResponse.json({ ok: true, error: 'handled', detail: errMsg })
+    return NextResponse.json({ ok: true })
   }
 }
 
@@ -57,8 +54,6 @@ export async function GET(): Promise<NextResponse> {
     ok: true,
     name: 'Spec Deal Telegram Webhook',
     bot_id: env.telegramBotToken.split(':')[0],
-    supabase_url: env.supabaseUrl,
-    supabase_key_prefix: env.supabaseAnonKey.slice(0, 20) + '...',
     timestamp: new Date().toISOString(),
   })
 }
