@@ -96,9 +96,12 @@ export async function handleCallback(ctx: Context): Promise<void> {
   } catch (err) {
     console.error('[callback] error:', err)
     // If editMessageText fails because the message content is identical,
-    // grammY throws a "message is not modified" error — answer silently.
-    if (!ctx.answered) {
+    // grammY throws a "message is not modified" error — silently answer
+    // the callback query so the spinner goes away on the user's side.
+    try {
       await ctx.answerCallbackQuery()
+    } catch {
+      // already answered — ignore
     }
   }
 }
