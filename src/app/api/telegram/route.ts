@@ -31,8 +31,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   try {
     const body = await req.json()
+    console.log('[telegram] received update:', JSON.stringify(body).slice(0, 300))
     await ensureBotReady()
+    console.log('[telegram] bot ready, dispatching update')
     await bot.handleUpdate(body)
+    console.log('[telegram] update dispatched successfully')
     return NextResponse.json({ ok: true })
   } catch (err) {
     const errMsg = err instanceof Error ? `${err.name}: ${err.message}` : String(err)
