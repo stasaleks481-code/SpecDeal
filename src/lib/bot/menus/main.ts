@@ -1,4 +1,4 @@
-import type { InlineKeyboardMarkup } from 'grammy'
+import { InlineKeyboard } from 'grammy'
 
 /**
  * Main menu — shown on /start and via "🏠 Главное меню" button.
@@ -9,27 +9,25 @@ import type { InlineKeyboardMarkup } from 'grammy'
  *   🏦 Банк        |  🏁 Гонки
  *   📦 Кейсы       |  👤 Профиль
  */
-export function buildMainMenu(): InlineKeyboardMarkup {
-  return {
-    inline_keyboard: [
-      [
-        { text: '🚗 Мой Гараж', callback_data: 'garage:view' },
-        { text: '🔍 Поиск Авто', callback_data: 'search:open' },
-      ],
-      [
-        { text: '🔧 Мастерская', callback_data: 'workshop:open' },
-        { text: '🎲 Авторынок', callback_data: 'market:open' },
-      ],
-      [
-        { text: '🏦 Банк и Бизнес', callback_data: 'bank:open' },
-        { text: '🏁 Гонки', callback_data: 'races:open' },
-      ],
-      [
-        { text: '📦 Кейсы', callback_data: 'cases:open' },
-        { text: '👤 Профиль', callback_data: 'profile:view' },
-      ],
+export function buildMainMenu(): InlineKeyboard {
+  return new InlineKeyboard([
+    [
+      { text: '🚗 Мой Гараж', callback_data: 'garage:view' },
+      { text: '🔍 Поиск Авто', callback_data: 'search:open' },
     ],
-  }
+    [
+      { text: '🔧 Мастерская', callback_data: 'workshop:open' },
+      { text: '🎲 Авторынок', callback_data: 'market:open' },
+    ],
+    [
+      { text: '🏦 Банк и Бизнес', callback_data: 'bank:open' },
+      { text: '🏁 Гонки', callback_data: 'races:open' },
+    ],
+    [
+      { text: '📦 Кейсы', callback_data: 'cases:open' },
+      { text: '👤 Профиль', callback_data: 'profile:view' },
+    ],
+  ])
 }
 
 /** Welcome text shown to first-time and returning players. */

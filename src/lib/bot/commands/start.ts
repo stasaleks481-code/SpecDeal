@@ -19,7 +19,8 @@ export async function handleStart(ctx: Context): Promise<void> {
 
   const tg = ctx.from
   const firstName = tg.first_name ?? 'Игрок'
-  const startPayload = ctx.startPayload // unused for now — reserved for referrals
+  // Note: deep-link payload from /start ref_xyz is accessible via
+  // ctx.msg.text.split(' ')[1] if we want referral logic later.
 
   // Look up existing user
   let { data: user, error: lookupErr } = await supabase
@@ -78,6 +79,6 @@ export async function handleStart(ctx: Context): Promise<void> {
   await ctx.reply(welcomeText(firstName, isNew), {
     parse_mode: 'HTML',
     reply_markup: buildMainMenu(),
-    disable_web_page_preview: true,
+    link_preview_options: { is_disabled: true },
   })
 }

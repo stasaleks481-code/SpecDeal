@@ -11,25 +11,28 @@ import { handleCallback } from '@/lib/bot/callbacks'
  * grammY's `webhookCallback` adapts this to a standard Request/Response pair
  * — see `src/app/api/telegram/route.ts`.
  *
- * In webhook mode, grammY does not auto-fetch bot info (no getMe on every
- * request — that would be wasteful). We pass `botInfo` with just the `id`
- * derived from the token so the bot can answer inline queries and parse
- * commands like `/start@BotName` without an extra API call.
+ * We don't pass `botInfo` to the constructor because it requires the full
+ * `UserFromGetMe` shape which we don't know without calling getMe. Instead,
+ * we call `bot.init()` once before handling the first update — grammY
+ * memoises the getMe promise so subsequent calls are free.
  */
-const botId = Number(env.telegramBotToken.split(':')[0])
-
 export const bot = new Bot(env.telegramBotToken, {
   client: { baseFetchConfig: { compress: true } },
-  botInfo: {
-    id: botId,
-    is_bot: true,
-    first_name: 'SpecDeal',
-    username: 'specdeal_bot',
-    can_join_groups: false,
-    can_read_all_group_messages: false,
-    supports_inline_queries: false,
-  },
 })
+
+/**
+ * Lazily-initialised init promise. grammY's `bot.init()` is idempotent —
+ * calling it multiple times returns the same in-flight promise — so we just
+ * expose a single promise for the webhook route to await.
+ */
+let initPromise: Promise<void> | null = null
+
+export function ensureBotReady(): Promise<void> {
+  if (!initPromise) {
+    initPromise = bot.init()
+  }
+  return initPromise
+}
 
 // ─── Command handlers ────────────────────────────────────────────────
 bot.command('start', handleStart)
@@ -56,6 +59,3 @@ bot.on('callback_query', handleCallback)
 bot.catch((err) => {
   console.error('[bot] unhandled error:', err.error)
 })
-
-// Export for type narrowing in API route
-export type BotContext = typeof bot.ctx

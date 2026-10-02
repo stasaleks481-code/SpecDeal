@@ -71,13 +71,13 @@ export async function handleProfile(ctx: Context): Promise<void> {
     await ctx.editMessageText(text, {
       parse_mode: 'HTML',
       reply_markup: keyboard,
-      disable_web_page_preview: true,
+      link_preview_options: { is_disabled: true },
     })
   } else {
     await ctx.reply(text, {
       parse_mode: 'HTML',
       reply_markup: keyboard,
-      disable_web_page_preview: true,
+      link_preview_options: { is_disabled: true },
     })
   }
 }

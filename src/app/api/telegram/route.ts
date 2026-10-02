@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { bot } from '@/lib/bot'
+import { bot, ensureBotReady } from '@/lib/bot'
 import { env } from '@/config/env'
 
 export const runtime = 'nodejs'
@@ -31,6 +31,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   try {
     const body = await req.json()
+    await ensureBotReady()
     await bot.handleUpdate(body)
     return NextResponse.json({ ok: true })
   } catch (err) {

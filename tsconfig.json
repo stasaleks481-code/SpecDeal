@@ -37,6 +37,13 @@
     ".next/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "skills",
+    "download",
+    "upload",
+    ".zscripts",
+    "tests",
+    "examples",
+    "mini-services"
   ]
 }
