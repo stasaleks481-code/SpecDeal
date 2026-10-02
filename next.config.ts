@@ -8,14 +8,11 @@ const nextConfig: NextConfig = {
 
   reactStrictMode: true,
 
-  // Surface real TS errors during build instead of silently shipping bugs.
-  typescript: {
-    ignoreBuildErrors: false,
-  },
+  // Next.js 16 removed the `eslint` config option from NextConfig.
+  // Linting is now done via standalone `eslint` CLI (see package.json "lint" script).
 
-  eslint: {
-    ignoreDuringBuilds: false,
-  },
+  // Next.js 16 also removed `typescript.ignoreBuildErrors` — TS errors will
+  // now properly fail the build, which is what we want.
 };
 
 export default nextConfig;
