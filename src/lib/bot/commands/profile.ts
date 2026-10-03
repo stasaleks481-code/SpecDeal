@@ -1,19 +1,13 @@
 import type { Context } from 'grammy'
-import { supabase, type UserRow } from '@/lib/supabase'
-import { buildMainMenu } from '@/lib/bot/menus/main'
+import { supabase, type UserRow, formatNumber } from '@/lib/supabase'
+import { mainMenuKeyboard, escapeHtml } from '@/lib/bot/menus/main'
 
 /**
  * Profile card — /profile command and "👤 Профиль" button.
- *
- * Format mirrors the spec:
- *   💳 ━━━ ПРОФИЛЬ АВТОДИЛЕРА ━━━ 💳
- *   Игрок: @username (ID: 7849201)
- *   Статус: 🏆 Легенда Авторынка (Ур. 24)
- *   ...
  */
 export async function handleProfile(ctx: Context): Promise<void> {
   if (!ctx.from) {
-    await ctx.answerCallbackQuery({ text: 'Не удалось определить пользователя' })
+    await ctx.reply('⚠️ Не удалось определить пользователя')
     return
   }
 
@@ -26,7 +20,7 @@ export async function handleProfile(ctx: Context): Promise<void> {
     .maybeSingle<UserRow>()
 
   if (error || !user) {
-    await ctx.answerCallbackQuery({ text: 'Профиль не найден. Нажми /start' })
+    await ctx.reply('⚠️ Профиль не найден. Нажми /start')
     return
   }
 
@@ -36,6 +30,21 @@ export async function handleProfile(ctx: Context): Promise<void> {
   const statusBadge = getStatusBadge(user.level)
   const reputationStars = formatReputation(user.reputation)
 
+  const { count: carsCount } = await supabase
+    .from('user_cars')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', tg.id)
+
+  const { count: platesCount } = await supabase
+    .from('license_plates')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', tg.id)
+
+  const { count: achievementsCount } = await supabase
+    .from('user_achievements')
+    .select('achievement_id', { count: 'exact', head: true })
+    .eq('user_id', tg.id)
+
   const text = [
     '💳 ━━━ ПРОФИЛЬ АВТОДИЛЕРА ━━━ 💳',
     '',
@@ -44,48 +53,23 @@ export async function handleProfile(ctx: Context): Promise<void> {
     '',
     `💰 Баланс: <b>$${formatNumber(user.balance_cr)} CR</b>`,
     `💎 Премиум: <b>${formatNumber(user.balance_sp)} SP</b>`,
+    `🏦 Депозит: <b>$${formatNumber(user.bank_deposit)} CR</b>`,
     '',
-    `🚗 Слотов в гараже: <b>${user.garage_slots}</b>`,
+    `🚗 В гараже: <b>${carsCount ?? 0} / ${user.garage_slots}</b> слотов`,
+    `🔢 Номеров в коллекции: <b>${platesCount ?? 0}</b>`,
+    `🎖 Достижений: <b>${achievementsCount ?? 0} / 10</b>`,
     `📈 Успешных сделок: <b>${user.successful_deals}</b>`,
     `🏁 Побед в гонках: <b>${user.races_won}</b> (Винрейт: ${winRate}%)`,
     `⭐ Репутация: ${reputationStars}`,
     '',
-    '👇 Действия:',
+    '👇 Меню внизу экрана — выбирай раздел',
   ].join('\n')
 
-  const keyboard = {
-    inline_keyboard: [
-      [
-        { text: '🔄 Обновить', callback_data: 'profile:view' },
-        { text: '🏠 Главное меню', callback_data: 'menu:main' },
-      ],
-    ],
-  }
-
-  // answerCallbackQuery to dismiss the loading spinner
-  await ctx.answerCallbackQuery()
-
-  // If this is a callback (button press), edit the existing message;
-  // otherwise reply fresh (for /profile text command).
-  if (ctx.callbackQuery) {
-    await ctx.editMessageText(text, {
-      parse_mode: 'HTML',
-      reply_markup: keyboard,
-      link_preview_options: { is_disabled: true },
-    })
-  } else {
-    await ctx.reply(text, {
-      parse_mode: 'HTML',
-      reply_markup: keyboard,
-      link_preview_options: { is_disabled: true },
-    })
-  }
-}
-
-// ─── Helpers ──────────────────────────────────────────────────────────
-
-function formatNumber(n: number): string {
-  return new Intl.NumberFormat('ru-RU').format(n)
+  await ctx.reply(text, {
+    parse_mode: 'HTML',
+    reply_markup: mainMenuKeyboard(),
+    link_preview_options: { is_disabled: true },
+  })
 }
 
 function getStatusBadge(level: number): string {
@@ -97,16 +81,8 @@ function getStatusBadge(level: number): string {
 }
 
 function formatReputation(rep: number): string {
-  // 0..5 scale, one star per 1000 reputation capped at 5
   const stars = Math.max(0, Math.min(5, Math.floor(rep / 1000) + 1))
   const filled = '🌟'.repeat(stars)
   const empty = '☆'.repeat(5 - stars)
   return `${filled}${empty} ${rep} / 5000`
-}
-
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
 }

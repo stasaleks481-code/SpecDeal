@@ -1,33 +1,35 @@
-import { InlineKeyboard } from 'grammy'
+import { Keyboard, InlineKeyboard } from 'grammy'
 
 /**
- * Main menu — shown on /start and via "🏠 Главное меню" button.
+ * Persistent Reply Keyboard — fixed at the bottom of the chat,
+ * always visible to the player (replaces the inline buttons that
+ * disappeared after each message).
  *
- * Layout matches the spec:
- *   🚗 Мой Гараж   |  🔍 Поиск Авто
- *   🔧 Мастерская  |  🎲 Авторынок
- *   🏦 Банк        |  🏁 Гонки
- *   📦 Кейсы       |  👤 Профиль
+ * Layout (4 rows × 2 cols):
+ *   🚗 Гараж        |  🏬 Автосалоны
+ *   🔧 Мастерская   |  🎰 Номера
+ *   🏦 Банк         |  🏁 Гонки
+ *   📦 Кейсы        |  👤 Профиль
+ *
+ * On mobile this fits the keyboard width nicely. Pressing any button
+ * sends the same text as the label — bot matches it via bot.hears().
  */
-export function buildMainMenu(): InlineKeyboard {
-  return new InlineKeyboard([
-    [
-      { text: '🚗 Мой Гараж', callback_data: 'garage:view' },
-      { text: '🔍 Поиск Авто', callback_data: 'search:open' },
-    ],
-    [
-      { text: '🔧 Мастерская', callback_data: 'workshop:open' },
-      { text: '🎲 Авторынок', callback_data: 'market:open' },
-    ],
-    [
-      { text: '🏦 Банк и Бизнес', callback_data: 'bank:open' },
-      { text: '🏁 Гонки', callback_data: 'races:open' },
-    ],
-    [
-      { text: '📦 Кейсы', callback_data: 'cases:open' },
-      { text: '👤 Профиль', callback_data: 'profile:view' },
-    ],
-  ])
+export function mainMenuKeyboard() {
+  return new Keyboard()
+    .text('🚗 Гараж').text('🏬 Автосалоны').row()
+    .text('🔧 Мастерская').text('🎰 Номера').row()
+    .text('🏦 Банк').text('🏁 Гонки').row()
+    .text('📦 Кейсы').text('👤 Профиль').row()
+    .resized()
+}
+
+/**
+ * "Confirm / Cancel" pattern used for purchases, sales, risky actions.
+ */
+export function confirmCancelInline(confirmLabel = '✅ Подтвердить') {
+  return new InlineKeyboard()
+    .text(confirmLabel, 'confirm:yes')
+    .text('❌ Отмена', 'confirm:no')
 }
 
 /** Welcome text shown to first-time and returning players. */
@@ -40,14 +42,14 @@ export function welcomeText(firstName: string, isNew: boolean): string {
       '',
       `👋 Привет, <b>${escapeHtml(firstName)}</b>!`,
       '',
-      'Ты — перекуп и механик в одном лице. Покупай утиль, восстанавливай, ',
-      'тюнь, выбивай блатные номера и продавай с наваром — либо рви всех ',
-      'на дрэге за 402 метра.',
+      'Ты — перекуп и механик в одном лице.',
+      'Покупай утиль, восстанавливай, тюнинговай, выбивай блатные номера',
+      'и продавай с наваром — либо рви всех на дрэге за 402 метра.',
       '',
       '💰 Стартовый баланс: <b>$50,000 CR</b>',
       '🚗 Слотов в гараже: <b>3</b>',
       '',
-      '👇 Выбирай раздел, чтобы начать:',
+      '👇 Меню внизу экрана — жми любую кнопку:',
     ].join('\n')
   }
 
@@ -56,22 +58,7 @@ export function welcomeText(firstName: string, isNew: boolean): string {
     '',
     `👋 С возвращением, <b>${escapeHtml(firstName)}</b>!`,
     '',
-    'Гараж ждёт. Что делаем?',
-    '',
-    '👇 Выбирай раздел:',
-  ].join('\n')
-}
-
-/** Generic "section under construction" message. */
-export function underConstruction(sectionName: string): string {
-  return [
-    '━━━━━━ 🚧 В РАЗРАБОТКЕ ━━━━━━',
-    '',
-    `Раздел <b>${escapeHtml(sectionName)}</b> ещё не открыт.`,
-    '',
-    'Сейчас работает: <code>/start</code>, главное меню и профиль игрока.',
-    '',
-    '👇 Возвращайся в меню:',
+    '👇 Меню внизу — выбирай раздел:',
   ].join('\n')
 }
 

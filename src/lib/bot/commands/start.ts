@@ -1,6 +1,6 @@
 import type { Context } from 'grammy'
 import { supabase, NEW_USER_DEFAULTS, type UserRow } from '@/lib/supabase'
-import { buildMainMenu, welcomeText, escapeHtml } from '@/lib/bot/menus/main'
+import { mainMenuKeyboard, welcomeText } from '@/lib/bot/menus/main'
 
 /**
  * /start command handler.
@@ -77,7 +77,7 @@ export async function handleStart(ctx: Context): Promise<void> {
 
   await ctx.reply(welcomeText(firstName, isNew), {
     parse_mode: 'HTML',
-    reply_markup: buildMainMenu(),
+    reply_markup: mainMenuKeyboard(),
     link_preview_options: { is_disabled: true },
   })
 }
