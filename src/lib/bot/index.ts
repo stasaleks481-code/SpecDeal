@@ -2,12 +2,18 @@ import { Bot } from 'grammy'
 import { env } from '@/config/env'
 import { handleStart } from '@/lib/bot/commands/start'
 import { handleProfile } from '@/lib/bot/commands/profile'
-import { routeText, ROUTES } from '@/lib/bot/callbacks'
+import { handleGarage } from '@/lib/bot/commands/garage'
+import { handleDealerships } from '@/lib/bot/commands/dealerships'
+import { handleWorkshop } from '@/lib/bot/commands/workshop'
+import { handlePlates } from '@/lib/bot/commands/plates'
+import { handleBank } from '@/lib/bot/commands/bank'
+import { handleRaces } from '@/lib/bot/commands/races'
+import { handleCases } from '@/lib/bot/commands/cases'
+import { handleCallback } from '@/lib/bot/callbacks'
+import { mainMenuKeyboard } from '@/lib/bot/menus/main'
 
 /**
  * Singleton bot instance.
- * In webhook mode, grammY does not auto-fetch bot info — we call
- * bot.init() once via ensureBotReady() in the webhook route.
  */
 export const bot = new Bot(env.telegramBotToken, {
   client: { baseFetchConfig: { compress: true } },
@@ -28,41 +34,67 @@ bot.command('profile', handleProfile)
 bot.command('help', async (ctx) => {
   await ctx.reply(
     [
-      '🆘 <b>Помощь по SPEC DEAL</b>',
+      `🆘 <b>Помощь</b>`,
       '',
       '<b>Главное меню</b> — внизу экрана, всегда доступно.',
-      'Жми на кнопки: Гараж, Автосалоны, Мастерская, и т.д.',
       '',
       '<b>Слэш-команды:</b>',
-      '<code>/start</code>    — главное меню + регистрация',
+      '<code>/start</code> — регистрация + меню',
       '<code>/profile</code> — карточка профиля',
-      '<code>/help</code>    — эта подсказка',
+      '<code>/help</code> — эта подсказка',
       '',
-      '<b>Текстовые команды</b> (отправляй в чат):',
-      '<code>купить <ID></code>           — купить машину',
-      '<code>сел <ID></code>              — сделать машину активной',
-      '<code>продать <ID></code>          — продать машину NPC',
-      '<code>инфо <ID></code>             — детали машины',
-      '<code>ремонт всё <ID></code>       — полный ремонт',
-      '<code>стейдж <ID></code>          — апгрейд Stage',
-      '<code>крутить</code>              — крутка номеров',
-      '<code>дрэг <ставка></code>         — гонка vs NPC',
-      '<code>депозит <сумма></code>       — положить в банк',
+      'Все действия — через inline-кнопки под сообщениями.',
+      'Писать текстом команды НЕ нужно.',
     ].join('\n'),
     { parse_mode: 'HTML' }
   )
 })
 
-// ─── Reply-keyboard button routes ────────────────────────────────────
-// Each button on the persistent keyboard sends its label as text.
-bot.hears(Object.values(ROUTES), routeText)
+// ─── Reply-keyboard buttons (label match) ────────────────────────────
+bot.hears(['🚗 Гараж', '🏬 Салоны', '🔧 Сервис', '🎰 Номера', '🏦 Банк', '🏁 Гонки', '📦 Кейсы', '👤 Профиль'], async (ctx) => {
+  const text = ctx.message?.text
+  if (!text) return
 
-// ─── Free-text commands (buy/sell/repair/etc.) ───────────────────────
-bot.on('message:text', routeText)
+  switch (text) {
+    case '🚗 Гараж':
+      await handleGarage(ctx, 0)
+      break
+    case '🏬 Салоны':
+      await handleDealerships(ctx)
+      break
+    case '🔧 Сервис':
+      await handleWorkshop(ctx, 0)
+      break
+    case '🎰 Номера':
+      await handlePlates(ctx)
+      break
+    case '🏦 Банк':
+      await handleBank(ctx)
+      break
+    case '🏁 Гонки':
+      await handleRaces(ctx)
+      break
+    case '📦 Кейсы':
+      await handleCases(ctx)
+      break
+    case '👤 Профиль':
+      await handleProfile(ctx)
+      break
+  }
+})
 
-// ─── Callback queries (inline buttons from confirm dialogs) ────────
-bot.on('callback_query', async (ctx) => {
-  await ctx.answerCallbackQuery()
+// ─── Inline keyboard button presses ─────────────────────────────────
+bot.on('callback_query', handleCallback)
+
+// ─── Fallback for unknown text ──────────────────────────────────────
+bot.on('message:text', async (ctx) => {
+  // Don't reply to slash commands
+  if (ctx.message?.text?.startsWith('/')) return
+
+  await ctx.reply(
+    '🤔 Не понял команду. Жми кнопку внизу 👇',
+    { reply_markup: mainMenuKeyboard() }
+  )
 })
 
 // ─── Error handler ───────────────────────────────────────────────────

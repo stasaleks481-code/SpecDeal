@@ -1,89 +1,111 @@
 import type { Context } from 'grammy'
+import { InlineKeyboard } from 'grammy'
 import { supabase, PLATE_RARITY, formatNumber } from '@/lib/supabase'
-import { escapeHtml } from '@/lib/bot/menus/main'
+import { money, shortId, escapeHtml, plateRarityLabel, cb } from '@/lib/bot/utils'
 
 const SPIN_COST = 5000
 
-/**
- * 🎰 Номера — show plate inventory + gacha roulette menu.
- */
+/** 🎰 Номера — main menu */
 export async function handlePlates(ctx: Context): Promise<void> {
   if (!ctx.from) return
 
-  // Count player's plates
-  const { data: plates } = await supabase
+  const { count: total } = await supabase
     .from('license_plates')
-    .select('id, rarity, plate_text, region, is_assigned, car_id')
+    .select('id', { count: 'exact', head: true })
     .eq('user_id', ctx.from.id)
-    .order('created_at', { ascending: false })
 
-  const total = plates?.length ?? 0
-  const unassigned = plates?.filter(p => !p.is_assigned).length ?? 0
+  const { count: unassigned } = await supabase
+    .from('license_plates')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', ctx.from.id)
+    .eq('is_assigned', false)
 
-  const lines = [
-    '━━━━━━ 🎰 ГОС. НОМЕРА ━━━━━━',
-    '',
-    '🎰 <b>Рулетка номеров</b>',
-    `   Стоимость 1 крутки: <b>$${formatNumber(SPIN_COST)} CR</b>`,
-    '',
-    '━━━━━━ 📊 Шансы выпадения ━━━━━━',
-    '',
-  ]
-
-  for (const [code, info] of Object.entries(PLATE_RARITY)) {
-    const pct = (info.chance * 100).toFixed(1)
-    lines.push(`${info.emoji} <b>${info.label}</b> — ${pct}% (множитель цены ×${info.modifier.toFixed(2)})`)
-  }
-
-  lines.push('')
-  lines.push('━━━━━━ 📜 Твои номера ━━━━━━')
-  lines.push(`Всего: <b>${total}</b> • Не привязано: <b>${unassigned}</b>`)
-
-  if (plates && plates.length > 0) {
-    lines.push('')
-    for (const p of plates.slice(0, 10)) {
-      const info = PLATE_RARITY[p.rarity]
-      const tag = p.is_assigned ? '✅' : '⬜'
-      lines.push(`${tag} ${info.emoji} <code>${p.plate_text} ${p.region}</code> (${info.label})`)
-    }
-    if (total > 10) {
-      lines.push(`... и ещё ${total - 10} номеров`)
-    }
-  }
-
-  lines.push('')
-  lines.push('━━━━━━ 👇 Команды ━━━━━━')
-  lines.push(`<code>крутить</code>         — крутануть рулетку ($${formatNumber(SPIN_COST)} CR)`)
-  lines.push('<code>номер <ID машины> <ID номера></code> — привязать номер к машине')
-  lines.push('<code>продать номер <ID></code> — продать номер NPC')
-
-  await ctx.reply(lines.join('\n'), { parse_mode: 'HTML' })
-}
-
-/**
- * Spin the plate gacha roulette.
- */
-export async function spinPlateRoulette(ctx: Context): Promise<void> {
-  if (!ctx.from) return
-  const tgId = ctx.from.id
-
-  // Check balance
-  const { data: user, error: userErr } = await supabase
+  const { data: user } = await supabase
     .from('users')
     .select('balance_cr')
-    .eq('telegram_id', tgId)
+    .eq('telegram_id', ctx.from.id)
     .maybeSingle()
 
-  if (userErr || !user) {
-    await ctx.reply('⚠️ Профиль не найден. Нажми /start.')
+  const lines = [
+    `🎰 <b>ГОС. НОМЕРА</b>`,
+    '',
+    `Стоимость крутки: <b>${money(SPIN_COST)}</b>`,
+    `💼 У тебя: ${money(Number(user?.balance_cr ?? 0))}`,
+    '',
+    `📦 Коллекция: ${total ?? 0} шт.`,
+    `📐 Не привязано: ${unassigned ?? 0} шт.`,
+    '',
+    `<b>Шансы выпадения:</b>`,
+    `${PLATE_RARITY.common.emoji} Обычный — ${(PLATE_RARITY.common.chance * 100).toFixed(0)}% (×1.00)`,
+    `${PLATE_RARITY.mirror.emoji} Зеркалка — ${(PLATE_RARITY.mirror.chance * 100).toFixed(0)}% (×1.15)`,
+    `${PLATE_RARITY.hundred.emoji} Сотня — ${(PLATE_RARITY.hundred.chance * 100).toFixed(0)}% (×1.25)`,
+    `${PLATE_RARITY.triple.emoji} Тройка — ${(PLATE_RARITY.triple.chance * 100).toFixed(0)}% (×1.50)`,
+    `${PLATE_RARITY.elite.emoji} Блатная — ${(PLATE_RARITY.elite.chance * 100).toFixed(1)}% (×1.80)`,
+    `${PLATE_RARITY.legendary.emoji} ЛЕГЕНДА — ${(PLATE_RARITY.legendary.chance * 100).toFixed(1)}% (×2.20)`,
+  ]
+
+  const kb = new InlineKeyboard()
+  if (user && Number(user.balance_cr) >= SPIN_COST) {
+    kb.text(`🎲 Крутануть за ${money(SPIN_COST)}`, cb.plates_spin()).row()
+  } else {
+    kb.text('💸 Не хватает денег', cb.noop()).row()
+  }
+  if ((unassigned ?? 0) > 0) {
+    kb.text('📋 Привязать номер к машине', `plates:list`).row()
+  }
+  kb.text('⬅️ В меню', cb.menu())
+
+  await ctx.reply(lines.join('\n'), { parse_mode: 'HTML', reply_markup: kb })
+}
+
+/** Show confirm spin screen */
+export async function handleSpinConfirm(ctx: Context): Promise<void> {
+  if (!ctx.from) return
+
+  const { data: user } = await supabase
+    .from('users')
+    .select('balance_cr')
+    .eq('telegram_id', ctx.from.id)
+    .maybeSingle()
+
+  if (!user || Number(user.balance_cr) < SPIN_COST) {
+    await ctx.answerCallbackQuery({ text: 'Не хватает денег' })
     return
   }
 
-  if (user.balance_cr < SPIN_COST) {
-    await ctx.reply(
-      `💸 Недостаточно денег. Нужно <b>$${formatNumber(SPIN_COST)} CR</b>, у тебя: <b>$${formatNumber(user.balance_cr)} CR</b>`,
-      { parse_mode: 'HTML' }
-    )
+  const kb = new InlineKeyboard()
+    .text(`✅ Крутить за ${money(SPIN_COST)}`, cb.plates_spin_confirm())
+    .row()
+    .text('❌ Отмена', cb.plates())
+
+  await ctx.editMessageText(
+    [
+      `🎲 <b>КРУТКА НОМЕРОВ</b>`,
+      '',
+      `Стоимость: <b>${money(SPIN_COST)}</b>`,
+      `Остаток после: ${money(Number(user.balance_cr) - SPIN_COST)}`,
+      '',
+      `Шанс выбить ЛЕГЕНДУ: 0.3%`,
+      `Шанс выбить блатную: 1.2%`,
+      '',
+      `Поехали?`,
+    ].join('\n'),
+    { parse_mode: 'HTML', reply_markup: kb }
+  )
+}
+
+/** Execute the spin */
+export async function executeSpin(ctx: Context): Promise<void> {
+  if (!ctx.from) return
+
+  const { data: user } = await supabase
+    .from('users')
+    .select('balance_cr')
+    .eq('telegram_id', ctx.from.id)
+    .maybeSingle()
+
+  if (!user || Number(user.balance_cr) < SPIN_COST) {
+    await ctx.answerCallbackQuery({ text: 'Не хватает денег' })
     return
   }
 
@@ -99,132 +121,101 @@ export async function spinPlateRoulette(ctx: Context): Promise<void> {
     }
   }
 
-  // Generate plate text based on rarity
   const { plateText, region } = generatePlate(rolledRarity)
   const info = PLATE_RARITY[rolledRarity]
 
-  // Deduct money + insert plate in a single transaction-ish sequence
-  const { error: deductErr } = await supabase
-    .from('users')
-    .update({ balance_cr: user.balance_cr - SPIN_COST })
-    .eq('telegram_id', tgId)
+  // Deduct + insert
+  await supabase.from('users').update({ balance_cr: Number(user.balance_cr) - SPIN_COST }).eq('telegram_id', ctx.from.id)
 
-  if (deductErr) {
-    console.error('[plates] deduct error:', deductErr)
-    await ctx.reply('⚠️ Ошибка списания денег.')
-    return
-  }
-
-  const { data: plate, error: insertErr } = await supabase
+  const { data: plate } = await supabase
     .from('license_plates')
     .insert({
-      user_id: tgId,
+      user_id: ctx.from.id,
       plate_text: plateText,
       region,
       rarity: rolledRarity,
       price_modifier: info.modifier,
       is_assigned: false,
-      is_listed: false,
     })
     .select('*')
     .single()
 
-  if (insertErr || !plate) {
-    // Refund
-    await supabase.from('users').update({ balance_cr: user.balance_cr }).eq('telegram_id', tgId)
-    console.error('[plates] insert error:', insertErr)
-    await ctx.reply('⚠️ Ошибка сохранения номера. Деньги возвращены.')
+  if (!plate) {
+    await supabase.from('users').update({ balance_cr: Number(user.balance_cr) }).eq('telegram_id', ctx.from.id)
+    await ctx.answerCallbackQuery({ text: 'Ошибка, деньги возвращены' })
     return
   }
 
-  // Build response — fancy for rare plates
-  const lines: string[] = []
-  if (rolledRarity === 'legendary' || rolledRarity === 'elite') {
-    lines.push('━━━━━━ 🎉 🎉 🎉 ━━━━━━')
-    lines.push('')
-    lines.push(`👑 ТЫ ВЫБИЛ <b>${info.label}</b>!`)
-    lines.push('')
-  } else if (rolledRarity === 'triple' || rolledRarity === 'hundred') {
-    lines.push('━━━━━━ ⭐ ⭐ ⭐ ━━━━━━')
-    lines.push('')
-    lines.push(`✨ Красивый номер: <b>${info.label}</b>!`)
-    lines.push('')
+  // Fancy response
+  let title: string
+  let desc: string
+  if (rolledRarity === 'legendary') {
+    title = '🎉 🎉 🎉 ЛЕГЕНДА!!! 🎉 🎉 🎉'
+    desc = 'Невероятно! Таких номеров в игре меньше 0.3%!'
+  } else if (rolledRarity === 'elite') {
+    title = '🔥 БЛАТНАЯ СЕРИЯ!'
+    desc = 'Шанс выпадения всего 1.2% — повезло!'
+  } else if (rolledRarity === 'triple') {
+    title = '⭐ ТРОЙКА!'
+    desc = 'Красота! +50% к цене авто при продаже.'
+  } else if (rolledRarity === 'hundred') {
+    title = '🟢 Ровная сотня!'
+    desc = 'Неплохо, +25% к цене авто.'
   } else if (rolledRarity === 'mirror') {
-    lines.push('━━━━━━ 🎰 КРУТКА ━━━━━━')
-    lines.push('')
-    lines.push(`🔵 Зеркальный номер — неплохо!`)
-    lines.push('')
+    title = '🔵 Зеркалка'
+    desc = 'Хорошо! +15% к цене авто.'
   } else {
-    lines.push('━━━━━━ 🎰 КРУТКА ━━━━━━')
-    lines.push('')
-    lines.push(`⬜ Обычный номер. Повезёт в следующий раз!`)
-    lines.push('')
+    title = '⬜ Обычный номер'
+    desc = 'В следующий раз повезёт больше.'
   }
 
-  lines.push(`🔢 Твой номер: <code>${plateText} ${region}</code>`)
-  lines.push(`📊 Редкость: <b>${info.label}</b> ${info.emoji}`)
-  lines.push(`💰 Бонус к цене авто: ×${info.modifier.toFixed(2)}`)
-  lines.push(`🏷 ID номера: <code>${plate.id.slice(0, 8)}</code>`)
-  lines.push('')
-  lines.push(`💸 Списано: $${formatNumber(SPIN_COST)} CR`)
-  lines.push('')
-  lines.push('👇 Жми <b>🎰 Номера</b> чтобы крутить ещё или привязать к машине.')
+  const lines = [
+    title,
+    '',
+    `🔢 Твой номер: <code>${plateText} ${region}</code>`,
+    `📊 Редкость: ${plateRarityLabel(rolledRarity)}`,
+    `💰 Бонус к цене авто: ×${info.modifier.toFixed(2)}`,
+    `🏷 ID: <code>${shortId(plate.id)}</code>`,
+    '',
+    desc,
+    '',
+    `💸 Списано: ${money(SPIN_COST)}`,
+  ]
 
-  await ctx.reply(lines.join('\n'), { parse_mode: 'HTML' })
+  const kb = new InlineKeyboard()
+  if (Number(user.balance_cr) - SPIN_COST >= SPIN_COST) {
+    kb.text(`🎲 Ещё раз за ${money(SPIN_COST)}`, cb.plates_spin_confirm())
+  }
+  kb.row().text('📋 В коллекцию', cb.plates())
+
+  await ctx.answerCallbackQuery({ text: plateRarityLabel(rolledRarity) })
+  await ctx.editMessageText(lines.join('\n'), { parse_mode: 'HTML', reply_markup: kb })
 }
 
-/**
- * Generate a random Russian-style license plate based on rarity tier.
- * Format: Letter+3digits+2letters + region (e.g. "А777АА 777")
- */
+/** Generate Russian-style plate based on rarity */
 function generatePlate(rarity: keyof typeof PLATE_RARITY): { plateText: string; region: string } {
   const letters = ['А', 'В', 'Е', 'К', 'М', 'Н', 'О', 'Р', 'С', 'Т', 'У', 'Х']
-  const regions = ['77', '99', '177', '777', '50', '78', '98', '96', '199', '197', '750']
-
-  let plate: string
-  let region: string
+  const regions = ['77', '99', '177', '777', '50', '78', '98', '96', '199', '197']
+  const rL = () => letters[Math.floor(Math.random() * letters.length)]
+  const rR = () => regions[Math.floor(Math.random() * regions.length)]
 
   switch (rarity) {
     case 'legendary':
-      // А777АА 777 — triple-7 with elite letter combo
-      plate = `А777АА`
-      region = '777'
-      break
-
+      return { plateText: 'А777АА', region: '777' }
     case 'elite':
-      // O...OO or A...AA — same letter triple / double
-      plate = `${letters[Math.floor(Math.random() * letters.length)]}777${letters[Math.floor(Math.random() * letters.length)]}${letters[Math.floor(Math.random() * letters.length)]}`
-      region = regions[Math.floor(Math.random() * regions.length)]
-      break
-
+      return { plateText: `${rL()}777${rL()}${rL()}`, region: rR() }
     case 'triple':
-      // X777XX, X999XX — triple digits
-      const tripleDigit = ['111', '222', '333', '444', '555', '666', '777', '888', '999'][Math.floor(Math.random() * 9)]
-      const l1 = letters[Math.floor(Math.random() * letters.length)]
-      plate = `${l1}${tripleDigit}${l1}${letters[Math.floor(Math.random() * letters.length)]}`
-      region = regions[Math.floor(Math.random() * regions.length)]
-      break
-
+      return { plateText: `${rL()}${['111', '222', '333', '444', '555', '666', '777', '888', '999'][Math.floor(Math.random() * 9)]}${rL()}${rL()}`, region: rR() }
     case 'hundred':
-      // X100XX, X700XX — round hundreds
-      const hundredDigit = ['100', '200', '300', '400', '500', '600', '700', '800', '900'][Math.floor(Math.random() * 9)]
-      plate = `${letters[Math.floor(Math.random() * letters.length)]}${hundredDigit}${letters[Math.floor(Math.random() * letters.length)]}${letters[Math.floor(Math.random() * letters.length)]}`
-      region = regions[Math.floor(Math.random() * regions.length)]
-      break
-
+      return { plateText: `${rL()}${['100', '200', '300', '400', '500', '600', '700', '800', '900'][Math.floor(Math.random() * 9)]}${rL()}${rL()}`, region: rR() }
     case 'mirror':
-      // X121XX, X505XX — palindrome-like
       const a = Math.floor(Math.random() * 9) + 1
       const b = Math.floor(Math.random() * 10)
-      plate = `${letters[Math.floor(Math.random() * letters.length)]}${a}${b}${a}${letters[Math.floor(Math.random() * letters.length)]}${letters[Math.floor(Math.random() * letters.length)]}`
-      region = regions[Math.floor(Math.random() * regions.length)]
-      break
-
+      return { plateText: `${rL()}${a}${b}${a}${rL()}${rL()}`, region: rR() }
     default:
-      // Common — fully random
-      plate = `${letters[Math.floor(Math.random() * letters.length)]}${Math.floor(Math.random() * 10)}${Math.floor(Math.random() * 10)}${Math.floor(Math.random() * 10)}${letters[Math.floor(Math.random() * letters.length)]}${letters[Math.floor(Math.random() * letters.length)]}`
-      region = regions[Math.floor(Math.random() * regions.length)]
+      return {
+        plateText: `${rL()}${Math.floor(Math.random() * 10)}${Math.floor(Math.random() * 10)}${Math.floor(Math.random() * 10)}${rL()}${rL()}`,
+        region: rR()
+      }
   }
-
-  return { plateText: plate, region }
 }

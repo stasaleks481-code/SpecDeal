@@ -1,64 +1,49 @@
 import { Keyboard, InlineKeyboard } from 'grammy'
 
 /**
- * Persistent Reply Keyboard — fixed at the bottom of the chat,
- * always visible to the player (replaces the inline buttons that
- * disappeared after each message).
- *
- * Layout (4 rows × 2 cols):
- *   🚗 Гараж        |  🏬 Автосалоны
- *   🔧 Мастерская   |  🎰 Номера
- *   🏦 Банк         |  🏁 Гонки
- *   📦 Кейсы        |  👤 Профиль
- *
- * On mobile this fits the keyboard width nicely. Pressing any button
- * sends the same text as the label — bot matches it via bot.hears().
+ * Persistent Reply Keyboard — always visible at the bottom of chat.
+ * Used only as quick navigation between sections.
  */
 export function mainMenuKeyboard() {
   return new Keyboard()
-    .text('🚗 Гараж').text('🏬 Автосалоны').row()
-    .text('🔧 Мастерская').text('🎰 Номера').row()
+    .text('🚗 Гараж').text('🏬 Салоны').row()
+    .text('🔧 Сервис').text('🎰 Номера').row()
     .text('🏦 Банк').text('🏁 Гонки').row()
     .text('📦 Кейсы').text('👤 Профиль').row()
     .resized()
 }
 
 /**
- * "Confirm / Cancel" pattern used for purchases, sales, risky actions.
+ * Inline "back to section" button shown at the bottom of every sub-menu.
  */
-export function confirmCancelInline(confirmLabel = '✅ Подтвердить') {
-  return new InlineKeyboard()
-    .text(confirmLabel, 'confirm:yes')
-    .text('❌ Отмена', 'confirm:no')
+export function backBtn(callback: string = 'menu:main') {
+  return new InlineKeyboard().text('⬅️ Назад', callback)
 }
 
-/** Welcome text shown to first-time and returning players. */
-export function welcomeText(firstName: string, isNew: boolean): string {
-  const header = '━━━━━━ 🏎 SPEC DEAL ━━━━━━'
+/** Universal "cancel" inline button */
+export function cancelBtn() {
+  return new InlineKeyboard().text('❌ Отмена', 'cancel')
+}
 
+/** Welcome text — short and to the point */
+export function welcomeText(firstName: string, isNew: boolean): string {
   if (isNew) {
     return [
-      header,
+      `👋 Привет, ${escapeHtml(firstName)}!`,
       '',
-      `👋 Привет, <b>${escapeHtml(firstName)}</b>!`,
+      'Ты — перекуп. Покупаешь утиль, восстанавливаешь,',
+      'тюнинговать и продаёшь дороже. Или рвёшь всех на дрэге.',
       '',
-      'Ты — перекуп и механик в одном лице.',
-      'Покупай утиль, восстанавливай, тюнинговай, выбивай блатные номера',
-      'и продавай с наваром — либо рви всех на дрэге за 402 метра.',
+      '💰 Старт: $50,000',
+      '🚗 Слотов в гараже: 3',
       '',
-      '💰 Стартовый баланс: <b>$50,000 CR</b>',
-      '🚗 Слотов в гараже: <b>3</b>',
-      '',
-      '👇 Меню внизу экрана — жми любую кнопку:',
+      'Жми кнопку внизу 👇',
     ].join('\n')
   }
-
   return [
-    header,
+    `👋 С возвращением, ${escapeHtml(firstName)}!`,
     '',
-    `👋 С возвращением, <b>${escapeHtml(firstName)}</b>!`,
-    '',
-    '👇 Меню внизу — выбирай раздел:',
+    'Жми кнопку внизу 👇',
   ].join('\n')
 }
 

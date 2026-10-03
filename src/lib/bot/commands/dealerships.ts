@@ -1,194 +1,332 @@
 import type { Context } from 'grammy'
-import { supabase, type DealershipRow, type DealershipInventoryRow, type CarCatalogRow, TIER_LABELS, formatNumber } from '@/lib/supabase'
-import { escapeHtml } from '@/lib/bot/menus/main'
+import { InlineKeyboard } from 'grammy'
+import { supabase, type DealershipRow, type DealershipInventoryRow, type CarCatalogRow, type MarketListingRow, TIER_LABELS, formatNumber } from '@/lib/supabase'
+import { carTitle, conditionBar, money, shortId, escapeHtml, cb } from '@/lib/bot/utils'
+
+const PAGE_SIZE = 4
 
 /**
- * 🏬 Автосалоны — choose between state (NPC) dealerships or private P2P market.
+ * 🏬 Автосалоны — main menu with dealership selection.
  */
 export async function handleDealerships(ctx: Context): Promise<void> {
-  if (!ctx.from) return
-
-  // Make sure user is registered
-  const { data: user } = await supabase
-    .from('users')
-    .select('telegram_id')
-    .eq('telegram_id', ctx.from.id)
-    .maybeSingle()
-
-  if (!user) {
-    await ctx.reply('⚠️ Профиль не найден. Нажми /start чтобы зарегистрироваться.')
-    return
-  }
-
-  // Count active market listings
+  // Count market listings for the badge
   const { count: marketCount } = await supabase
     .from('market_listings')
     .select('id', { count: 'exact', head: true })
     .is('sold_to', null)
+    .gt('expires_at', new Date().toISOString())
 
-  // Count active private dealerships
-  const { count: privateDealersCount } = await supabase
-    .from('dealerships')
-    .select('id', { count: 'exact', head: true })
-    .eq('type', 'private')
+  const lines = [
+    `🏬 <b>АВТОСАЛОНЫ</b>`,
+    '',
+    'Где берём тачку?',
+  ]
 
-  const text = [
-    '━━━━━━ 🏬 АВТОСАЛОНЫ ━━━━━━',
-    '',
-    '🚗 <b>Государственные салоны</b>',
-    '   Машины от NPC. Цена = MSRP ± 5% (динамика спроса).',
-    '   Подходят для новичков — стабильный ассортимент.',
-    '',
-    '👥 <b>Частные салоны (P2P)</b>',
-    '   Игроки сами выставляют тачки на продажу.',
-    `   Сейчас активно: <b>${marketCount ?? 0}</b> предложений на маркете`,
-    `   Частных автосалонов открыто: <b>${privateDealersCount ?? 0}</b>`,
-    '',
-    '━━━━━━━━━━━━━━━━━━━━━━━━━━━',
-    '👇 Выбери тип салона (текстом):',
-    '',
-    '<code>свалка</code>    — утиль Tier 1 (дёшево, восстанавливать долго)',
-    '<code>гос бюджет</code>  — Tier 1-2 (народные тачки)',
-    '<code>гос народный</code> — Tier 2-3 (JDM старт)',
-    '<code>гос премиум</code> — Tier 4-6 (заряженные)',
-    '<code>маркет</code>    — P2P маркет от игроков',
-    '<code>мой салон</code>  — открыть свой автосалон ($200k)',
-  ].join('\n')
+  const kb = new InlineKeyboard()
+    .text('🚧 Свалка', cb.dealer_open(1, 0))
+    .text('🏛 Гос. Бюджет', cb.dealer_open(2, 0)).row()
+    .text('🏛 Гос. Народный', cb.dealer_open(3, 0))
+    .text('🏛 Гос. Премиум', cb.dealer_open(4, 0)).row()
+    .text(`👥 P2P Маркет (${marketCount ?? 0})`, cb.market())
 
-  await ctx.reply(text, { parse_mode: 'HTML' })
+  await ctx.reply(lines.join('\n'), { parse_mode: 'HTML', reply_markup: kb })
 }
 
-/**
- * Browse a state dealership's current inventory.
- */
-export async function browseStateDealership(ctx: Context, dealershipId: number): Promise<void> {
+/** Browse dealership inventory with pagination */
+export async function browseStateDealership(ctx: Context, dealershipId: number, page: number = 0): Promise<void> {
   if (!ctx.from) return
 
-  // Fetch dealership + its inventory + catalog join
   const { data, error } = await supabase
     .from('dealerships')
-    .select(`
-      *,
-      inventory:dealership_inventory!inner(
-        *,
-        catalog:cars_catalog(*)
-      )
-    `)
+    .select(`*, inventory:dealership_inventory!inner(*, catalog:cars_catalog(*))`)
     .eq('id', dealershipId)
     .maybeSingle<DealershipRow & { inventory: (DealershipInventoryRow & { catalog: CarCatalogRow })[] }>()
 
   if (error || !data) {
-    console.error('[dealership] fetch error:', error)
-    await ctx.reply('⚠️ Не удалось загрузить ассортимент салона.')
+    await ctx.answerCallbackQuery({ text: 'Салон не найден' })
     return
   }
 
+  const total = data.inventory.length
+  const paged = data.inventory.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE)
+
   const lines = [
-    `━━━━━━ 🏬 ${escapeHtml(data.name)} ━━━━━━`,
+    `${data.name}`,
     '',
-    `📊 Ассортимент: <b>${data.inventory.length}</b> моделей`,
+    `📦 В наличии: ${total} моделей`,
     '',
   ]
 
-  if (data.inventory.length === 0) {
-    lines.push('🔇 Сейчас пусто. Ждём пополнения...')
-  } else {
-    for (const item of data.inventory) {
-      const tier = TIER_LABELS[item.catalog.tier]
-      const condBar = '▓'.repeat(Math.floor(item.condition / 10)) + '░'.repeat(10 - Math.floor(item.condition / 10))
-      const jdmTag = item.catalog.is_jdm ? ' 🇯🇵' : ''
-      lines.push(
-        `${tier.emoji} <b>${escapeHtml(item.catalog.brand)} ${escapeHtml(item.catalog.model)}</b> (${item.catalog.year})${jdmTag}`,
-        `   ${tier.color} Tier ${item.catalog.tier} • ${item.catalog.power_hp} Л.С. • ${item.catalog.layout} • ${item.catalog.weight_kg} кг`,
-        `   🛠 ${condBar} ${item.condition}%`,
-        `   📦 В наличии: <b>${item.stock} шт.</b>`,
-        `   💰 Цена: <b>$${formatNumber(item.price)}</b> CR`,
-        `   🏷 ID: <code>${item.id}</code>`,
-        ''
-      )
-    }
+  for (const item of paged) {
+    const tier = TIER_LABELS[item.catalog.tier]
+    const jdm = item.catalog.is_jdm ? ' 🇯🇵' : ''
+    lines.push(`${tier.emoji} ${escapeHtml(item.catalog.brand)} ${escapeHtml(item.catalog.model)}${jdm}`)
+    lines.push(`   T${item.catalog.tier} • ${item.catalog.power_hp}л.с. • ${conditionBar(item.condition)} ${item.condition}%`)
+    lines.push(`   ${money(item.price)} • в наличии ${item.stock} шт.`)
+    lines.push('')
   }
 
-  lines.push('👇 Чтобы купить (текстом):')
-  lines.push('<code>купить <ID></code> — купить машину из салона')
+  const kb = new InlineKeyboard()
+  for (const item of paged) {
+    const c = item.catalog
+    kb.text(`${c.brand} ${c.model.slice(0, 14)} — ${money(item.price)}`, cb.dealer_buy(item.id)).row()
+  }
 
-  await ctx.reply(lines.join('\n'), { parse_mode: 'HTML' })
+  // Pagination
+  if (page > 0 || total > (page + 1) * PAGE_SIZE) {
+    const navRow: { text: string; callback_data: string }[] = []
+    if (page > 0) navRow.push({ text: '⬅️', callback_data: cb.dealer_open(dealershipId, page - 1) })
+    navRow.push({ text: `${page + 1}/${Math.ceil(total / PAGE_SIZE)}`, callback_data: cb.noop() })
+    if (total > (page + 1) * PAGE_SIZE) navRow.push({ text: '➡️', callback_data: cb.dealer_open(dealershipId, page + 1) })
+    kb.row(...navRow)
+  }
+  kb.text('⬅️ К салонам', cb.dealers())
+
+  if (ctx.callbackQuery) {
+    await ctx.editMessageText(lines.join('\n'), { parse_mode: 'HTML', reply_markup: kb })
+  } else {
+    await ctx.reply(lines.join('\n'), { parse_mode: 'HTML', reply_markup: kb })
+  }
 }
 
-/**
- * Open a private dealership (player-owned store).
- * For Phase 2 MVP, this is a stub — full feature comes in Phase 3.
- */
-export async function browseMarket(ctx: Context): Promise<void> {
+/** Show buy confirm for a dealership car */
+export async function handleDealerBuy(ctx: Context, invId: number): Promise<void> {
+  if (!ctx.from) return
+
+  const { data: item, error } = await supabase
+    .from('dealership_inventory')
+    .select(`*, catalog:cars_catalog(*), dealership:dealerships(*)`)
+    .eq('id', invId)
+    .maybeSingle<DealershipInventoryRow & { catalog: CarCatalogRow; dealership: DealershipRow }>()
+
+  if (error || !item) {
+    await ctx.answerCallbackQuery({ text: 'Не найдено' })
+    return
+  }
+
+  const user = await getUserBalance(ctx.from.id)
+  if (!user) {
+    await ctx.answerCallbackQuery({ text: 'Профиль не найден' })
+    return
+  }
+
+  const canAfford = Number(user.balance_cr) >= Number(item.price)
+  const slotsFree = await getFreeGarageSlots(ctx.from.id)
+
+  const lines = [
+    `🛒 <b>ПОКУПКА</b>`,
+    '',
+    carTitle({ catalog: item.catalog }),
+    '',
+    `⚙️ ${item.catalog.engine}`,
+    `🚦 ${item.catalog.layout} • ${item.catalog.power_hp} л.с. • ${item.catalog.weight_kg} кг`,
+    `🛠 Состояние: ${item.condition}%`,
+    '',
+    `💰 Цена: <b>${money(item.price)}</b>`,
+    `💼 У тебя: ${money(Number(user.balance_cr))}`,
+    canAfford ? '✅ Денег хватает' : '❌ Не хватает денег',
+    `🚗 Слотов свободно: ${slotsFree}`,
+    slotsFree > 0 ? '✅ Есть место в гараже' : '❌ Гараж забит',
+    '',
+    canAfford && slotsFree > 0 ? 'Подтверждаешь покупку?' : 'Не сейчас.',
+  ]
+
+  const kb = new InlineKeyboard()
+  if (canAfford && slotsFree > 0) {
+    kb.text(`✅ Купить за ${money(item.price)}`, cb.dealer_buy_confirm(invId)).row()
+  }
+  kb.text('⬅️ Назад', cb.dealer_open(item.dealership_id, 0))
+
+  await ctx.editMessageText(lines.join('\n'), { parse_mode: 'HTML', reply_markup: kb })
+}
+
+/** Actually execute the purchase */
+export async function handleDealerBuyConfirm(ctx: Context, invId: number): Promise<void> {
+  if (!ctx.from) return
+
+  const { data: item } = await supabase
+    .from('dealership_inventory')
+    .select(`*, catalog:cars_catalog(*)`)
+    .eq('id', invId)
+    .maybeSingle<DealershipInventoryRow & { catalog: CarCatalogRow }>()
+
+  if (!item) {
+    await ctx.answerCallbackQuery({ text: 'Уже продали' })
+    return
+  }
+
+  const user = await getUserBalance(ctx.from.id)
+  if (!user || Number(user.balance_cr) < Number(item.price)) {
+    await ctx.answerCallbackQuery({ text: 'Не хватает денег' })
+    return
+  }
+
+  const slotsFree = await getFreeGarageSlots(ctx.from.id)
+  if (slotsFree <= 0) {
+    await ctx.answerCallbackQuery({ text: 'Гараж забит' })
+    return
+  }
+
+  // Deduct money
+  await supabase
+    .from('users')
+    .update({ balance_cr: Number(user.balance_cr) - Number(item.price) })
+    .eq('telegram_id', ctx.from.id)
+
+  // Create user car with broken condition (junkyard style)
+  const isFirstCar = (await supabase.from('user_cars').select('id', { count: 'exact', head: true }).eq('user_id', ctx.from.id)).count === 0
+
+  const { data: newCar, error: carErr } = await supabase
+    .from('user_cars')
+    .insert({
+      user_id: ctx.from.id,
+      catalog_id: item.catalog_id,
+      body_cond: item.condition,
+      engine_cond: item.condition,
+      suspension_cond: item.condition,
+      interior_cond: item.condition,
+      purchase_price: item.price,
+      purchase_source: 'dealership_state',
+      is_active: isFirstCar,
+    })
+    .select('*')
+    .single()
+
+  if (carErr || !newCar) {
+    // Refund
+    await supabase.from('users').update({ balance_cr: Number(user.balance_cr) }).eq('telegram_id', ctx.from.id)
+    await ctx.answerCallbackQuery({ text: 'Ошибка' })
+    return
+  }
+
+  // Reduce stock
+  const newStock = item.stock - 1
+  if (newStock <= 0) {
+    await supabase.from('dealership_inventory').delete().eq('id', invId)
+  } else {
+    await supabase.from('dealership_inventory').update({ stock: newStock }).eq('id', invId)
+  }
+
+  // Random small event: hidden defect
+  const events = [
+    { chance: 0.15, text: '🔍 При осмотре нашли скрытый дефект — кузов на 10% хуже, чем казалось.', damage: { body: -10 } },
+    { chance: 0.10, text: '🔧 После тест-драйва подвеска показала себя хуже ожидаемого (-10%).', damage: { suspension: -10 } },
+    { chance: 0.05, text: '✨ Бонус! В бардачке нашли набор фирменных ковриков — салон +5%.', damage: { interior: 5 } },
+    { chance: 0.85, text: '✅ Без сюрпризов — машина соответствует описанию.', damage: {} },
+  ]
+  let rolled = events[3]
+  const roll = Math.random()
+  let cum = 0
+  for (const e of events) {
+    cum += e.chance
+    if (roll < cum) { rolled = e; break }
+  }
+
+  // Apply event damage to the new car
+  if (Object.keys(rolled.damage).length > 0) {
+    const updates: Record<string, number> = {}
+    for (const [part, delta] of Object.entries(rolled.damage)) {
+      const current = (newCar as Record<string, unknown>)[`${part}_cond`] as number
+      updates[`${part}_cond`] = Math.max(0, Math.min(100, current + delta))
+    }
+    await supabase.from('user_cars').update(updates).eq('id', newCar.id)
+  }
+
+  const profitHint = isFirstCar ? '\n\n🎉 Твоя первая тачка! Достижение "Первая тачка" получено.' : ''
+
+  await ctx.answerCallbackQuery({ text: '✅ Куплено!' })
+  await ctx.editMessageText(
+    [
+      `✅ <b>КУПЛЕНО</b>`,
+      '',
+      carTitle({ catalog: item.catalog }),
+      '',
+      `💵 Списано: ${money(Number(item.price))}`,
+      `💼 Остаток: ${money(Number(user.balance_cr) - Number(item.price))}`,
+      '',
+      rolled.text,
+      profitHint,
+    ].join('\n'),
+    {
+      parse_mode: 'HTML',
+      reply_markup: new InlineKeyboard()
+        .text('🚗 В гараж', cb.garage())
+        .text('🔧 В сервис', cb.ws_car(newCar.id)),
+    }
+  )
+}
+
+// ─── P2P Market ──────────────────────────────────────────────────────
+
+export async function browseMarket(ctx: Context, page: number = 0): Promise<void> {
   if (!ctx.from) return
 
   const { data: listings, error } = await supabase
     .from('market_listings')
-    .select(`
-      *,
-      car:user_cars(
-        *,
-        catalog:cars_catalog(*),
-        plate:license_plates(*)
-      ),
-      seller:users(username, first_name)
-    `)
+    .select(`*, car:user_cars(*, catalog:cars_catalog(*), plate:license_plates(*)), seller:users(username, first_name)`)
     .is('sold_to', null)
     .gt('expires_at', new Date().toISOString())
-    .order('listed_at', { ascending: false })
-    .limit(20)
+    .order('asking_price', { ascending: true })
+    .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1)
 
-  if (error) {
-    console.error('[market] fetch error:', error)
-    await ctx.reply('⚠️ Не удалось загрузить маркет.')
-    return
-  }
-
-  if (!listings || listings.length === 0) {
-    await ctx.reply(
-      [
-        '━━━━━━ 👥 P2P МАРКЕТ ━━━━━━',
-        '',
-        '🔇 Сейчас никто ничего не продаёт.',
-        '',
-        'Будь первым — выстави свою тачку!',
-        'Отправь: <code>продать <ID></code> когда в гараже.',
-      ].join('\n'),
-      { parse_mode: 'HTML' }
+  if (error || !listings || listings.length === 0) {
+    const kb = new InlineKeyboard().text('⬅️ К салонам', cb.dealers())
+    await ctx.editMessageText(
+      ['👥 <b>P2P МАРКЕТ</b>', '', 'Сейчас пусто. Будь первым!'].join('\n'),
+      { parse_mode: 'HTML', reply_markup: kb }
     )
     return
   }
 
   const lines = [
-    '━━━━━━ 👥 P2P МАРКЕТ ━━━━━━',
-    '',
-    `📊 Активно предложений: <b>${listings.length}</b>`,
+    `👥 <b>P2P МАРКЕТ</b>`,
+    `Найдено: ${listings.length} предложений`,
     '',
   ]
 
-  for (const l of listings) {
-    const car = l.car
-    if (!car || !car.catalog) continue
-    const tier = TIER_LABELS[car.catalog.tier]
-    const avgCond = Math.round((car.body_cond + car.engine_cond + car.suspension_cond + car.interior_cond) / 4)
-    const stageTag = car.stage_level > 0 ? ` • Stage ${car.stage_level}` : ''
-    const swapTag = car.engine_swap ? ` • swap:${car.engine_swap}` : ''
-    const plateTag = car.plate ? ` • ${car.plate.plate_text} ${car.plate.region}` : ''
+  for (const l of listings as (MarketListingRow & {
+    car: { catalog: CarCatalogRow; plate: { plate_text: string; region: string; rarity: string } | null } | null
+    seller: { username: string | null; first_name: string | null } | null
+  })[]) {
+    if (!l.car || !l.car.catalog) continue
     const sellerName = l.seller?.username ? `@${l.seller.username}` : l.seller?.first_name ?? '?'
-
-    lines.push(
-      `${tier.emoji} <b>${escapeHtml(car.catalog.brand)} ${escapeHtml(car.catalog.model)}</b> (${car.catalog.year})`,
-      `   ${tier.color} Tier ${car.catalog.tier} • ${car.catalog.power_hp} Л.С.${stageTag}${swapTag}`,
-      `   🛠 ${avgCond}% • 🔢${plateTag}`,
-      `   👤 Продавец: ${escapeHtml(sellerName)}`,
-      `   💰 Цена: <b>$${formatNumber(l.asking_price)}</b> CR`,
-      `   🏷 ID: <code>${l.id.slice(0, 8)}</code>`,
-      ''
-    )
+    lines.push(`${escapeHtml(l.car.catalog.brand)} ${escapeHtml(l.car.catalog.model)}`)
+    lines.push(`   T${l.car.catalog.tier} • ${l.car.catalog.power_hp}л.с. • ${money(l.asking_price)}`)
+    lines.push(`   👤 ${escapeHtml(sellerName)}`)
+    lines.push('')
   }
 
-  lines.push('👇 Чтобы купить (текстом):')
-  lines.push('<code>купить маркет <ID></code> — купить с маркета')
+  const kb = new InlineKeyboard()
+  for (const l of listings as (MarketListingRow & { car: { catalog: CarCatalogRow } | null })[]) {
+    if (!l.car) continue
+    kb.text(`${l.car.catalog.brand} ${l.car.catalog.model.slice(0, 12)} — ${money(l.asking_price)}`, cb.market_buy(l.id)).row()
+  }
+  kb.text('⬅️ К салонам', cb.dealers())
 
-  await ctx.reply(lines.join('\n'), { parse_mode: 'HTML' })
+  await ctx.editMessageText(lines.join('\n'), { parse_mode: 'HTML', reply_markup: kb })
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────
+
+async function getUserBalance(tgId: number) {
+  const { data } = await supabase
+    .from('users')
+    .select('balance_cr')
+    .eq('telegram_id', tgId)
+    .maybeSingle()
+  return data
+}
+
+async function getFreeGarageSlots(tgId: number): Promise<number> {
+  const { data: user } = await supabase
+    .from('users')
+    .select('garage_slots')
+    .eq('telegram_id', tgId)
+    .maybeSingle()
+  const { count } = await supabase
+    .from('user_cars')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', tgId)
+  const slotsTotal = user?.garage_slots ?? 3
+  return Math.max(0, slotsTotal - (count ?? 0))
 }

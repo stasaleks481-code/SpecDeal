@@ -1,26 +1,23 @@
 import type { Context } from 'grammy'
+import { InlineKeyboard } from 'grammy'
 import { supabase, type UserRow, formatNumber } from '@/lib/supabase'
 import { mainMenuKeyboard, escapeHtml } from '@/lib/bot/menus/main'
+import { money, cb } from '@/lib/bot/utils'
 
 /**
- * Profile card — /profile command and "👤 Профиль" button.
+ * 👤 Профиль — player card.
  */
 export async function handleProfile(ctx: Context): Promise<void> {
-  if (!ctx.from) {
-    await ctx.reply('⚠️ Не удалось определить пользователя')
-    return
-  }
-
-  const tg = ctx.from
+  if (!ctx.from) return
 
   const { data: user, error } = await supabase
     .from('users')
     .select('*')
-    .eq('telegram_id', tg.id)
+    .eq('telegram_id', ctx.from.id)
     .maybeSingle<UserRow>()
 
   if (error || !user) {
-    await ctx.reply('⚠️ Профиль не найден. Нажми /start')
+    await ctx.reply('Профиль не найден. Нажми /start')
     return
   }
 
@@ -33,50 +30,64 @@ export async function handleProfile(ctx: Context): Promise<void> {
   const { count: carsCount } = await supabase
     .from('user_cars')
     .select('id', { count: 'exact', head: true })
-    .eq('user_id', tg.id)
+    .eq('user_id', ctx.from.id)
 
   const { count: platesCount } = await supabase
     .from('license_plates')
     .select('id', { count: 'exact', head: true })
-    .eq('user_id', tg.id)
+    .eq('user_id', ctx.from.id)
 
   const { count: achievementsCount } = await supabase
     .from('user_achievements')
     .select('achievement_id', { count: 'exact', head: true })
-    .eq('user_id', tg.id)
+    .eq('user_id', ctx.from.id)
 
   const text = [
-    '💳 ━━━ ПРОФИЛЬ АВТОДИЛЕРА ━━━ 💳',
+    `👤 <b>ПРОФИЛЬ</b>`,
     '',
-    `Игрок: @${user.username ?? escapeHtml(tg.first_name ?? '—')} (ID: ${user.telegram_id})`,
-    `Статус: ${statusBadge} (Ур. ${user.level})`,
+    `@${user.username ?? escapeHtml(ctx.from.first_name ?? '—')} • ID: ${user.telegram_id}`,
+    `${statusBadge} • Ур. ${user.level}`,
     '',
-    `💰 Баланс: <b>$${formatNumber(user.balance_cr)} CR</b>`,
-    `💎 Премиум: <b>${formatNumber(user.balance_sp)} SP</b>`,
-    `🏦 Депозит: <b>$${formatNumber(user.bank_deposit)} CR</b>`,
+    `💰 CR:       <b>${money(Number(user.balance_cr))}</b>`,
+    `💎 SP:       <b>${formatNumber(user.balance_sp)}</b>`,
+    `📈 Депозит: <b>${money(Number(user.bank_deposit))}</b>`,
+    `💳 Кредит:   <b>${money(Number(user.bank_loan))}</b>`,
     '',
-    `🚗 В гараже: <b>${carsCount ?? 0} / ${user.garage_slots}</b> слотов`,
-    `🔢 Номеров в коллекции: <b>${platesCount ?? 0}</b>`,
-    `🎖 Достижений: <b>${achievementsCount ?? 0} / 10</b>`,
-    `📈 Успешных сделок: <b>${user.successful_deals}</b>`,
-    `🏁 Побед в гонках: <b>${user.races_won}</b> (Винрейт: ${winRate}%)`,
-    `⭐ Репутация: ${reputationStars}`,
-    '',
-    '👇 Меню внизу экрана — выбирай раздел',
+    `🚗 Гараж:       <b>${carsCount ?? 0} / ${user.garage_slots}</b>`,
+    `🔢 Номера:      <b>${platesCount ?? 0}</b>`,
+    `🎖 Достижения: <b>${achievementsCount ?? 0} / 10</b>`,
+    `📈 Сделок:     <b>${user.successful_deals}</b>`,
+    `🏁 Гонок:       <b>${user.races_won}</b> / ${user.races_total} (винрейт ${winRate}%)`,
+    `⭐ Репутация:  ${reputationStars}`,
   ].join('\n')
 
-  await ctx.reply(text, {
-    parse_mode: 'HTML',
-    reply_markup: mainMenuKeyboard(),
-    link_preview_options: { is_disabled: true },
-  })
+  const kb = new InlineKeyboard()
+    .text('🏆 Топ игроков', cb.leaderboard())
+    .row()
+    .text('🏠 В меню', cb.menu())
+
+  // If it's a callback (from inline button) → edit message
+  if (ctx.callbackQuery) {
+    await ctx.editMessageText(text, {
+      parse_mode: 'HTML',
+      reply_markup: kb,
+      link_preview_options: { is_disabled: true },
+    })
+  } else {
+    // Reply keyboard button → fresh reply with reply keyboard
+    await ctx.reply(text, {
+      parse_mode: 'HTML',
+      reply_markup: mainMenuKeyboard(),
+      link_preview_options: { is_disabled: true },
+    })
+  }
 }
 
 function getStatusBadge(level: number): string {
-  if (level >= 24) return '🏆 Легенда Авторынка'
+  if (level >= 24) return '🏆 Легенда'
   if (level >= 18) return '👑 Магнат'
   if (level >= 12) return '🔥 Профи'
-  if (level >= 6) return '⚡ Перекупщик'
+  if (level >= 6) return '⚡ Перекуп'
   return '🚗 Новичок'
 }
 
@@ -84,5 +95,5 @@ function formatReputation(rep: number): string {
   const stars = Math.max(0, Math.min(5, Math.floor(rep / 1000) + 1))
   const filled = '🌟'.repeat(stars)
   const empty = '☆'.repeat(5 - stars)
-  return `${filled}${empty} ${rep} / 5000`
+  return `${filled}${empty} ${rep}/5000`
 }

@@ -1,34 +1,36 @@
 import type { Context } from 'grammy'
-import { supabase, type UserCarRow, type CarCatalogRow, type LicensePlateRow, TIER_LABELS, STAGE_INFO, formatNumber } from '@/lib/supabase'
-import { escapeHtml } from '@/lib/bot/menus/main'
+import { InlineKeyboard } from 'grammy'
+import { supabase, type UserCarRow, type CarCatalogRow, type LicensePlateRow, TIER_LABELS, STAGE_INFO } from '@/lib/supabase'
+import { carTitle, conditionBar, money, shortId, escapeHtml, plateRarityLabel, cb } from '@/lib/bot/utils'
+
+const PAGE_SIZE = 5
 
 /**
- * 🚗 Гараж — list all cars owned by player, show active one, slots used.
- * Triggered by Reply-keyboard button "🚗 Гараж" or /garage command.
+ * 🚗 Гараж — list of player's cars with inline buttons to select each.
  */
-export async function handleGarage(ctx: Context): Promise<void> {
+export async function handleGarage(ctx: Context, page: number = 0): Promise<void> {
   if (!ctx.from) return
 
   const tgId = ctx.from.id
-
-  // Fetch all user cars + catalog join + plate
   const { data: cars, error } = await supabase
     .from('user_cars')
-    .select(`
-      *,
-      catalog:cars_catalog(*),
-      plate:license_plates(*)
-    `)
+    .select(`*, catalog:cars_catalog(*)`)
     .eq('user_id', tgId)
+    .order('is_active', { ascending: false })
     .order('created_at', { ascending: false })
+    .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1)
 
   if (error) {
-    console.error('[garage] fetch error:', error)
-    await ctx.reply('⚠️ Не удалось загрузить гараж. Попробуй позже.')
+    console.error('[garage] error:', error)
+    await ctx.reply('Не получилось загрузить гараж. Попробуй ещё раз.')
     return
   }
 
-  // Get user's garage_slots
+  const { count: total } = await supabase
+    .from('user_cars')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', tgId)
+
   const { data: user } = await supabase
     .from('users')
     .select('garage_slots')
@@ -36,77 +38,256 @@ export async function handleGarage(ctx: Context): Promise<void> {
     .maybeSingle()
 
   const slotsTotal = user?.garage_slots ?? 3
-  const slotsUsed = cars?.length ?? 0
+  const slotsUsed = total ?? 0
   const slotsFree = Math.max(0, slotsTotal - slotsUsed)
 
+  // Header
+  const lines = [
+    `🚗 <b>ГАРАЖ</b>  ${slotsUsed}/${slotsTotal}  (свободно ${slotsFree})`,
+  ]
+
   if (!cars || cars.length === 0) {
-    await ctx.reply(
-      [
-        '━━━━━━ 🚗 МОЙ ГАРАЖ ━━━━━━',
-        '',
-        '🔇 Гараж пуст.',
-        '',
-        `📊 Слотов: <b>${slotsUsed} / ${slotsTotal}</b> (свободно: ${slotsFree})`,
-        '',
-        '👇 Чтобы получить тачку:',
-        '',
-        '1️⃣ Жми <b>🏬 Автосалоны</b> внизу',
-        '2️⃣ Иди на Свалку или в Гос. салон',
-        '3️⃣ Покупай утиль и восстанавливай',
-      ].join('\n'),
-      { parse_mode: 'HTML' }
-    )
+    lines.push('')
+    lines.push('Пусто. Купи тачку в 🏬 Салонах.')
+    const kb = new InlineKeyboard().text('🏬 К салонам', cb.dealers())
+    await ctx.reply(lines.join('\n'), { parse_mode: 'HTML', reply_markup: kb })
     return
   }
 
-  // Build car list
-  const lines: string[] = [
-    '━━━━━━ 🚗 МОЙ ГАРАЖ ━━━━━━',
+  lines.push('')
+
+  // One short line per car (no walls of text — selection via button)
+  for (const car of cars as (UserCarRow & { catalog: CarCatalogRow })[]) {
+    const tier = TIER_LABELS[car.catalog.tier]
+    const avg = Math.round((car.body_cond + car.engine_cond + car.suspension_cond + car.interior_cond) / 4)
+    const stage = STAGE_INFO[car.stage_level]
+    const active = car.is_active ? ' 🟢' : ''
+    const swap = car.engine_swap ? ` ${car.engine_swap}` : ''
+    lines.push(`${tier.emoji} ${escapeHtml(car.catalog.brand)} ${escapeHtml(car.catalog.model)}${active}`)
+    lines.push(`   ${stage.name}${swap} • ${car.catalog.power_hp}л.с. • ${avg}%`)
+    lines.push('')
+  }
+
+  // Inline keyboard — one button per car (shows short ID)
+  const kb = new InlineKeyboard()
+  for (const car of cars as (UserCarRow & { catalog: CarCatalogRow })[]) {
+    const label = `${car.catalog.brand} ${car.catalog.model.slice(0, 12)} #${shortId(car.id)}`
+    kb.text(label, cb.garage_car(car.id)).row()
+  }
+
+  // Pagination if needed
+  if (page > 0 || (total ?? 0) > (page + 1) * PAGE_SIZE) {
+    const navRow: { text: string; callback_data: string }[] = []
+    if (page > 0) {
+      navRow.push({ text: '⬅️', callback_data: `garage:page:${page - 1}` })
+    }
+    navRow.push({ text: `${page + 1}/${Math.ceil((total ?? 1) / PAGE_SIZE)}`, callback_data: cb.noop() })
+    if ((total ?? 0) > (page + 1) * PAGE_SIZE) {
+      navRow.push({ text: '➡️', callback_data: `garage:page:${page + 1}` })
+    }
+    kb.row(...navRow)
+  }
+
+  await ctx.reply(lines.join('\n'), { parse_mode: 'HTML', reply_markup: kb })
+}
+
+/** Show single car details */
+export async function handleGarageCar(ctx: Context, carId: string): Promise<void> {
+  if (!ctx.from) return
+
+  const { data: car, error } = await supabase
+    .from('user_cars')
+    .select(`*, catalog:cars_catalog(*), plate:license_plates(*)`)
+    .eq('id', carId)
+    .eq('user_id', ctx.from.id)
+    .maybeSingle<UserCarRow & { catalog: CarCatalogRow; plate: LicensePlateRow | null }>()
+
+  if (error || !car) {
+    await ctx.answerCallbackQuery({ text: 'Машина не найдена' })
+    return
+  }
+
+  const tier = TIER_LABELS[car.catalog.tier]
+  const stage = STAGE_INFO[car.stage_level]
+  const effectivePower = Math.round(car.catalog.power_hp * stage.power_mult)
+  const npcSellPrice = calcNpcSell(car)
+
+  const lines = [
+    `${carTitle({ catalog: car.catalog })}`,
     '',
-    `📊 Слотов: <b>${slotsUsed} / ${slotsTotal}</b> (свободно: ${slotsFree})`,
+    `${tier.color} Tier ${car.catalog.tier} • ${car.catalog.power_hp} → ${effectivePower} л.с.`,
+    `⚙️ ${car.catalog.engine}`,
+    `🚦 ${car.catalog.layout} • ${car.catalog.weight_kg} кг`,
     '',
+    `<b>Состояние:</b>`,
+    `🚗 Кузов       ${conditionBar(car.body_cond)} ${car.body_cond}%`,
+    `🔧 Двигатель  ${conditionBar(car.engine_cond)} ${car.engine_cond}%`,
+    `🛞 Подвеска   ${conditionBar(car.suspension_cond)} ${car.suspension_cond}%`,
+    `💺 Салон       ${conditionBar(car.interior_cond)} ${car.interior_cond}%`,
+    '',
+    `🚀 Тюнинг: <b>${stage.name}</b>${car.engine_swap ? ` • swap:${car.engine_swap}` : ''}`,
+    `🔢 Номер: ${car.plate ? `${car.plate.plate_text} ${car.plate.region} ${plateRarityLabel(car.plate.rarity)}` : '— не привязан —'}`,
+    `💰 Куплено за: ${money(Number(car.purchase_price))}`,
+    `📈 Продать NPC: <b>${money(npcSellPrice)}</b>`,
+    `📍 Пробег: ${car.mileage_km} км`,
   ]
 
-  for (const car of cars as (UserCarRow & { catalog: CarCatalogRow; plate: LicensePlateRow | null })[]) {
-    const tier = TIER_LABELS[car.catalog.tier]
-    const stage = STAGE_INFO[car.stage_level]
-    const avgCond = Math.round((car.body_cond + car.engine_cond + car.suspension_cond + car.interior_cond) / 4)
-    const condBar = conditionBar(avgCond)
-    const isActive = car.is_active ? ' 🟢 АКТИВНАЯ' : ''
-    const plateStr = car.plate ? `[${car.plate.plate_text} ${car.plate.region}]` : '[без номеров]'
-
-    lines.push(
-      `${tier.emoji} <b>${escapeHtml(car.catalog.brand)} ${escapeHtml(car.catalog.model)}</b> (${car.catalog.year})${isActive}`,
-      `   ${tier.color} Tier ${car.catalog.tier} • ${stage.name} • ${car.catalog.power_hp}${car.engine_swap ? `→swap` : ''} Л.С.`,
-      `   🛠 ${condBar} ${avgCond}%`,
-      `   🔢 ${plateStr}${car.plate ? ` ${tier_label_for_plate(car.plate.rarity)}` : ''}`,
-      `   🏷 ID: <code>${car.id.slice(0, 8)}</code>`,
-      ''
-    )
+  const kb = new InlineKeyboard()
+  if (!car.is_active) {
+    kb.text('🟢 Сделать активной', cb.garage_set_active(car.id)).row()
+  } else {
+    kb.text('🟢 Активна', cb.noop()).row()
   }
+  kb.text('🔧 В сервис', cb.ws_car(car.id))
+  kb.text('💵 Продать NPC', cb.garage_sell(car.id)).row()
+  kb.text('⬅️ В гараж', cb.garage())
 
-  lines.push('👇 Действия (отправь текстом):')
-  lines.push('')
-  lines.push('<code>сел <ID></code> — сделать активной')
-  lines.push('<code>продать <ID></code> — продать NPC')
-  lines.push('<code>инфо <ID></code> — детали машины')
-
-  await ctx.reply(lines.join('\n'), { parse_mode: 'HTML' })
+  await ctx.editMessageText(lines.join('\n'), { parse_mode: 'HTML', reply_markup: kb })
 }
 
-function conditionBar(pct: number): string {
-  const filled = Math.floor(pct / 10)
-  return '▓'.repeat(filled) + '░'.repeat(10 - filled)
+/** Set active car */
+export async function handleGarageSetActive(ctx: Context, carId: string): Promise<void> {
+  if (!ctx.from) return
+
+  // Deactivate all user's cars
+  await supabase
+    .from('user_cars')
+    .update({ is_active: false })
+    .eq('user_id', ctx.from.id)
+    .eq('is_active', true)
+
+  // Activate the chosen one
+  const { error } = await supabase
+    .from('user_cars')
+    .update({ is_active: true, updated_at: new Date().toISOString() })
+    .eq('id', carId)
+    .eq('user_id', ctx.from.id)
+
+  if (error) {
+    await ctx.answerCallbackQuery({ text: 'Ошибка' })
+    return
+  }
+
+  await ctx.answerCallbackQuery({ text: '✅ Активна!' })
+  await handleGarageCar(ctx, carId)
 }
 
-function tier_label_for_plate(rarity: string): string {
-  const labels: Record<string, string> = {
-    common: '(обычный)',
-    mirror: '(зеркалка)',
-    hundred: '(сотня)',
-    triple: '(тройка ⭐)',
-    elite: '(блатная 🔥)',
-    legendary: '(ЛЕГЕНДА 👑)',
+/** Sell to NPC */
+export async function handleGarageSell(ctx: Context, carId: string): Promise<void> {
+  if (!ctx.from) return
+
+  const { data: car, error } = await supabase
+    .from('user_cars')
+    .select(`*, catalog:cars_catalog(*), plate:license_plates(*)`)
+    .eq('id', carId)
+    .eq('user_id', ctx.from.id)
+    .maybeSingle<UserCarRow & { catalog: CarCatalogRow; plate: LicensePlateRow | null }>()
+
+  if (error || !car) {
+    await ctx.answerCallbackQuery({ text: 'Не найдена' })
+    return
   }
-  return labels[rarity] ?? ''
+
+  const sellPrice = calcNpcSell(car)
+  const profit = sellPrice - Number(car.purchase_price)
+  const profitSign = profit >= 0 ? '📈' : '📉'
+  const profitText = `${profitSign} ${profit >= 0 ? '+' : ''}${money(profit)} профит`
+
+  const lines = [
+    `💵 <b>ПРОДАЖА NPC</b>`,
+    '',
+    carTitle({ catalog: car.catalog }),
+    '',
+    `💰 Тебе заплатят: <b>${money(sellPrice)}</b>`,
+    `📊 Куплено за: ${money(Number(car.purchase_price))}`,
+    profitText,
+    '',
+    'Подтверждаешь?',
+  ]
+
+  const kb = new InlineKeyboard()
+    .text(`✅ Продать за ${money(sellPrice)}`, `garage:sellconfirm:${carId}`)
+    .row()
+    .text('❌ Отмена', cb.garage_car(carId))
+
+  await ctx.editMessageText(lines.join('\n'), { parse_mode: 'HTML', reply_markup: kb })
+}
+
+export async function handleGarageSellConfirm(ctx: Context, carId: string): Promise<void> {
+  if (!ctx.from) return
+
+  const { data: car } = await supabase
+    .from('user_cars')
+    .select(`*, catalog:cars_catalog(*), plate:license_plates(*)`)
+    .eq('id', carId)
+    .eq('user_id', ctx.from.id)
+    .maybeSingle<UserCarRow & { catalog: CarCatalogRow; plate: LicensePlateRow | null }>()
+
+  if (!car) {
+    await ctx.answerCallbackQuery({ text: 'Не найдена' })
+    return
+  }
+
+  const sellPrice = calcNpcSell(car)
+
+  // Update balance
+  const { data: user } = await supabase
+    .from('users')
+    .select('balance_cr, successful_deals')
+    .eq('telegram_id', ctx.from.id)
+    .maybeSingle()
+
+  if (!user) {
+    await ctx.answerCallbackQuery({ text: 'Профиль не найден' })
+    return
+  }
+
+  await supabase
+    .from('users')
+    .update({
+      balance_cr: Number(user.balance_cr) + sellPrice,
+      successful_deals: (user.successful_deals ?? 0) + 1,
+    })
+    .eq('telegram_id', ctx.from.id)
+
+  // Detach plate if attached
+  if (car.plate_id) {
+    await supabase
+      .from('license_plates')
+      .update({ car_id: null, is_assigned: false })
+      .eq('id', car.plate_id)
+  }
+
+  // Delete car
+  await supabase.from('user_cars').delete().eq('id', carId)
+
+  // Add to marketplace history for price analytics
+  await supabase.from('marketplace_history').insert({
+    catalog_id: car.catalog_id,
+    price: sellPrice,
+  })
+
+  await ctx.answerCallbackQuery({ text: `✅ Продано за ${money(sellPrice)}` })
+  await ctx.editMessageText(
+    [
+      `✅ <b>ПРОДАНО</b>`,
+      '',
+      carTitle({ catalog: car.catalog }),
+      '',
+      `💵 Получено: ${money(sellPrice)}`,
+      `📈 Сделка #${(user.successful_deals ?? 0) + 1} в зачёте`,
+    ].join('\n'),
+    { parse_mode: 'HTML', reply_markup: new InlineKeyboard().text('🚗 В гараж', cb.garage()) }
+  )
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────
+
+function calcNpcSell(car: UserCarRow & { catalog: CarCatalogRow; plate: LicensePlateRow | null }): number {
+  const stock = Number(car.catalog.base_price) * 1.25
+  const stageBonus = Number(car.catalog.base_price) * (STAGE_INFO[car.stage_level]?.price_mult ?? 0) * 0.7
+  const plateMod = car.plate?.price_modifier ?? 1
+  const avgCond = (car.body_cond + car.engine_cond + car.suspension_cond + car.interior_cond) / 4
+  const condMod = 0.5 + (avgCond / 100) * 0.5  // 50%..100%
+  return Math.round((stock + stageBonus) * plateMod * condMod)
 }
