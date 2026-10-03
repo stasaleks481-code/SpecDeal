@@ -15,6 +15,7 @@ import { handleBank, bankDeposit, bankWithdraw, bankLoan, bankLoanPayoff } from 
 import { handleRaces, runDragVsNpc } from '@/lib/bot/commands/races'
 import { handleCases, handleCaseOpen, executeCaseOpen } from '@/lib/bot/commands/cases'
 import { handleProfile } from '@/lib/bot/commands/profile'
+import { handleLeaderboard } from '@/lib/bot/commands/leaderboard'
 
 /**
  * Inline callback router — every inline button click goes here.
@@ -178,7 +179,14 @@ export async function handleCallback(ctx: Context): Promise<void> {
 
       // ─── Leaderboard ──────────────────────────────────────────
       case 'leaderboard:view':
-        await ctx.answerCallbackQuery({ text: 'Скоро будет' })
+        await ctx.answerCallbackQuery()
+        await handleLeaderboard(ctx, 'balance')
+        break
+      case 'leaderboard:balance':
+        await handleLeaderboard(ctx, 'balance')
+        break
+      case 'leaderboard:races':
+        await handleLeaderboard(ctx, 'races')
         break
 
       // ─── Cancel / Noop ────────────────────────────────────────

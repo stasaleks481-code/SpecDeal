@@ -94,7 +94,7 @@ export async function handleSpinConfirm(ctx: Context): Promise<void> {
   )
 }
 
-/** Execute the spin */
+/** Execute the spin — with animation! */
 export async function executeSpin(ctx: Context): Promise<void> {
   if (!ctx.from) return
 
@@ -109,7 +109,31 @@ export async function executeSpin(ctx: Context): Promise<void> {
     return
   }
 
-  // Roll rarity
+  // ━━━ ANIMATION: 3 progressive "spinning" frames ━━━━━━━━━━━━━━━━━━━
+  // Frame 1: "Крутим барабан..." with random letter flicker
+  // Frame 2: "Замедляемся..." with another flicker
+  // Frame 3 (final): actual result
+
+  const spinFrames = [
+    '🎲 <b>КРУТКА</b>\n\n🎰 Крутим барабан...\n\n   <code>? ? ?</code>\n\n   ⏳',
+    '🎲 <b>КРУТКА</b>\n\n⚙️ Замедляемся...\n\n   <code>? ? ?</code>\n\n   ⏱',
+  ]
+
+  // Show frame 1
+  await ctx.editMessageText(spinFrames[0], {
+    parse_mode: 'HTML',
+    reply_markup: undefined,
+  })
+
+  // Wait 500ms, show frame 2
+  await sleep(500)
+  await ctx.editMessageText(spinFrames[1], { parse_mode: 'HTML' })
+
+  // Wait another 500ms, show final
+  await sleep(500)
+
+  // ━━━ FINAL: roll rarity, generate plate, save, show ━━━━━━━━━━━━━━
+
   const roll = Math.random()
   let cumulative = 0
   let rolledRarity: keyof typeof PLATE_RARITY = 'common'
@@ -124,9 +148,10 @@ export async function executeSpin(ctx: Context): Promise<void> {
   const { plateText, region } = generatePlate(rolledRarity)
   const info = PLATE_RARITY[rolledRarity]
 
-  // Deduct + insert
+  // Deduct money
   await supabase.from('users').update({ balance_cr: Number(user.balance_cr) - SPIN_COST }).eq('telegram_id', ctx.from.id)
 
+  // Insert plate
   const { data: plate } = await supabase
     .from('license_plates')
     .insert({
@@ -146,12 +171,12 @@ export async function executeSpin(ctx: Context): Promise<void> {
     return
   }
 
-  // Fancy response
+  // Build fancy result message
   let title: string
   let desc: string
   if (rolledRarity === 'legendary') {
-    title = '🎉 🎉 🎉 ЛЕГЕНДА!!! 🎉 🎉 🎉'
-    desc = 'Невероятно! Таких номеров в игре меньше 0.3%!'
+    title = '🎉🎉🎉 ЛЕГЕНДА!!! 🎉🎉🎉'
+    desc = 'Невероятно! Таких номеров меньше 0.3% в игре!'
   } else if (rolledRarity === 'elite') {
     title = '🔥 БЛАТНАЯ СЕРИЯ!'
     desc = 'Шанс выпадения всего 1.2% — повезло!'
@@ -190,6 +215,10 @@ export async function executeSpin(ctx: Context): Promise<void> {
 
   await ctx.answerCallbackQuery({ text: plateRarityLabel(rolledRarity) })
   await ctx.editMessageText(lines.join('\n'), { parse_mode: 'HTML', reply_markup: kb })
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 /** Generate Russian-style plate based on rarity */

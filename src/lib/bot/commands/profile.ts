@@ -5,7 +5,7 @@ import { mainMenuKeyboard, escapeHtml } from '@/lib/bot/menus/main'
 import { money, cb } from '@/lib/bot/utils'
 
 /**
- * 👤 Профиль — player card.
+ * 👤 Профиль — stylized player card.
  */
 export async function handleProfile(ctx: Context): Promise<void> {
   if (!ctx.from) return
@@ -42,23 +42,38 @@ export async function handleProfile(ctx: Context): Promise<void> {
     .select('achievement_id', { count: 'exact', head: true })
     .eq('user_id', ctx.from.id)
 
+  // Calculate net worth (balance + cars value + deposit - loan)
+  const { data: cars } = await supabase
+    .from('user_cars')
+    .select('purchase_price')
+    .eq('user_id', ctx.from.id)
+
+  const carsValue = cars?.reduce((sum, c) => sum + Number(c.purchase_price), 0) ?? 0
+  const netWorth = Number(user.balance_cr) + carsValue + Number(user.bank_deposit) - Number(user.bank_loan)
+
+  // Stylized profile card — emoji-rich, easy to scan
   const text = [
-    `👤 <b>ПРОФИЛЬ</b>`,
-    '',
-    `@${user.username ?? escapeHtml(ctx.from.first_name ?? '—')} • ID: ${user.telegram_id}`,
-    `${statusBadge} • Ур. ${user.level}`,
-    '',
-    `💰 CR:       <b>${money(Number(user.balance_cr))}</b>`,
-    `💎 SP:       <b>${formatNumber(user.balance_sp)}</b>`,
-    `📈 Депозит: <b>${money(Number(user.bank_deposit))}</b>`,
-    `💳 Кредит:   <b>${money(Number(user.bank_loan))}</b>`,
-    '',
-    `🚗 Гараж:       <b>${carsCount ?? 0} / ${user.garage_slots}</b>`,
-    `🔢 Номера:      <b>${platesCount ?? 0}</b>`,
-    `🎖 Достижения: <b>${achievementsCount ?? 0} / 10</b>`,
-    `📈 Сделок:     <b>${user.successful_deals}</b>`,
-    `🏁 Гонок:       <b>${user.races_won}</b> / ${user.races_total} (винрейт ${winRate}%)`,
-    `⭐ Репутация:  ${reputationStars}`,
+    `💳 ━━━ <b>ПРОФИЛЬ АВТОДИЛЕРА</b> ━━━ 💳`,
+    ``,
+    `👤 ${escapeHtml(user.username ?? ctx.from.first_name ?? 'Игрок')}`,
+    `🎯 Статус: ${statusBadge}  •  Ур. ${user.level}`,
+    ``,
+    `💰 ━━━ ФИНАНСЫ ━━━`,
+    `   💵 Баланс:    <b>${money(Number(user.balance_cr))}</b>`,
+    `   💎 Премиум:   <b>${formatNumber(user.balance_sp)} SP</b>`,
+    `   🏦 Депозит:   <b>${money(Number(user.bank_deposit))}</b>`,
+    `   💳 Кредит:    <b>${money(Number(user.bank_loan))}</b>`,
+    `   📊 Капитал:   <b>${money(netWorth)}</b>  (с учётом гаража)`,
+    ``,
+    `🚗 ━━━ АКТИВЫ ━━━`,
+    `   🚗 В гараже:    <b>${carsCount ?? 0} / ${user.garage_slots}</b>`,
+    `   🔢 Номеров:     <b>${platesCount ?? 0}</b>`,
+    `   🎖 Достижений: <b>${achievementsCount ?? 0} / 10</b>`,
+    ``,
+    `🏁 ━━━ СТАТИСТИКА ━━━`,
+    `   📈 Сделок:     <b>${user.successful_deals}</b>`,
+    `   🏆 Побед:       <b>${user.races_won}</b> / ${user.races_total}  (винрейт ${winRate}%)`,
+    `   ⭐ Репутация:  ${reputationStars}`,
   ].join('\n')
 
   const kb = new InlineKeyboard()
@@ -66,7 +81,6 @@ export async function handleProfile(ctx: Context): Promise<void> {
     .row()
     .text('🏠 В меню', cb.menu())
 
-  // If it's a callback (from inline button) → edit message
   if (ctx.callbackQuery) {
     await ctx.editMessageText(text, {
       parse_mode: 'HTML',
@@ -74,7 +88,6 @@ export async function handleProfile(ctx: Context): Promise<void> {
       link_preview_options: { is_disabled: true },
     })
   } else {
-    // Reply keyboard button → fresh reply with reply keyboard
     await ctx.reply(text, {
       parse_mode: 'HTML',
       reply_markup: mainMenuKeyboard(),

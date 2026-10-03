@@ -195,15 +195,81 @@ export const PLATE_RARITY: Record<string, { label: string; modifier: number; cha
   legendary:  { label: 'ЛЕГЕНДА',      modifier: 2.20, chance: 0.003, emoji: '🟥' },
 }
 
-/** Stage tuning metadata */
+/** Stage tuning metadata — Bonus percentages per spec */
 export const STAGE_INFO: Record<number, { name: string; power_mult: number; price_mult: number }> = {
-  0: { name: 'Сток',     power_mult: 1.00, price_mult: 0.00 },
-  1: { name: 'Stage 1',  power_mult: 1.15, price_mult: 0.10 },
-  2: { name: 'Stage 2',  power_mult: 1.35, price_mult: 0.25 },
-  3: { name: 'Stage 3',  power_mult: 1.70, price_mult: 0.50 },
+  0: { name: 'Сток',     power_mult: 1.00, price_mult: 0.00 },  // No bonus
+  1: { name: 'Stage 1',  power_mult: 1.15, price_mult: 0.15 },  // +15% power, +15% price
+  2: { name: 'Stage 2',  power_mult: 1.35, price_mult: 0.35 },  // +35% power, +35% price
+  3: { name: 'Stage 3',  power_mult: 1.65, price_mult: 0.65 },  // +65% power, +65% price (spec says +65%, not +70%)
 }
 
-/** Calculate performance index for races (drag formula from spec) */
+// ─── Economy formulas (per master spec) ──────────────────────────────
+
+/**
+ * Price to BUY a used car from junkyard/dealership.
+ * Formula: P_buy = BasePrice × (Condition/100) × 0.80
+ */
+export function calcBuyPrice(basePrice: number, condition: number): number {
+  return Math.round(basePrice * (condition / 100) * 0.80)
+}
+
+/**
+ * Cost to repair a single component from current condition to 100%.
+ * Formula: C_repair = BasePrice × ((100 - Condition)/100) × 0.55
+ */
+export function calcRepairCost(basePrice: number, currentCondition: number): number {
+  return Math.round(basePrice * ((100 - currentCondition) / 100) * 0.55)
+}
+
+/**
+ * Cost to upgrade to next stage.
+ * Stage 1 = 10% of base, Stage 2 = 25% of base, Stage 3 = 50% of base
+ */
+export function calcStageCost(basePrice: number, targetStage: 1 | 2 | 3): number {
+  const mult = { 1: 0.10, 2: 0.25, 3: 0.50 }[targetStage]
+  return Math.round(basePrice * mult)
+}
+
+/**
+ * Stock price (100% condition, no stage).
+ * Formula: P_stock = BasePrice × 1.25
+ */
+export function calcStockPrice(basePrice: number): number {
+  return Math.round(basePrice * 1.25)
+}
+
+/**
+ * Stage bonus added to sell price.
+ * Bonus_stage = BasePrice × stage_price_mult
+ * (per spec: Stage1 +15%, Stage2 +35%, Stage3 +65%)
+ */
+export function calcStageBonus(basePrice: number, stageLevel: number): number {
+  return Math.round(basePrice * (STAGE_INFO[stageLevel]?.price_mult ?? 0))
+}
+
+/**
+ * Total sell price to NPC.
+ * Formula: P_total = (P_stock + Bonus_stage) × K_plate × Condition_factor
+ * Note: When selling to NPC, stage bonus recoups only 70% of stage cost.
+ */
+export function calcNpcSellPrice(
+  basePrice: number,
+  stageLevel: number,
+  plateModifier: number,
+  avgCondition: number,
+): number {
+  const stock = calcStockPrice(basePrice)
+  // NPC recoup: only 70% of stage bonus value
+  const stageBonus = Math.round(calcStageBonus(basePrice, stageLevel) * 0.70)
+  // Condition modifier: 50% (broken) → 100% (perfect)
+  const condMod = 0.5 + (avgCondition / 100) * 0.5
+  return Math.round((stock + stageBonus) * plateModifier * condMod)
+}
+
+/**
+ * Calculate performance index for races (drag formula from spec).
+ * PerfIndex = (Power × StageBonus / Weight) × CondFactor × RNG(0.92, 1.08)
+ */
 export function calcPerfIndex(
   power: number,
   weight: number,
@@ -217,17 +283,6 @@ export function calcPerfIndex(
   const condFactor = (engineCond + suspensionCond) / 200
   const rng = 0.92 + Math.random() * 0.16  // ±8% RNG
   return (power * stageMult * lsdBonus / weight) * condFactor * rng * 1000
-}
-
-/** Calculate sell price to NPC (per spec formulas) */
-export function calcNpcSellPrice(
-  basePrice: number,
-  stageLevel: number,
-  plateModifier: number,
-): number {
-  const stock = basePrice * 1.25
-  const stageBonus = basePrice * (STAGE_INFO[stageLevel]?.price_mult ?? 0) * 0.7  // 70% of stage cost recoup on NPC sale
-  return (stock + stageBonus) * plateModifier
 }
 
 /** Format number with thousands separator */

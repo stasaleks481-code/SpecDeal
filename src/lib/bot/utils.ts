@@ -50,9 +50,24 @@ export function carTitle(car: { catalog: { brand: string; model: string; year: n
 }
 
 export function conditionBar(pct: number): string {
+  // Format from spec: [🟩🟩🟩🟩🟩🟨⬛⬛⬛⬛] 55%
   const filled = Math.floor(pct / 10)
-  const char = pct >= 70 ? '🟩' : pct >= 30 ? '🟨' : '🟥'
-  return char.repeat(filled) + '⬛'.repeat(10 - filled)
+  const remainder = Math.round(pct) % 10
+  let bar = ''
+  // Full green blocks
+  bar += '🟩'.repeat(filled)
+  // Partial block (yellow for partial, or empty)
+  if (remainder >= 5 && filled < 10) {
+    bar += '🟨'
+  } else if (filled < 10) {
+    // no partial
+  }
+  // Fill remaining with black
+  const currentLen = bar.length / 2 // each emoji counts as 1 visual block but 2 chars
+  const visualLen = filled + (remainder >= 5 && filled < 10 ? 1 : 0)
+  const remaining = Math.max(0, 10 - visualLen)
+  bar += '⬛'.repeat(remaining)
+  return `[${bar}]`
 }
 
 export function money(n: number): string {
