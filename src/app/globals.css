@@ -1,0 +1,201 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   STEAM NEON THEME — dark blue base + neon accent
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+:root {
+  --radius: 0.75rem;
+
+  /* Base — Steam dark blue palette */
+  --background: #0e141d;          /* deepest navy */
+  --foreground: #c7d5e0;          /* off-white text */
+
+  /* Card surface — slightly lighter than bg, semi-transparent glass */
+  --card: rgba(27, 40, 56, 0.6);   /* #1b2838 with alpha */
+  --card-foreground: #c7d5e0;
+
+  --popover: #1b2838;
+  --popover-foreground: #c7d5e0;
+
+  /* Primary — neon cyan (default theme; overridden by data-accent attr) */
+  --primary: #00f0ff;
+  --primary-foreground: #0e141d;
+
+  /* Secondary — darker surface */
+  --secondary: rgba(23, 26, 33, 0.7);
+  --secondary-foreground: #c7d5e0;
+
+  --muted: rgba(23, 26, 33, 0.5);
+  --muted-foreground: #66c0f4;     /* steam blue accent for muted */
+
+  --accent: rgba(0, 240, 255, 0.15);
+  --accent-foreground: #00f0ff;
+
+  --destructive: #ff3b3b;
+
+  --border: rgba(102, 192, 244, 0.15);
+  --input: rgba(102, 192, 244, 0.1);
+  --ring: #00f0ff;
+}
+
+/* Theme variants — applied via data-accent="pink|green|amber" on <html> */
+[data-accent="pink"] {
+  --primary: #ff3ec9;
+  --primary-foreground: #0e141d;
+  --accent: rgba(255, 62, 201, 0.15);
+  --accent-foreground: #ff3ec9;
+  --ring: #ff3ec9;
+  --muted-foreground: #ff8fd5;
+  --border: rgba(255, 62, 201, 0.18);
+}
+
+[data-accent="green"] {
+  --primary: #39ff14;
+  --primary-foreground: #0e141d;
+  --accent: rgba(57, 255, 20, 0.15);
+  --accent-foreground: #39ff14;
+  --ring: #39ff14;
+  --muted-foreground: #80ff66;
+  --border: rgba(57, 255, 20, 0.18);
+}
+
+[data-accent="amber"] {
+  --primary: #ffb627;
+  --primary-foreground: #0e141d;
+  --accent: rgba(255, 182, 39, 0.15);
+  --accent-foreground: #ffb627;
+  --ring: #ffb627;
+  --muted-foreground: #ffd06b;
+  --border: rgba(255, 182, 39, 0.18);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html, body {
+    background: var(--background);
+    color: var(--foreground);
+    min-height: 100vh;
+    /* Steam-like radial gradient on body for depth */
+    background-image:
+      radial-gradient(ellipse at top, rgba(0, 240, 255, 0.06) 0%, transparent 50%),
+      radial-gradient(ellipse at bottom, rgba(102, 192, 244, 0.04) 0%, transparent 50%);
+    background-attachment: fixed;
+  }
+
+  body {
+    overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+}
+
+/* ━━━ Utility classes ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+@layer components {
+  /* Glassmorphic card — Steam-style */
+  .glass-card {
+    background: var(--card);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+  }
+
+  /* Neon glow button — primary CTA */
+  .neon-btn {
+    background: linear-gradient(135deg, var(--primary) 0%, color-mix(in srgb, var(--primary) 60%, #1b2838) 100%);
+    color: var(--primary-foreground);
+    border-radius: var(--radius-md);
+    padding: 0.625rem 1rem;
+    font-weight: 600;
+    box-shadow:
+      0 0 12px color-mix(in srgb, var(--primary) 40%, transparent),
+      0 0 24px color-mix(in srgb, var(--primary) 20%, transparent),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    transition: all 0.2s ease;
+  }
+  .neon-btn:hover {
+    box-shadow:
+      0 0 16px color-mix(in srgb, var(--primary) 60%, transparent),
+      0 0 32px color-mix(in srgb, var(--primary) 30%, transparent);
+    transform: translateY(-1px);
+  }
+  .neon-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--primary) 40%, transparent);
+  }
+
+  /* Neon text — for highlights / labels */
+  .neon-text {
+    color: var(--primary);
+    text-shadow:
+      0 0 4px color-mix(in srgb, var(--primary) 50%, transparent),
+      0 0 8px color-mix(in srgb, var(--primary) 30%, transparent);
+  }
+
+  /* Game card — gradient overlay on banner */
+  .game-card {
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--radius-lg);
+    background: linear-gradient(135deg, rgba(27, 40, 56, 0.6) 0%, rgba(14, 20, 29, 0.8) 100%);
+    border: 1px solid var(--border);
+    transition: all 0.25s ease;
+  }
+  .game-card:hover {
+    border-color: var(--primary);
+    box-shadow: 0 0 16px color-mix(in srgb, var(--primary) 30%, transparent);
+    transform: translateY(-2px);
+  }
+}
+
+/* Scrollbar — thin and themed */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(102, 192, 244, 0.3);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
+}
