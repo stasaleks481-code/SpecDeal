@@ -3,21 +3,33 @@ import { createClient } from '@supabase/supabase-js'
 /**
  * Client-safe Supabase client.
  *
- * IMPORTANT: Do NOT import env.ts here — it contains server-only vars
+ * IMPORTANT: Use process.env.NEXT_PUBLIC_* directly (NOT a wrapper function).
+ * Next.js statically analyzes process.env.* references at build time
+ * and inlines the values. A wrapper function like getEnv('VAR_NAME')
+ * would break this static analysis and env vars wouldn't be inlined
+ * into the client bundle.
+ *
+ * Also: do NOT import env.ts here — it contains server-only vars
  * (TELEGRAM_BOT_TOKEN) which would leak into the client bundle.
- * Use NEXT_PUBLIC_* env vars directly.
  */
-function getEnv(name: string): string {
-  const value = process.env[name]
-  if (!value) throw new Error(`[env] Missing ${name}`)
-  return value
+
+// These will be replaced with their string values at build time.
+// Fallback to empty string for safety (will throw at runtime if missing).
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  // Throw a clear error rather than letting supabase-js fail mysteriously.
+  // This is caught by the client's error boundary and shown as "Auth failed".
+  throw new Error(
+    `[supabase] Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY. ` +
+    `Check Vercel Project Settings → Environment Variables.`
+  )
 }
 
-export const supabase = createClient(
-  getEnv('NEXT_PUBLIC_SUPABASE_URL'),
-  getEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
-  { auth: { persistSession: false, autoRefreshToken: false } }
-)
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: { persistSession: false, autoRefreshToken: false },
+})
 
 // ─── Type definitions ────────────────────────────────────────────────
 
