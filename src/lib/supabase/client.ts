@@ -1,13 +1,23 @@
 import { createClient } from '@supabase/supabase-js'
-import { env } from '@/config/env'
 
 /**
- * Server-side Supabase client (uses anon key + RLS).
- * For TMA logic that runs server-side (API routes), this is sufficient.
+ * Client-safe Supabase client.
+ *
+ * IMPORTANT: Do NOT import env.ts here — it contains server-only vars
+ * (TELEGRAM_BOT_TOKEN) which would leak into the client bundle.
+ * Use NEXT_PUBLIC_* env vars directly.
  */
-export const supabase = createClient(env.supabaseUrl, env.supabaseAnonKey, {
-  auth: { persistSession: false, autoRefreshToken: false },
-})
+function getEnv(name: string): string {
+  const value = process.env[name]
+  if (!value) throw new Error(`[env] Missing ${name}`)
+  return value
+}
+
+export const supabase = createClient(
+  getEnv('NEXT_PUBLIC_SUPABASE_URL'),
+  getEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
+  { auth: { persistSession: false, autoRefreshToken: false } }
+)
 
 // ─── Type definitions ────────────────────────────────────────────────
 
@@ -85,7 +95,7 @@ export interface ReviewRow {
   created_at: string
 }
 
-// ─── Helpers ────────────────────────────────────────────────────────
+// ─── Static game data ───────────────────────────────────────────────
 
 export const THEME_COLORS = {
   cyan:  { primary: '#00f0ff', glow: 'rgba(0, 240, 255, 0.4)',  name: 'Neon Cyan' },
