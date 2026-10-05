@@ -1,0 +1,59 @@
+{
+  "url": "https://specdeal.vercel.app",
+  "finalUrl": "https://specdeal.vercel.app/",
+  "title": "StakApp — LFG & Voice Hub",
+  "httpStatus": 200,
+  "navMs": 4625,
+  "early": {
+    "text": "Auth failed\n\ninitData required in production\n\nRetry",
+    "spinners": [],
+    "title": "StakApp — LFG & Voice Hub"
+  },
+  "final": {
+    "title": "StakApp — LFG & Voice Hub",
+    "bodyBg": "rgb(14, 20, 29)",
+    "htmlBg": "rgb(14, 20, 29)",
+    "rootBg": "rgb(14, 20, 29)",
+    "bgInfo": {
+      "found": "rgb(14, 20, 29)",
+      "trace": [
+        {
+          "tag": "DIV",
+          "id": "",
+          "cls": "",
+          "bg": "rgba(0, 0, 0, 0)",
+          "bgImg": "none"
+        },
+        {
+          "tag": "BODY",
+          "id": "",
+          "cls": "geist_855f4457-module__UNybwq__variable geist_mono_5fd6c9bf-module__mUfs1G__variable antialiased",
+          "bg": "rgb(14, 20, 29)",
+          "bgImg": "radial-gradient(at 50% 0%, rgba(0, 240, 255, 0.06) 0%, rgba(0, 0, 0, 0) 50%), radial-gradient(at 50% 100%, rgba(102, 192, 244, 0.04) 0%, rgba(0, 0, 0, 0) 50%)"
+        }
+      ]
+    },
+    "bodyText": "Auth failed\n\ninitData required in production\n\nRetry",
+    "hasSpinningSvg": false,
+    "spinningSvgClass": null,
+    "buttons": [
+      {
+        "text": "Retry",
+        "ariaLabel": null
+      }
+    ],
+    "glass": [],
+    "textColor": "rgb(199, 213, 224)",
+    "url": "https://specdeal.vercel.app/"
+  },
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 400 ()",
+    "[auth] error: Error: initData required in production\n    at https://specdeal.vercel.app/_next/static/chunks/a7c59f0cc43a477e.js:32:90685",
+    "Failed to load resource: the server responded with a status of 400 ()",
+    "[auth] error: Error: initData required in production\n    at https://specdeal.vercel.app/_next/static/chunks/a7c59f0cc43a477e.js:32:90685"
+  ],
+  "consoleWarnings": [],
+  "consoleLogs": [],
+  "pageErrors": [],
+  "requestsFailed": []
+}

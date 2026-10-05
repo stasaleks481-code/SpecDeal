@@ -1,0 +1,53 @@
+{
+  "found": true,
+  "stack": [
+    {
+      "depth": 0,
+      "tag": "H2",
+      "cls": "text-lg font-semibold text-red-300 mb-1",
+      "bg": "rgba(0, 0, 0, 0)",
+      "bgImage": "none",
+      "backdropFilter": "none",
+      "filter": "none",
+      "border": "0px solid rgba(102, 192, 244, 0.15)",
+      "borderRadius": "0px",
+      "boxShadow": "none",
+      "opacity": "1",
+      "width": "292px",
+      "height": "28px",
+      "padding": "0px"
+    },
+    {
+      "depth": 1,
+      "tag": "DIV",
+      "cls": "glass-card p-6 max-w-sm w-full text-center",
+      "bg": "rgba(27, 40, 56, 0.6)",
+      "bgImage": "none",
+      "backdropFilter": "none",
+      "filter": "none",
+      "border": "1px solid rgba(102, 192, 244, 0.15)",
+      "borderRadius": "12px",
+      "boxShadow": "rgba(0, 0, 0, 0.4) 0px 4px 24px 0px",
+      "opacity": "1",
+      "width": "342px",
+      "height": "210px",
+      "padding": "24px"
+    },
+    {
+      "depth": 2,
+      "tag": "MAIN",
+      "cls": "min-h-screen flex flex-col items-center justify-center px-6",
+      "bg": "rgba(0, 0, 0, 0)",
+      "bgImage": "none",
+      "backdropFilter": "none",
+      "filter": "none",
+      "border": "0px solid rgba(102, 192, 244, 0.15)",
+      "borderRadius": "0px",
+      "boxShadow": "none",
+      "opacity": "1",
+      "width": "390px",
+      "height": "780px",
+      "padding": "0px 24px"
+    }
+  ]
+}
