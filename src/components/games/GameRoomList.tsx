@@ -1,6 +1,5 @@
 "use client";
 
-import { motion } from "framer-motion";
 import { Users, Lock, Crown, ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { RoomRow, UserRow } from "@/lib/supabase/client";
@@ -31,44 +30,40 @@ export function GameRoomList({ rooms, currentUser }: Props) {
 
   return (
     <div className="space-y-2.5">
-      {rooms.map((room, idx) => {
+      {rooms.map((room) => {
         const game = GAMES.find((g) => g.code === room.game_name);
         const isHost = room.host_id === currentUser.id;
         return (
-          <motion.div
+          <div
             key={room.id}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: idx * 0.04 }}
             className="room-card"
-            style={{
-              borderLeft: `3px solid ${game?.color ?? "var(--primary)"}`,
-            }}
+            style={{ borderLeft: `3px solid ${game?.color ?? "var(--primary)"}` }}
           >
             <div className="flex items-center gap-3">
-              {/* Game logo block */}
-              <div
-                className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0 relative overflow-hidden"
-                style={{
-                  background: game?.gradient ?? "rgba(102, 192, 244, 0.15)",
-                  boxShadow: `0 4px 12px ${game?.color ?? "var(--primary)"}30`,
-                }}
-              >
-                <span className="relative z-10 drop-shadow-lg">{game?.emoji ?? "🎮"}</span>
-                <div
-                  className="absolute inset-0 opacity-30"
-                  style={{
-                    background: "radial-gradient(circle at 30% 20%, rgba(255,255,255,0.3), transparent 60%)",
-                  }}
-                />
+              {/* Game logo block — use Steam banner if available */}
+              <div className="relative w-12 h-12 rounded-xl overflow-hidden shrink-0">
+                {game?.banner ? (
+                  <img
+                    src={game.banner}
+                    alt={game.name}
+                    loading="lazy"
+                    className="w-full h-full object-cover"
+                    style={{ filter: "brightness(0.85)" }}
+                  />
+                ) : (
+                  <div
+                    className="w-full h-full flex items-center justify-center text-2xl"
+                    style={{ background: game?.gradient ?? "rgba(102, 192, 244, 0.15)" }}
+                  >
+                    {game?.emoji ?? "🎮"}
+                  </div>
+                )}
               </div>
 
               {/* Info */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <h3 className="font-semibold text-sm truncate">
-                    {room.title}
-                  </h3>
+                  <h3 className="font-semibold text-sm truncate">{room.title}</h3>
                   {isHost && (
                     <Crown className="w-3 h-3 text-amber-400 shrink-0" fill="currentColor" />
                   )}
@@ -107,7 +102,7 @@ export function GameRoomList({ rooms, currentUser }: Props) {
                 <ChevronRight className="w-3.5 h-3.5" />
               </button>
             </div>
-          </motion.div>
+          </div>
         );
       })}
     </div>

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Users, MessageCircle, Moon } from "lucide-react";
 import { CASUAL_TOPICS, type UserRow, type RoomRow } from "@/lib/supabase/client";
 import { CreateRoomModal } from "@/components/games/CreateRoomModal";
@@ -38,35 +37,22 @@ export function RoomsTab({ user }: Props) {
   return (
     <div className="max-w-md mx-auto px-4 py-4 pb-6 space-y-5">
       {/* Hero */}
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-2xl p-4"
-        style={{
-          background: "linear-gradient(135deg, rgba(155, 89, 182, 0.08) 0%, rgba(102, 192, 244, 0.04) 100%)",
-          border: "1px solid rgba(155, 89, 182, 0.15)",
-        }}
-      >
-        <div className="absolute top-0 right-0 w-32 h-32 rounded-full blur-3xl opacity-30" style={{ background: "var(--primary)" }} />
-        <div className="relative flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
-            style={{
-              background: "linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 50%, #1b2838))",
-              boxShadow: "0 0 16px color-mix(in srgb, var(--primary) 40%, transparent)"
-            }}
-          >
-            <Moon className="w-5 h-5 text-[#0e141d]" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-bold neon-text leading-tight">
-              Чилл & Общение
-            </h1>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Поговори по душам или обсуди кино
-            </p>
-          </div>
+      <div className="flex items-center gap-3 p-3.5 rounded-2xl border border-border bg-[#1b2838]/40">
+        <div
+          className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+          style={{ background: "var(--primary)" }}
+        >
+          <Moon className="w-5 h-5 text-[#0e141d]" />
         </div>
-      </motion.div>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-base font-bold neon-text leading-tight">
+            Чилл & Общение
+          </h1>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Поговори по душам или обсуди кино
+          </p>
+        </div>
+      </div>
 
       {/* Topics filter */}
       <div>
@@ -133,22 +119,12 @@ export function RoomsTab({ user }: Props) {
 
         {loading ? (
           <div className="glass-card p-8 text-center">
-            <motion.div
-              animate={{ opacity: [0.4, 1, 0.4] }}
-              transition={{ repeat: Infinity, duration: 1.5 }}
-              className="text-sm text-muted-foreground"
-            >
-              Загружаем комнаты...
-            </motion.div>
+            <p className="text-sm text-muted-foreground">Загружаем комнаты...</p>
           </div>
         ) : rooms.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="glass-card p-8 text-center"
-          >
-            <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-3">
-              <MessageCircle className="w-7 h-7 text-primary" />
+          <div className="glass-card p-6 text-center">
+            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-3">
+              <MessageCircle className="w-6 h-6 text-primary" />
             </div>
             <p className="text-sm font-semibold">Тишина...</p>
             <p className="text-xs text-muted-foreground mt-1 mb-4">
@@ -156,22 +132,16 @@ export function RoomsTab({ user }: Props) {
                 ? "По этой теме пока пусто. Создай комнату!"
                 : "Создай первую комнату и позови людей"}
             </p>
-            <button
-              onClick={() => setShowCreate(true)}
-              className="neon-btn text-xs"
-            >
+            <button onClick={() => setShowCreate(true)} className="neon-btn text-xs">
               <Plus className="w-3 h-3 inline mr-1" />
               Создать комнату
             </button>
-          </motion.div>
+          </div>
         ) : (
           <div className="space-y-2.5">
-            {rooms.map((room, idx) => (
-              <motion.div
+            {rooms.map((room) => (
+              <div
                 key={room.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.04 }}
                 className="room-card"
                 style={{ borderLeft: "3px solid var(--primary)" }}
               >
@@ -202,26 +172,24 @@ export function RoomsTab({ user }: Props) {
                     <span className="font-bold">{room.max_players}</span>
                   </div>
                 </div>
-              </motion.div>
+              </div>
             ))}
           </div>
         )}
       </div>
 
-      <AnimatePresence>
-        {showCreate && (
-          <CreateRoomModal
-            user={user}
-            defaultCategory="casual"
-            defaultGame={null}
-            onClose={() => setShowCreate(false)}
-            onCreated={() => {
-              setShowCreate(false);
-              fetchRooms();
-            }}
-          />
-        )}
-      </AnimatePresence>
+      {showCreate && (
+        <CreateRoomModal
+          user={user}
+          defaultCategory="casual"
+          defaultGame={null}
+          onClose={() => setShowCreate(false)}
+          onCreated={() => {
+            setShowCreate(false);
+            fetchRooms();
+          }}
+        />
+      )}
     </div>
   );
 }

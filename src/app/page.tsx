@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Gamepad2, MessageCircle, Loader2, AlertTriangle, Home as HomeIcon } from "lucide-react";
+import { Gamepad2, MessageCircle, AlertTriangle, Home as HomeIcon } from "lucide-react";
 import { GamesTab } from "@/components/games/GamesTab";
 import { RoomsTab } from "@/components/rooms/RoomsTab";
 import { ProfileView } from "@/components/profile/ProfileView";
@@ -80,31 +79,19 @@ export default function HomePage() {
     authenticate();
   }, [authenticate]);
 
-  // Loading state — branded spinner
+  // Loading state — simple, performant
   if (loading) {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center px-6">
-        <motion.div
-          initial={{ scale: 0.85, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="flex flex-col items-center gap-5"
-        >
+        <div className="flex flex-col items-center gap-4">
           <div className="relative">
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
-              className="w-16 h-16 rounded-full border-2 border-primary/20 border-t-primary"
-              style={{ boxShadow: "0 0 20px color-mix(in srgb, var(--primary) 40%, transparent)" }}
-            />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <Loader2 className="w-6 h-6 text-primary animate-pulse" />
-            </div>
+            <div className="w-14 h-14 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
           </div>
           <div className="text-center">
             <p className="text-xl font-bold neon-text tracking-wide">StakApp</p>
             <p className="text-xs text-muted-foreground mt-1">Подключаемся к хабу...</p>
           </div>
-        </motion.div>
+        </div>
       </main>
     );
   }
@@ -113,11 +100,7 @@ export default function HomePage() {
   if (error || !user) {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center px-6">
-        <motion.div
-          initial={{ scale: 0.92, opacity: 0, y: 20 }}
-          animate={{ scale: 1, opacity: 1, y: 0 }}
-          className="glass-card p-6 max-w-sm w-full text-center"
-        >
+        <div className="glass-card p-6 max-w-sm w-full text-center">
           <div className="w-14 h-14 rounded-2xl bg-red-500/20 flex items-center justify-center mx-auto mb-4">
             <AlertTriangle className="w-7 h-7 text-red-400" />
           </div>
@@ -129,7 +112,7 @@ export default function HomePage() {
           >
             Попробовать снова
           </button>
-        </motion.div>
+        </div>
       </main>
     );
   }
@@ -137,16 +120,13 @@ export default function HomePage() {
   // Main UI
   return (
     <main className="min-h-screen flex flex-col">
-      {/* Top header — minimal, sticky */}
-      <header className="sticky top-0 z-20 backdrop-blur-md bg-[#0e141d]/85 border-b border-border">
+      {/* Top header — sticky, no backdrop-blur (better perf) */}
+      <header className="sticky top-0 z-20 bg-[#0e141d] border-b border-border">
         <div className="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div
               className="w-9 h-9 rounded-xl flex items-center justify-center"
-              style={{
-                background: "linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 50%, #1b2838))",
-                boxShadow: "0 0 14px color-mix(in srgb, var(--primary) 40%, transparent)",
-              }}
+              style={{ background: "var(--primary)" }}
             >
               <HomeIcon className="w-4 h-4 text-[#0e141d]" strokeWidth={2.5} />
             </div>
@@ -159,7 +139,7 @@ export default function HomePage() {
           </div>
           <button
             onClick={() => setTab("profile")}
-            className={`flex items-center gap-2 pl-1 pr-3 py-1 rounded-full border transition-all ${
+            className={`flex items-center gap-2 pl-1 pr-3 py-1 rounded-full border transition-colors ${
               tab === "profile"
                 ? "border-primary/40 bg-primary/10"
                 : "border-border hover:border-primary/30"
@@ -183,80 +163,46 @@ export default function HomePage() {
         </div>
       </header>
 
-      {/* Tab content */}
+      {/* Tab content — no motion (lighter on mobile) */}
       <div className="flex-1 overflow-y-auto pb-24">
-        <AnimatePresence mode="wait">
-          {tab === "games" && (
-            <motion.div
-              key="games"
-              initial={{ opacity: 0, x: -16 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -16 }}
-              transition={{ duration: 0.2 }}
-            >
-              <GamesTab user={user} />
-            </motion.div>
-          )}
-          {tab === "rooms" && (
-            <motion.div
-              key="rooms"
-              initial={{ opacity: 0, x: 16 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 16 }}
-              transition={{ duration: 0.2 }}
-            >
-              <RoomsTab user={user} />
-            </motion.div>
-          )}
-          {tab === "profile" && (
-            <motion.div
-              key="profile"
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 16 }}
-              transition={{ duration: 0.2 }}
-            >
-              <ProfileView user={user} onUserUpdate={setUser} />
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {tab === "games" && <GamesTab user={user} />}
+        {tab === "rooms" && <RoomsTab user={user} />}
+        {tab === "profile" && <ProfileView user={user} onUserUpdate={setUser} />}
       </div>
 
-      {/* Bottom navigation — fixed, glassmorphic */}
-      <nav className="fixed bottom-0 left-0 right-0 z-30">
-        <div className="backdrop-blur-xl bg-[#0e141d]/90 border-t border-border">
-          <div className="max-w-md mx-auto grid grid-cols-3 gap-1 px-3 py-2 safe-area-inset-bottom">
-            <TabButton
-              active={tab === "games"}
-              onClick={() => setTab("games")}
-              icon={<Gamepad2 className="w-5 h-5" />}
-              label="Игры"
-            />
-            <TabButton
-              active={tab === "rooms"}
-              onClick={() => setTab("rooms")}
-              icon={<MessageCircle className="w-5 h-5" />}
-              label="Чилл"
-            />
-            <TabButton
-              active={tab === "profile"}
-              onClick={() => setTab("profile")}
-              icon={
-                user.photo_url ? (
-                  <img
-                    src={user.photo_url}
-                    alt=""
-                    className="w-6 h-6 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold">
-                    {user.first_name?.[0] ?? "?"}
-                  </div>
-                )
-              }
-              label="Профиль"
-            />
-          </div>
+      {/* Bottom navigation — fixed, simple bg (no blur) */}
+      <nav className="fixed bottom-0 left-0 right-0 z-30 bg-[#0e141d] border-t border-border">
+        <div className="max-w-md mx-auto grid grid-cols-3 gap-1 px-3 py-2 safe-area-inset-bottom">
+          <TabButton
+            active={tab === "games"}
+            onClick={() => setTab("games")}
+            icon={<Gamepad2 className="w-5 h-5" />}
+            label="Игры"
+          />
+          <TabButton
+            active={tab === "rooms"}
+            onClick={() => setTab("rooms")}
+            icon={<MessageCircle className="w-5 h-5" />}
+            label="Чилл"
+          />
+          <TabButton
+            active={tab === "profile"}
+            onClick={() => setTab("profile")}
+            icon={
+              user.photo_url ? (
+                <img
+                  src={user.photo_url}
+                  alt=""
+                  className="w-6 h-6 rounded-full object-cover"
+                />
+              ) : (
+                <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold">
+                  {user.first_name?.[0] ?? "?"}
+                </div>
+              )
+            }
+            label="Профиль"
+          />
         </div>
       </nav>
     </main>
@@ -277,22 +223,14 @@ function TabButton({
   return (
     <button
       onClick={onClick}
-      className={`relative flex flex-col items-center justify-center gap-1 py-2 rounded-xl transition-all ${
+      className={`relative flex flex-col items-center justify-center gap-1 py-2 rounded-xl transition-colors ${
         active
-          ? "text-primary"
+          ? "text-primary bg-primary/10"
           : "text-muted-foreground hover:text-foreground"
       }`}
     >
-      {active && (
-        <motion.div
-          layoutId="activeTab"
-          className="absolute inset-0 rounded-xl bg-primary/10"
-          style={{ boxShadow: "0 0 12px color-mix(in srgb, var(--primary) 30%, transparent)" }}
-          transition={{ type: "spring", damping: 25, stiffness: 350 }}
-        />
-      )}
-      <div className="relative z-10">{icon}</div>
-      <span className="relative z-10 text-[10px] font-semibold">{label}</span>
+      <div>{icon}</div>
+      <span className="text-[10px] font-semibold">{label}</span>
     </button>
   );
 }

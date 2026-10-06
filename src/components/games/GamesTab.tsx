@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Search, Users, Sparkles } from "lucide-react";
+import { Plus, Search, Users } from "lucide-react";
 import { GAMES, type UserRow, type RoomRow } from "@/lib/supabase/client";
 import { GameRoomList } from "./GameRoomList";
 import { CreateRoomModal } from "./CreateRoomModal";
@@ -45,36 +44,23 @@ export function GamesTab({ user }: Props) {
 
   return (
     <div className="max-w-md mx-auto px-4 py-4 pb-6 space-y-5">
-      {/* Hero header */}
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-2xl p-4"
-        style={{
-          background: "linear-gradient(135deg, rgba(0, 240, 255, 0.08) 0%, rgba(102, 192, 244, 0.04) 100%)",
-          border: "1px solid rgba(102, 192, 244, 0.15)",
-        }}
-      >
-        <div className="absolute top-0 right-0 w-32 h-32 rounded-full blur-3xl opacity-30" style={{ background: "var(--primary)" }} />
-        <div className="relative flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
-            style={{
-              background: "linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 50%, #1b2838))",
-              boxShadow: "0 0 16px color-mix(in srgb, var(--primary) 40%, transparent)"
-            }}
-          >
-            <Sparkles className="w-5 h-5 text-[#0e141d]" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-bold neon-text leading-tight">
-              Найди тиммейтов
-            </h1>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Создай лобби или присоединись к существующему
-            </p>
-          </div>
+      {/* Hero header — flat, no gradient overlay */}
+      <div className="flex items-center gap-3 p-3.5 rounded-2xl border border-border bg-[#1b2838]/40">
+        <div
+          className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+          style={{ background: "var(--primary)" }}
+        >
+          <span className="text-lg">🎮</span>
         </div>
-      </motion.div>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-base font-bold neon-text leading-tight">
+            Найди тиммейтов
+          </h1>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Создай лобби или присоединись
+          </p>
+        </div>
+      </div>
 
       {/* Games grid */}
       <div>
@@ -95,120 +81,121 @@ export function GamesTab({ user }: Props) {
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          {GAMES.map((g, idx) => {
+          {GAMES.map((g) => {
             const isSelected = selectedGame === g.code;
             return (
-              <motion.button
+              <button
                 key={g.code}
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: idx * 0.04 }}
-                whileTap={{ scale: 0.96 }}
                 onClick={() => setSelectedGame(isSelected ? null : g.code)}
-                className={`game-tile ${isSelected ? "game-tile--selected" : ""} p-3 flex flex-col justify-between`}
+                className={`game-tile ${isSelected ? "game-tile--selected" : ""}`}
                 style={{
-                  // @ts-expect-error custom CSS vars
+                  // @ts-expect-error custom CSS var
                   "--game-color": g.color,
                   "--game-gradient": g.gradient,
-                  "--game-text-shadow": g.textShadow,
                 }}
               >
-                <div className="flex items-start justify-between">
-                  <span className="text-2xl drop-shadow-lg">{g.emoji}</span>
-                  <span
-                    className="w-2 h-2 rounded-full"
-                    style={{ background: g.color, boxShadow: `0 0 6px ${g.color}` }}
+                {/* Background: Steam banner OR gradient fallback */}
+                {g.banner ? (
+                  <img
+                    src={g.banner}
+                    alt={g.name}
+                    loading="lazy"
+                    className="game-tile__banner"
                   />
-                </div>
-                <div>
-                  <div
-                    className="game-title text-lg"
-                    style={{ color: g.color }}
-                  >
-                    {g.name}
+                ) : null}
+                <div className="game-tile__overlay" />
+
+                {/* Content */}
+                <div className="game-tile__content">
+                  <div className="flex items-start justify-between">
+                    <span className="text-2xl drop-shadow-lg">{g.emoji}</span>
+                    <span
+                      className="game-tile__accent"
+                      style={{ background: g.color, color: g.color }}
+                    />
                   </div>
-                  <div className="text-[10px] font-medium text-white/60 mt-1 uppercase tracking-wider">
-                    {g.formats.join(" · ")}
+                  <div>
+                    <div className="game-tile__title text-base">
+                      {g.name}
+                    </div>
+                    <div className="text-[10px] font-medium text-white/70 mt-1 uppercase tracking-wider">
+                      {g.formats.join(" · ")}
+                    </div>
                   </div>
                 </div>
-              </motion.button>
+              </button>
             );
           })}
 
           {/* Other game button */}
-          <motion.button
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: GAMES.length * 0.04 }}
-            whileTap={{ scale: 0.96 }}
-            className="game-tile p-3 flex flex-col items-center justify-center gap-2 text-muted-foreground"
+          <button
+            onClick={() => setSelectedGame(null)}
+            className="game-tile"
             style={{
-              // @ts-expect-error custom CSS vars
+              // @ts-expect-error custom CSS var
               "--game-gradient": "linear-gradient(135deg, rgba(27, 40, 56, 0.6), rgba(14, 20, 29, 0.8))",
               "--game-color": "var(--muted-foreground)",
               borderStyle: "dashed",
             }}
           >
-            <Search className="w-6 h-6" />
-            <span className="text-xs font-semibold">Другая игра</span>
-          </motion.button>
+            <div className="game-tile__overlay" style={{ background: "rgba(14, 20, 29, 0.5)" }} />
+            <div className="game-tile__content items-center justify-center !justify-center">
+              <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                <Search className="w-6 h-6" />
+                <span className="text-xs font-semibold">Другая игра</span>
+              </div>
+            </div>
+          </button>
         </div>
       </div>
 
       {/* Filters — only when game is selected */}
-      <AnimatePresence>
-        {selectedGameData && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="space-y-4 overflow-hidden"
-          >
-            <div>
-              <div className="section-label mb-2 px-1">Формат</div>
-              <div className="flex flex-wrap gap-2">
-                {["2x2", "3x3", "5x5", "duo", "full"].map((f) => {
-                  const isAvailable = selectedGameData.formats.includes(f as never);
-                  const active = filterFormat === f;
-                  return (
-                    <button
-                      key={f}
-                      disabled={!isAvailable}
-                      onClick={() => setFilterFormat(active ? null : f)}
-                      className={`chip ${active ? "chip--active" : ""} ${!isAvailable ? "opacity-30 cursor-not-allowed" : ""}`}
-                      style={active ? { background: selectedGameData.color, borderColor: selectedGameData.color } : {}}
-                    >
-                      {f === "duo" ? "Дуо" : f === "full" ? "Полный" : f}
-                    </button>
-                  );
-                })}
-              </div>
+      {selectedGameData && (
+        <div className="space-y-4">
+          <div>
+            <div className="section-label mb-2 px-1">Формат</div>
+            <div className="flex flex-wrap gap-2">
+              {["2x2", "3x3", "5x5", "duo", "full"].map((f) => {
+                const isAvailable = selectedGameData.formats.includes(f as never);
+                const active = filterFormat === f;
+                return (
+                  <button
+                    key={f}
+                    disabled={!isAvailable}
+                    onClick={() => setFilterFormat(active ? null : f)}
+                    className={`chip ${active ? "chip--active" : ""} ${!isAvailable ? "opacity-30 cursor-not-allowed" : ""}`}
+                    style={active ? { background: selectedGameData.color, borderColor: selectedGameData.color } : {}}
+                  >
+                    {f === "duo" ? "Дуо" : f === "full" ? "Полный" : f}
+                  </button>
+                );
+              })}
             </div>
+          </div>
 
-            <div>
-              <div className="section-label mb-2 px-1">Стиль игры</div>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  { code: "ranked", label: "Ранкед", emoji: "🏆" },
-                  { code: "chill", label: "Чилл", emoji: "😎" },
-                  { code: "fun", label: "Фан", emoji: "🎮" },
-                ].map((s) => {
-                  const active = filterStyle === s.code;
-                  return (
-                    <button
-                      key={s.code}
-                      onClick={() => setFilterStyle(active ? null : s.code)}
-                      className={`chip ${active ? "chip--active" : ""}`}
-                    >
-                      {s.emoji} {s.label}
-                    </button>
-                  );
-                })}
-              </div>
+          <div>
+            <div className="section-label mb-2 px-1">Стиль игры</div>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { code: "ranked", label: "Ранкед", emoji: "🏆" },
+                { code: "chill", label: "Чилл", emoji: "😎" },
+                { code: "fun", label: "Фан", emoji: "🎮" },
+              ].map((s) => {
+                const active = filterStyle === s.code;
+                return (
+                  <button
+                    key={s.code}
+                    onClick={() => setFilterStyle(active ? null : s.code)}
+                    className={`chip ${active ? "chip--active" : ""}`}
+                  >
+                    {s.emoji} {s.label}
+                  </button>
+                );
+              })}
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </div>
+        </div>
+      )}
 
       {/* Rooms list */}
       <div>
@@ -232,22 +219,12 @@ export function GamesTab({ user }: Props) {
 
         {loading ? (
           <div className="glass-card p-8 text-center">
-            <motion.div
-              animate={{ opacity: [0.4, 1, 0.4] }}
-              transition={{ repeat: Infinity, duration: 1.5 }}
-              className="text-sm text-muted-foreground"
-            >
-              Загружаем лобби...
-            </motion.div>
+            <p className="text-sm text-muted-foreground">Загружаем лобби...</p>
           </div>
         ) : rooms.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="glass-card p-8 text-center"
-          >
-            <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-3">
-              <Users className="w-7 h-7 text-primary" />
+          <div className="glass-card p-6 text-center">
+            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-3">
+              <Users className="w-6 h-6 text-primary" />
             </div>
             <p className="text-sm font-semibold">Пока пусто</p>
             <p className="text-xs text-muted-foreground mt-1 mb-4">
@@ -255,34 +232,29 @@ export function GamesTab({ user }: Props) {
                 ? `Нет активных лобби для ${selectedGameData?.name}. Создай первое!`
                 : "Создай первое лобби и ждите тиммейтов"}
             </p>
-            <button
-              onClick={() => setShowCreate(true)}
-              className="neon-btn text-xs"
-            >
+            <button onClick={() => setShowCreate(true)} className="neon-btn text-xs">
               <Plus className="w-3 h-3 inline mr-1" />
               Создать лобби
             </button>
-          </motion.div>
+          </div>
         ) : (
           <GameRoomList rooms={rooms} currentUser={user} onJoined={fetchRooms} />
         )}
       </div>
 
       {/* Create room modal */}
-      <AnimatePresence>
-        {showCreate && (
-          <CreateRoomModal
-            user={user}
-            defaultCategory="game"
-            defaultGame={selectedGame}
-            onClose={() => setShowCreate(false)}
-            onCreated={() => {
-              setShowCreate(false);
-              fetchRooms();
-            }}
-          />
-        )}
-      </AnimatePresence>
+      {showCreate && (
+        <CreateRoomModal
+          user={user}
+          defaultCategory="game"
+          defaultGame={selectedGame}
+          onClose={() => setShowCreate(false)}
+          onCreated={() => {
+            setShowCreate(false);
+            fetchRooms();
+          }}
+        />
+      )}
     </div>
   );
 }
