@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Gamepad2, Star, Users, ChevronRight,
+  Gamepad2, Star, Users, ChevronRight, Crown,
   ShieldCheck, Sparkles, TrendingUp,
 } from "lucide-react";
 import { THEME_COLORS, type UserRow } from "@/lib/supabase/client";
@@ -250,7 +250,7 @@ export function ProfileView({ user, onUserUpdate }: Props) {
         </button>
 
         {/* Match history */}
-        <button className="w-full p-4 flex items-center gap-3 hover:bg-primary/5 transition-colors text-left">
+        <button className="w-full p-4 flex items-center gap-3 hover:bg-primary/5 transition-colors text-left border-b border-border">
           <div className="w-11 h-11 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
             <TrendingUp className="w-5 h-5 text-primary" />
           </div>
@@ -259,6 +259,21 @@ export function ProfileView({ user, onUserUpdate }: Props) {
             <p className="text-xs text-muted-foreground mt-0.5">
               {user.matches_count > 0 ? `${user.matches_count} сыграно` : "Сыграй первую катку!"}
             </p>
+          </div>
+          <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+        </button>
+
+        {/* Leaderboard */}
+        <button
+          onClick={() => router.push("/leaderboard")}
+          className="w-full p-4 flex items-center gap-3 hover:bg-primary/5 transition-colors text-left"
+        >
+          <div className="w-11 h-11 rounded-xl bg-amber-400/15 flex items-center justify-center shrink-0">
+            <Crown className="w-5 h-5 text-amber-400" fill="currentColor" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-sm">Топ игроков</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">Лидерборд и рейтинги</p>
           </div>
           <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
         </button>

@@ -7,6 +7,7 @@ import { GamesTab } from "@/components/games/GamesTab";
 import { RoomsTab } from "@/components/rooms/RoomsTab";
 import { ProfileView } from "@/components/profile/ProfileView";
 import type { UserRow } from "@/lib/supabase/client";
+import { usePresence } from "@/lib/telegram/usePresence";
 
 type Tab = "games" | "rooms" | "profile";
 
@@ -79,6 +80,9 @@ export default function HomePage() {
   useEffect(() => {
     authenticate();
   }, [authenticate]);
+
+  // Online presence heartbeat
+  usePresence(user?.id ?? null);
 
   // Loading state — simple, performant
   if (loading) {
