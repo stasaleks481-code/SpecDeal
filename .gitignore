@@ -52,3 +52,12 @@ prompt
 server.log
 # Skills directory
 /skills/upload/
+
+# Workspace junk (never deploy)
+/examples
+/skills
+/.zscripts
+/mini-services
+/Caddyfile
+/tool-results
+/upload

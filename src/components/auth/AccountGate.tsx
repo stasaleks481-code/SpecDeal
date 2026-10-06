@@ -51,7 +51,7 @@ export function AccountGate({ user, hasTelegramContext, onUpgraded, onDismiss }:
       if (!res.ok || !data.user) {
         throw new Error(data.error ?? "Ошибка входа");
       }
-      haptic.notification("success");
+      haptic.success();
       onUpgraded(data.user);
     } catch (err) {
       console.error("[gate] tg upgrade error:", err);
@@ -87,20 +87,33 @@ export function AccountGate({ user, hasTelegramContext, onUpgraded, onDismiss }:
           transition={{ type: "spring", damping: 26, stiffness: 320 }}
           className="w-full max-w-md"
         >
-          <div className="rounded-3xl border border-border overflow-hidden" style={{ background: "#0e141d" }}>
+          <div
+            className="rounded-3xl border border-border overflow-hidden relative"
+            style={{
+              background: "linear-gradient(180deg, rgba(22,32,46,0.96) 0%, rgba(13,19,28,0.99) 55%)",
+              boxShadow: "var(--shadow-pop)",
+            }}
+          >
+            {/* Aurora glow on top */}
+            <div
+              className="absolute top-0 left-0 right-0 h-40 pointer-events-none"
+              style={{
+                background:
+                  "radial-gradient(300px 130px at 20% 0%, color-mix(in srgb, var(--primary) 16%, transparent), transparent 70%), radial-gradient(260px 130px at 85% 0%, rgba(123,92,240,0.14), transparent 70%)",
+              }}
+            />
             {/* Header */}
-            <div className="relative px-6 pt-7 pb-5 text-center overflow-hidden">
-              <div className="neon-strip opacity-60" />
+            <div className="relative px-6 pt-7 pb-5 text-center">
               <div
-                className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center"
+                className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center vd-tile"
                 style={{
-                  background: "linear-gradient(135deg, color-mix(in srgb, var(--primary) 30%, transparent), transparent)",
-                  border: "1px solid var(--border)",
+                  background: "linear-gradient(140deg, color-mix(in srgb, var(--primary) 32%, transparent), rgba(123,92,240,0.15))",
+                  boxShadow: "0 10px 28px -8px color-mix(in srgb, var(--primary) 45%, transparent)",
                 }}
               >
                 <Lock className="w-7 h-7 neon-text" />
               </div>
-              <h2 className="text-xl font-black neon-text">Анонимный профиль</h2>
+              <h2 className="text-xl font-black vd-gradient-text">Анонимный профиль</h2>
               <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
                 Создание комнат и голосовые звонки заблокированы.
                 <br />

@@ -85,19 +85,20 @@ export function SplashScreen({
   return (
     <motion.div
       className="fixed inset-0 z-[200] flex flex-col items-center justify-center"
-      style={{ background: "#0e141d" }}
+      style={{ background: "#0b111a" }}
       initial={{ opacity: 1 }}
       exit={{ opacity: 0, scale: 1.04 }}
       transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
     >
-      {/* ── Logo: animated waveform (flat tile, no border / glow) ── */}
+      {/* ── Logo: animated waveform — duotone gradient tile ── */}
       <motion.div
         initial={{ scale: 0.6, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ type: "spring", damping: 16, stiffness: 220, delay: 0.08 }}
         className="relative w-24 h-24 rounded-3xl flex items-center justify-center gap-1.5 mb-7"
         style={{
-          background: "linear-gradient(135deg, #1b2838 0%, #12202e 100%)",
+          background: "linear-gradient(140deg, #2f7cf6 0%, #7b5cf0 55%, #1b2838 130%)",
+          boxShadow: "0 16px 44px -14px rgba(94, 108, 243, 0.55), 0 1px 0 rgba(255,255,255,0.28) inset",
         }}
       >
         {BAR_HEIGHTS.map((h, i) => (
@@ -106,7 +107,7 @@ export function SplashScreen({
             className="w-1.5 rounded-full"
             style={{
               height: "38%",
-              background: "linear-gradient(180deg, #66c0f4, #1a6ea0)",
+              background: "linear-gradient(180deg, #ffffff, #cfe0ff)",
               transformOrigin: "center",
               willChange: "transform",
             }}
@@ -154,7 +155,7 @@ export function SplashScreen({
           ref={progressRef}
           className="h-full w-full rounded-full"
           style={{
-            background: "linear-gradient(90deg, #1a6ea0, #66c0f4)",
+            background: "linear-gradient(90deg, #2f7cf6, #7b5cf0, #a855f7)",
             transform: "scaleX(0)",
             transformOrigin: "left center",
             willChange: "transform",

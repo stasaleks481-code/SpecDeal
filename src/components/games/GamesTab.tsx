@@ -67,7 +67,7 @@ export function GamesTab({ user }: Props) {
       <div className="max-w-md mx-auto px-4 py-4 pb-6 space-y-4 fade-in">
         <button
           onClick={() => handleSelectGame(null)}
-          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
+          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors font-semibold"
         >
           <ArrowLeft className="w-4 h-4" />
           Все игры
@@ -206,16 +206,19 @@ export function GamesTab({ user }: Props) {
               <p className="text-sm text-muted-foreground">Загружаем лобби...</p>
             </div>
           ) : rooms.length === 0 ? (
-            <div className="glass-card p-6 text-center">
-              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-3">
-                <Users className="w-6 h-6 text-primary" />
+            <div className="glass-card p-7 text-center">
+              <div
+                className="w-14 h-14 vd-tile mx-auto mb-4"
+                style={{ background: "linear-gradient(140deg, rgba(255,154,61,0.28), rgba(255,94,98,0.16))", borderColor: "rgba(255,140,90,0.35)" }}
+              >
+                <Users className="w-6 h-6 text-orange-300" />
               </div>
-              <p className="text-sm font-semibold">Пока пусто</p>
+              <p className="text-sm font-bold">Пока пусто</p>
               <p className="text-xs text-muted-foreground mt-1 mb-4">
                 Создай первое лобби для {selectedGameData.name}!
               </p>
               <button onClick={() => setShowCreate(true)} className="neon-btn text-xs">
-                <Plus className="w-3 h-3 inline mr-1" />
+                <Plus className="w-3 h-3" />
                 Создать лобби
               </button>
             </div>
@@ -243,21 +246,17 @@ export function GamesTab({ user }: Props) {
   // ━━━ Main view: games grid ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   return (
     <div className="max-w-md mx-auto px-4 py-4 pb-6 space-y-5 fade-in">
-      {/* Hero header */}
-      <div className="relative overflow-hidden rounded-2xl border border-border bg-[#1b2838]/40">
-        <div className="neon-strip" />
-        <div className="p-4 flex items-center gap-3">
-          <div
-            className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
-            style={{ background: "var(--primary)" }}
-          >
-            <Search className="w-5 h-5 text-[#0e141d]" />
+      {/* Hero header — gaming duotone */}
+      <div className="vd-hero" style={{ background: "var(--grad-gaming)", "--hero-color": "#ff7a50" } as React.CSSProperties}>
+        <div className="flex items-center gap-3.5">
+          <div className="vd-tile w-12 h-12">
+            <Search className="w-5 h-5" />
           </div>
           <div className="flex-1 min-w-0">
-            <h1 className="text-base font-bold neon-text leading-tight">
+            <h1 className="text-lg font-black leading-tight tracking-tight">
               Найди тиммейтов
             </h1>
-            <p className="text-xs text-muted-foreground mt-0.5">
+            <p className="text-xs text-white/75 mt-1 font-medium">
               Выбери игру и создай лобби
             </p>
           </div>

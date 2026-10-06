@@ -101,40 +101,48 @@ export function SupportCenter({ open, onClose }: { open: boolean; onClose: () =>
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={{ type: "spring", damping: 28, stiffness: 320 }}
-            className="w-full max-w-md rounded-t-3xl bg-[#0e141d] border-t border-x border-border max-h-[88vh] flex flex-col"
+            className="w-full max-w-md rounded-t-3xl border-t border-x border-border max-h-[88vh] flex flex-col"
+            style={{
+              background: "linear-gradient(180deg, rgba(17,24,35,0.98), rgba(11,17,26,0.99))",
+              backdropFilter: "blur(16px)",
+              WebkitBackdropFilter: "blur(16px)",
+            }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
             <div className="p-4 pb-3 border-b border-border shrink-0">
-              <div className="mx-auto w-10 h-1 rounded-full bg-white/15 mb-3" />
+              <div className="mx-auto w-10 h-1 rounded-full bg-white/20 mb-3" />
               <div className="flex items-center gap-2.5">
-                <span className="w-9 h-9 rounded-xl bg-primary/15 flex items-center justify-center">
-                  <LifeBuoy className="w-5 h-5 text-primary" />
+                <span
+                  className="w-9 h-9 rounded-xl flex items-center justify-center"
+                  style={{ background: "linear-gradient(140deg, rgba(52,211,153,0.25), rgba(34,211,238,0.12))", border: "1px solid rgba(52,211,153,0.3)" }}
+                >
+                  <LifeBuoy className="w-5 h-5 text-emerald-300" />
                 </span>
                 <div className="flex-1">
                   <h2 className="text-sm font-bold">Поддержка VoiceDeck</h2>
                   <p className="text-[10px] text-muted-foreground">Баги, идеи, вопросы — отвечаем быстро</p>
                 </div>
-                <button onClick={onClose} className="p-2 rounded-xl hover:bg-white/5 text-muted-foreground">
+                <button onClick={onClose} className="w-8 h-8 rounded-full bg-white/[0.06] flex items-center justify-center text-muted-foreground">
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
               {/* Tabs */}
-              <div className="flex gap-1 p-1 bg-black/30 rounded-xl border border-border mt-3">
+              <div className="flex gap-1 p-1 rounded-xl border border-border mt-3" style={{ background: "rgba(255,255,255,0.04)" }}>
                 <button
                   onClick={() => setTab("new")}
-                  className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${tab === "new" ? "neon-btn" : "text-muted-foreground"}`}
+                  className={`flex-1 py-2 rounded-lg text-xs font-bold transition-colors ${tab === "new" ? "neon-btn" : "text-muted-foreground"}`}
                 >
                   Написать
                 </button>
                 <button
                   onClick={() => setTab("my")}
-                  className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 ${tab === "my" ? "neon-btn" : "text-muted-foreground"}`}
+                  className={`flex-1 py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1.5 ${tab === "my" ? "neon-btn" : "text-muted-foreground"}`}
                 >
                   Мои обращения
                   {tickets.filter((t) => t.status !== "resolved").length > 0 && (
-                    <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-primary text-[#0e141d]">
+                    <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-primary text-[#071019]">
                       {tickets.filter((t) => t.status !== "resolved").length}
                     </span>
                   )}

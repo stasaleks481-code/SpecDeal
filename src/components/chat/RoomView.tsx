@@ -440,19 +440,28 @@ export function RoomView({ user }: Props) {
 
   return (
     <div className="flex flex-col h-screen relative">
-      {/* Header */}
-      <header className="bg-[#0e141d] border-b border-border z-20">
-        <div className="neon-strip" />
+      {/* Header — floating glass */}
+      <header
+        className="border-b border-border z-20"
+        style={{
+          background: "linear-gradient(180deg, rgba(11,17,26,0.96) 0%, rgba(11,17,26,0.88) 100%)",
+          backdropFilter: "blur(14px)",
+          WebkitBackdropFilter: "blur(14px)",
+        }}
+      >
         <div className="px-3 py-3 flex items-center gap-3">
           <button
             onClick={() => router.push("/")}
-            className="p-1.5 -ml-1.5 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+            className="w-9 h-9 rounded-xl bg-white/[0.05] border border-border flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-white/[0.08] transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
 
           {game && (
-            <div className="relative w-9 h-9 rounded-lg overflow-hidden shrink-0">
+            <div
+              className="relative w-10 h-10 rounded-xl overflow-hidden shrink-0"
+              style={{ border: "1px solid rgba(255,255,255,0.14)", boxShadow: `0 4px 12px -4px ${game.color}70` }}
+            >
               {game.banner ? (
                 <img src={game.banner} alt="" className="w-full h-full object-cover" />
               ) : (
@@ -462,7 +471,7 @@ export function RoomView({ user }: Props) {
           )}
 
           <div className="flex-1 min-w-0">
-            <h1 className="font-semibold text-sm truncate">{room.title}</h1>
+            <h1 className="font-bold text-sm truncate tracking-tight">{room.title}</h1>
             <div className="flex items-center gap-1.5">
               <button
                 className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
@@ -472,8 +481,8 @@ export function RoomView({ user }: Props) {
               </button>
               {partyDef && (
                 <span
-                  className="text-[9px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-1"
-                  style={{ background: `${partyDef.color}1E`, color: partyDef.color, border: `1px solid ${partyDef.color}44` }}
+                  className="text-[9px] font-black px-1.5 py-0.5 rounded-md flex items-center gap-1 uppercase tracking-wide"
+                  style={{ background: `${partyDef.color}22`, color: partyDef.color, border: `1px solid ${partyDef.color}50` }}
                 >
                   <PartyGameIcon code={partyDef.code} className="w-3 h-3" />
                   {partyDef.name}
@@ -481,8 +490,8 @@ export function RoomView({ user }: Props) {
               )}
               {skillMeta && (
                 <span
-                  className="text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase"
-                  style={{ background: `${skillMeta.color}1E`, color: skillMeta.color, border: `1px solid ${skillMeta.color}44` }}
+                  className="text-[9px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-wide"
+                  style={{ background: `${skillMeta.color}22`, color: skillMeta.color, border: `1px solid ${skillMeta.color}50` }}
                 >
                   {skillMeta.short}
                 </span>
@@ -497,14 +506,14 @@ export function RoomView({ user }: Props) {
                   haptic.impact("light");
                   setShowHostMenu(true);
                 }}
-                className="p-2 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+                className="w-9 h-9 rounded-xl bg-white/[0.05] border border-border flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-white/[0.08] transition-colors"
                 aria-label="Управление комнатой"
               >
                 <Settings2 className="w-4 h-4" />
               </button>
               <button
                 onClick={leaveRoom}
-                className="p-2 rounded-lg hover:bg-red-500/10 text-muted-foreground hover:text-red-400 transition-colors"
+                className="w-9 h-9 rounded-xl bg-red-500/10 border border-red-500/25 flex items-center justify-center text-red-400/90 hover:bg-red-500/20 hover:text-red-300 transition-colors"
                 aria-label="Выйти из комнаты"
               >
                 <LogOut className="w-4 h-4" />
@@ -513,7 +522,7 @@ export function RoomView({ user }: Props) {
           ) : (
             <button
               onClick={leaveRoom}
-              className="p-2 rounded-lg hover:bg-red-500/10 text-muted-foreground hover:text-red-400 transition-colors"
+              className="w-9 h-9 rounded-xl bg-red-500/10 border border-red-500/25 flex items-center justify-center text-red-400/90 hover:bg-red-500/20 hover:text-red-300 transition-colors"
             >
               <LogOut className="w-4 h-4" />
             </button>
@@ -564,15 +573,17 @@ export function RoomView({ user }: Props) {
 
             {/* Call status */}
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${
-                  voiceCall.isInCall ? "bg-green-500 animate-pulse" : "bg-amber-400 animate-pulse"
-                }`} />
-                <span className="text-sm font-semibold">
+              <div className="flex items-center gap-2.5">
+                {voiceCall.isInCall ? (
+                  <span className="vd-live" />
+                ) : (
+                  <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                )}
+                <span className="text-sm font-bold">
                   {voiceCall.isInCall ? "Голосовой канал" : "Не в голосе"}
                 </span>
                 {voiceCall.closedNotice === "voice" && (
-                  <span className="text-[11px] font-semibold text-amber-300 bg-amber-400/10 border border-amber-400/30 px-2 py-0.5 rounded-md">
+                  <span className="text-[11px] font-bold text-amber-300 bg-amber-400/10 border border-amber-400/30 px-2 py-0.5 rounded-md">
                     Хост завершил созвон
                   </span>
                 )}
@@ -587,18 +598,24 @@ export function RoomView({ user }: Props) {
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="glass-card p-6 text-center"
+                className="glass-card p-7 text-center relative overflow-hidden"
               >
+                {/* soft green glow behind the tile */}
                 <div
-                  className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
+                  className="absolute -top-16 left-1/2 -translate-x-1/2 w-56 h-40 pointer-events-none"
+                  style={{ background: "radial-gradient(closest-side, rgba(63,185,80,0.16), transparent)", filter: "blur(4px)" }}
+                />
+                <div
+                  className="w-16 h-16 vd-tile mx-auto mb-4"
                   style={{
-                    background: "linear-gradient(135deg, rgba(63,185,80,0.15), rgba(63,185,80,0.05))",
-                    border: "1px solid rgba(63,185,80,0.35)",
+                    background: "linear-gradient(140deg, rgba(63,185,80,0.3), rgba(34,197,94,0.12))",
+                    border: "1px solid rgba(63,185,80,0.4)",
+                    boxShadow: "0 10px 28px -8px rgba(63,185,80,0.5)",
                   }}
                 >
                   <PhoneIncoming className="w-7 h-7 text-green-400" />
                 </div>
-                <p className="text-sm font-bold mb-1">Голосовой канал</p>
+                <p className="text-sm font-black mb-1">Голосовой канал</p>
                 <p className="text-xs text-muted-foreground mb-5 max-w-[260px] mx-auto leading-relaxed">
                   {partyDef
                     ? `Для «${partyDef.name}» нужен голос. Подключись, когда будешь готов.`
@@ -609,7 +626,7 @@ export function RoomView({ user }: Props) {
                     haptic.impact("medium");
                     voiceCall.joinCall();
                   }}
-                  className="neon-btn w-full text-sm py-3 flex items-center justify-center gap-2"
+                  className="neon-btn w-full text-sm py-3.5"
                 >
                   <Mic className="w-4 h-4" />
                   Присоединиться к голосу
@@ -760,9 +777,16 @@ export function RoomView({ user }: Props) {
         )}
       </div>
 
-      {/* ━━━ CALL CONTROLS (Discord-style bottom bar) ━━━━━━━━━━━━━━ */}
-      <div className="bg-[#0e141d] border-t border-border z-20">
-        <div className="max-w-md mx-auto flex items-center justify-center gap-3 py-3 px-4 safe-area-inset-bottom">
+      {/* ━━━ CALL CONTROLS (premium bottom bar) ━━━━━━━━━━━━━━ */}
+      <div
+        className="border-t border-border z-20"
+        style={{
+          background: "linear-gradient(0deg, rgba(11,17,26,0.98) 0%, rgba(11,17,26,0.9) 100%)",
+          backdropFilter: "blur(14px)",
+          WebkitBackdropFilter: "blur(14px)",
+        }}
+      >
+        <div className="max-w-md mx-auto flex items-center justify-center gap-3.5 py-4 px-4 safe-area-inset-bottom">
           {/* Mute (self) */}
           <button
             onClick={() => {
@@ -774,13 +798,22 @@ export function RoomView({ user }: Props) {
               voiceCall.toggleMute();
             }}
             disabled={isAnonymous || !voiceCall.isInCall}
-            className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors disabled:opacity-40 ${
+            className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all disabled:opacity-40 border ${
               voiceCall.forceMuted
-                ? "bg-red-500/30 text-red-300 border border-red-500/50"
+                ? "bg-red-500/25 text-red-300 border-red-500/50 shadow-[0_0_16px_-4px_rgba(255,77,106,0.5)]"
                 : voiceCall.isMuted
-                ? "bg-red-500/20 text-red-400"
-                : "bg-primary/10 text-primary hover:bg-primary/20"
+                ? "bg-red-500/15 text-red-400 border-red-500/30"
+                : "text-white border-white/15"
             }`}
+            style={
+              !voiceCall.isMuted && !voiceCall.forceMuted
+                ? {
+                    background: "linear-gradient(140deg, rgba(63,185,80,0.28), rgba(34,197,94,0.12))",
+                    borderColor: "rgba(63,185,80,0.45)",
+                    boxShadow: "0 6px 18px -6px rgba(63,185,80,0.5)",
+                  }
+                : undefined
+            }
             aria-label={voiceCall.isMuted ? "Включить микрофон" : "Выключить микрофон"}
           >
             {voiceCall.forceMuted ? (
@@ -799,24 +832,29 @@ export function RoomView({ user }: Props) {
               setDeafened(!deafened);
             }}
             disabled={isAnonymous || !voiceCall.isInCall}
-            className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors disabled:opacity-40 ${
+            className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all disabled:opacity-40 border ${
               deafened
-                ? "bg-red-500/20 text-red-400"
-                : "bg-muted/30 text-muted-foreground hover:bg-muted/50"
+                ? "bg-red-500/15 text-red-400 border-red-500/30"
+                : "bg-white/[0.05] text-muted-foreground hover:bg-white/[0.09] border-border"
             }`}
             aria-label={deafened ? "Включить звук" : "Выключить звук"}
           >
             {deafened ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
           </button>
 
-          {/* Leave call */}
+          {/* Leave call — danger gradient orb */}
           <button
             onClick={() => {
               haptic.impact("medium");
               voiceCall.leaveCall();
             }}
             disabled={isAnonymous || !voiceCall.isInCall}
-            className="w-14 h-14 rounded-full flex items-center justify-center bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors disabled:opacity-40"
+            className="w-14 h-14 rounded-full flex items-center justify-center text-white transition-all active:scale-95 disabled:opacity-40"
+            style={{
+              background: "var(--grad-danger)",
+              border: "1px solid rgba(255,130,140,0.5)",
+              boxShadow: "0 10px 26px -8px rgba(255,77,106,0.6), 0 1px 0 rgba(255,255,255,0.3) inset",
+            }}
             aria-label="Покинуть звонок"
           >
             <PhoneOff className="w-6 h-6" />
@@ -828,14 +866,16 @@ export function RoomView({ user }: Props) {
               haptic.impact("light");
               setShowChat(!showChat);
             }}
-            className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors relative ${
-              showChat ? "bg-primary/20 text-primary" : "bg-muted/30 text-muted-foreground"
+            className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all relative border ${
+              showChat
+                ? "bg-primary/15 text-primary border-primary/40"
+                : "bg-white/[0.05] text-muted-foreground hover:bg-white/[0.09] border-border"
             }`}
             aria-label="Открыть чат"
           >
             <MessageSquare className="w-5 h-5" />
             {messages.length > 0 && !showChat && (
-              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-primary animate-pulse" />
+              <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-primary animate-pulse shadow-[0_0_8px_var(--primary)]" />
             )}
           </button>
         </div>
@@ -845,8 +885,14 @@ export function RoomView({ user }: Props) {
       <AnimatePresence>
         {showChat && (
           <motion.div
-            className="fixed left-0 right-0 bottom-0 z-40 bg-[#0e141d] border-t border-border rounded-t-2xl flex flex-col"
-            style={{ maxHeight: "62vh", boxShadow: "0 -8px 40px rgba(0,0,0,0.6)" }}
+            className="fixed left-0 right-0 bottom-0 z-40 border-t border-border rounded-t-3xl flex flex-col"
+            style={{
+              maxHeight: "62vh",
+              boxShadow: "0 -12px 48px rgba(0,0,0,0.65)",
+              background: "linear-gradient(180deg, rgba(17,24,35,0.98), rgba(11,17,26,0.99))",
+              backdropFilter: "blur(16px)",
+              WebkitBackdropFilter: "blur(16px)",
+            }}
             initial={{ y: "100%" }}
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
@@ -861,26 +907,26 @@ export function RoomView({ user }: Props) {
             }}
           >
             {/* Drag handle */}
-            <div className="pt-2 pb-1 flex justify-center cursor-grab active:cursor-grabbing touch-none">
-              <div className="w-10 h-1.5 rounded-full bg-white/15" />
+            <div className="pt-2.5 pb-1 flex justify-center cursor-grab active:cursor-grabbing touch-none">
+              <div className="w-10 h-1.5 rounded-full bg-white/20" />
             </div>
 
             {/* Sheet header */}
-            <div className="px-4 pb-2 flex items-center justify-between border-b border-border">
+            <div className="px-4 pb-2.5 flex items-center justify-between border-b border-border">
               <div className="flex items-center gap-2">
                 <MessageSquare className="w-4 h-4 text-primary" />
-                <span className="text-sm font-semibold">Текстовый чат</span>
+                <span className="text-sm font-bold">Текстовый чат</span>
               </div>
               <button
                 onClick={() => setShowChat(false)}
-                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground transition-colors"
+                className="w-7 h-7 rounded-full bg-white/[0.06] flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             {/* Messages */}
-            <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-2 space-y-2 min-h-[160px]">
+            <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-2.5 space-y-2 min-h-[160px]">
               {messages.length === 0 ? (
                 <p className="text-center text-xs text-muted-foreground py-6">
                   Нет сообщений. Напиши первым!
@@ -906,11 +952,19 @@ export function RoomView({ user }: Props) {
                             )}
                           </p>
                         )}
-                        <div className={`rounded-2xl px-3 py-1.5 text-sm break-words ${
-                          isMe
-                            ? "bg-primary text-[#0e141d] rounded-br-md"
-                            : "bg-[#1b2838] border border-border rounded-bl-md"
-                        }`}>
+                        <div
+                          className={`rounded-2xl px-3.5 py-2 text-sm break-words ${
+                            isMe ? "text-[#071019] rounded-br-md font-medium" : "text-foreground rounded-bl-md border border-border"
+                          }`}
+                          style={
+                            isMe
+                              ? {
+                                  background: "linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 60%, #2f7cf6))",
+                                  boxShadow: "0 4px 14px -6px color-mix(in srgb, var(--primary) 50%, transparent)",
+                                }
+                              : { background: "rgba(255,255,255,0.05)" }
+                          }
+                        >
                           {msg.content}
                         </div>
                       </div>
@@ -921,7 +975,7 @@ export function RoomView({ user }: Props) {
             </div>
 
             {/* Input */}
-            <div className="p-2 border-t border-border safe-area-inset-bottom">
+            <div className="p-2.5 border-t border-border safe-area-inset-bottom">
               <div className="flex items-center gap-2">
                 <input
                   ref={inputRef}
@@ -936,12 +990,12 @@ export function RoomView({ user }: Props) {
                   }}
                   placeholder="Сообщение..."
                   maxLength={1000}
-                  className="flex-1 px-4 py-2 rounded-full bg-[#1b2838] border border-border focus:border-primary outline-none text-sm"
+                  className="flex-1 vd-input !rounded-full !py-2.5"
                 />
                 <button
                   onClick={sendMessage}
                   disabled={!input.trim()}
-                  className="neon-btn !p-2 !rounded-full disabled:opacity-40"
+                  className="neon-btn !p-2.5 !rounded-full disabled:opacity-40"
                 >
                   <Send className="w-4 h-4" />
                 </button>
@@ -967,17 +1021,27 @@ export function RoomView({ user }: Props) {
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 30, stiffness: 320 }}
-              className="w-full max-w-md bg-[#0e141d] border-t border-border rounded-t-2xl p-4 pb-6 safe-area-inset-bottom"
+              className="w-full max-w-md border-t border-border rounded-t-3xl p-4 pb-6 safe-area-inset-bottom"
+              style={{
+                background: "linear-gradient(180deg, rgba(17,24,35,0.98), rgba(11,17,26,0.99))",
+                backdropFilter: "blur(16px)",
+                WebkitBackdropFilter: "blur(16px)",
+              }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex justify-center mb-3">
+                <div className="w-10 h-1.5 rounded-full bg-white/20" />
+              </div>
+              <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  <Settings2 className="w-4 h-4 text-primary" />
+                  <span className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: "linear-gradient(140deg, rgba(47,124,246,0.25), rgba(123,92,240,0.12))", border: "1px solid rgba(94,108,243,0.3)" }}>
+                    <Settings2 className="w-4 h-4 text-[#8db4ff]" />
+                  </span>
                   <span className="text-sm font-bold">Управление комнатой</span>
                 </div>
                 <button
                   onClick={() => setShowHostMenu(false)}
-                  className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground transition-colors"
+                  className="w-7 h-7 rounded-full bg-white/[0.06] flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
                   aria-label="Закрыть"
                 >
                   <X className="w-4 h-4" />
@@ -987,10 +1051,17 @@ export function RoomView({ user }: Props) {
               {/* End call for everyone */}
               <button
                 onClick={endCallForAll}
-                className="w-full glass-card p-3.5 flex items-center gap-3 text-left mb-2 hover:border-amber-400/40 transition-colors"
+                className="w-full room-card p-3.5 flex items-center gap-3 text-left mb-2.5"
+                style={{
+                  background: "linear-gradient(135deg, rgba(255,182,39,0.1), rgba(255,138,39,0.04))",
+                  borderColor: "rgba(255,182,39,0.32)",
+                }}
               >
-                <div className="w-10 h-10 rounded-xl bg-amber-400/15 flex items-center justify-center shrink-0">
-                  <VolumeX className="w-5 h-5 text-amber-300" />
+                <div
+                  className="vd-tile w-10 h-10"
+                  style={{ background: "linear-gradient(140deg, #ffd76f, #ff9d3d)", border: "1px solid rgba(255,220,140,0.4)" }}
+                >
+                  <VolumeX className="w-5 h-5 text-[#3a2506]" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold">Завершить созвон</p>
@@ -1000,20 +1071,25 @@ export function RoomView({ user }: Props) {
                 </div>
               </button>
 
-              {/* Delete room */}
+              {/* Delete room — danger gradient */}
               <button
                 onClick={deleteRoom}
-                className="w-full glass-card p-3.5 flex items-center gap-3 text-left hover:border-red-500/40 transition-colors"
-                style={{ background: "rgba(218, 48, 48, 0.07)" }}
+                className="w-full rounded-[19px] p-[1px] text-left"
+                style={{ background: "linear-gradient(120deg, rgba(255,77,106,0.7), rgba(255,133,81,0.5) 60%, rgba(255,255,255,0.05))" }}
               >
-                <div className="w-10 h-10 rounded-xl bg-red-500/15 flex items-center justify-center shrink-0">
-                  <Trash2 className="w-5 h-5 text-red-400" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-red-300">Удалить комнату</p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">
-                    Принудительно закроет и удалит её для всех участников
-                  </p>
+                <div className="rounded-[18px] p-3.5 flex items-center gap-3" style={{ background: "linear-gradient(180deg, rgba(30,18,22,0.98), rgba(17,13,15,0.99))" }}>
+                  <div
+                    className="vd-tile w-10 h-10"
+                    style={{ background: "var(--grad-danger)", border: "1px solid rgba(255,140,150,0.45)" }}
+                  >
+                    <Trash2 className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-red-200">Удалить комнату</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      Принудительно закроет и удалит её для всех участников
+                    </p>
+                  </div>
                 </div>
               </button>
 

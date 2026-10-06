@@ -97,7 +97,7 @@ export function useVoiceCall({ roomId, userId, isHost, userInfo }: Props) {
 
   // ── Speaking detection (Web Audio) ─────────────────────────────
   const audioCtxRef = useRef<AudioContext | null>(null);
-  const analysersRef = useRef<Map<number, { analyser: AnalyserNode; data: Uint8Array; lastLevel: number }>>(new Map());
+  const analysersRef = useRef<Map<number, { analyser: AnalyserNode; data: Uint8Array<ArrayBuffer>; lastLevel: number }>>(new Map());
   const speakingLoopRef = useRef<number>(0);
   /** Speaking state emitted externally — throttled updates */
   const speakingStateRef = useRef<Map<number, boolean>>(new Map());

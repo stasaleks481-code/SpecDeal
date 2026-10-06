@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 import { Crown, Star } from "lucide-react";
 import type { UserRow } from "@/lib/supabase/client";
 import { RankMedal } from "@/components/icons";
@@ -58,30 +59,49 @@ export function LeaderboardView({ currentUser }: Props) {
 
   return (
     <div className="max-w-md mx-auto px-4 py-4 pb-6 space-y-4">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="flex-1">
-          <h1 className="text-lg font-bold flex items-center gap-2">
-            <Crown className="w-5 h-5 text-amber-400" fill="currentColor" />
-            Топ игроков
-          </h1>
+      {/* Header — gold hero */}
+      <div className="vd-hero" style={{ background: "var(--grad-gold)", "--hero-color": "#ffb648" } as React.CSSProperties}>
+        <div className="flex items-center gap-3.5">
+          <div className="vd-tile w-12 h-12" style={{ background: "rgba(58,37,6,0.35)", borderColor: "rgba(58,37,6,0.4)" }}>
+            <Crown className="w-5 h-5 text-[#fff3d0]" fill="currentColor" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-lg font-black leading-tight tracking-tight text-[#2b1a04]">Топ игроков</h1>
+            <p className="text-xs text-[#4a3208]/80 mt-1 font-bold">
+              Лучшие из лучших — рейтинг, матчи, отзывы
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* Neon strip */}
-      <div className="neon-strip" />
-
       {/* Sort toggle */}
-      <div className="flex gap-1 p-1 bg-background/40 rounded-xl border border-border">
+      <div
+        className="flex gap-1 p-1 rounded-2xl border border-border"
+        style={{
+          background: "rgba(255,255,255,0.035)",
+          boxShadow: "0 1px 0 rgba(255,255,255,0.05) inset, 0 8px 20px -12px rgba(0,0,0,0.6)",
+        }}
+      >
         {Object.entries(sortLabels).map(([code, label]) => (
           <button
             key={code}
             onClick={() => setSort(code as typeof sort)}
-            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${
-              sort === code ? "neon-btn" : "text-muted-foreground"
+            className={`relative flex-1 py-2.5 rounded-xl text-xs font-bold transition-colors ${
+              sort === code ? "text-[#2b1a04]" : "text-muted-foreground"
             }`}
           >
-            {label}
+            {sort === code && (
+              <motion.span
+                layoutId="lb-sort-pill"
+                className="absolute inset-0 rounded-xl"
+                style={{
+                  background: "var(--grad-gold)",
+                  boxShadow: "0 6px 16px -6px rgba(255,182,72,0.55), 0 1px 0 rgba(255,255,255,0.4) inset",
+                }}
+                transition={{ type: "spring", damping: 26, stiffness: 320 }}
+              />
+            )}
+            <span className="relative z-10">{label}</span>
           </button>
         ))}
       </div>
@@ -117,32 +137,41 @@ export function LeaderboardView({ currentUser }: Props) {
                 key={entry.id}
                 onClick={() => router.push(`/users/${entry.id}`)}
                 className={`room-card w-full text-left ${isMe ? "border-primary/50" : ""}`}
-                style={isMe ? { boxShadow: "0 0 0 1px var(--primary)" } : undefined}
+                style={isMe ? { boxShadow: "0 0 0 1.5px color-mix(in srgb, var(--primary) 65%, transparent), 0 0 20px -6px color-mix(in srgb, var(--primary) 40%, transparent)" } : rank <= 3 ? { borderColor: "rgba(255,200,90,0.3)" } : undefined}
               >
                 <div className="flex items-center gap-3">
                   {/* Rank */}
                   <div className="w-8 flex justify-center shrink-0">
                     {rank <= 3 ? (
-                      <RankMedal rank={rank} className="w-7 h-7" />
+                      <RankMedal rank={rank} className="w-8 h-8 drop-shadow-[0_0_8px_rgba(255,190,80,0.45)]" />
                     ) : (
-                      <span className="font-bold text-sm">{rank}</span>
+                      <span className="font-black text-sm text-muted-foreground">{rank}</span>
                     )}
                   </div>
 
                   {/* Avatar */}
                   {entry.photo_url ? (
-                    <img src={entry.photo_url} alt="" className="w-9 h-9 rounded-full object-cover" />
+                    <img
+                      src={entry.photo_url}
+                      alt=""
+                      className="w-10 h-10 rounded-full object-cover"
+                      style={{
+                        boxShadow: rank <= 3
+                          ? "0 0 0 2px rgba(255,200,90,0.55), 0 0 14px -2px rgba(255,190,80,0.5)"
+                          : "0 0 0 2px rgba(255,255,255,0.08)",
+                      }}
+                    />
                   ) : (
-                    <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center text-sm font-bold">
+                    <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-sm font-bold">
                       {entry.first_name?.[0] ?? "?"}
                     </div>
                   )}
 
                   {/* Name */}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold truncate flex items-center gap-1">
+                    <p className="text-sm font-bold truncate flex items-center gap-1">
                       {entry.username ? `@${entry.username}` : entry.first_name}
-                      {isMe && <span className="text-[10px] text-primary">(Вы)</span>}
+                      {isMe && <span className="text-[10px] text-primary font-black">(Вы)</span>}
                     </p>
                     <p className="text-xs text-muted-foreground truncate">
                       {entry.first_name} {entry.last_name}
@@ -151,8 +180,8 @@ export function LeaderboardView({ currentUser }: Props) {
 
                   {/* Value */}
                   <div className="text-right shrink-0">
-                    <p className="text-sm font-bold neon-text">{value}</p>
-                    <p className="text-[9px] text-muted-foreground uppercase tracking-wider">
+                    <p className="text-base font-black neon-text leading-none">{value}</p>
+                    <p className="text-[9px] text-muted-foreground uppercase tracking-wider mt-1">
                       {valueLabel}
                     </p>
                   </div>

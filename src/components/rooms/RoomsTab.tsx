@@ -52,20 +52,16 @@ export function RoomsTab({ user, embedded = false }: Props) {
     <div className="max-w-md mx-auto px-4 py-4 pb-6 space-y-5">
       {/* Hero (hidden when embedded in the HomeHub) */}
       {!embedded && (
-      <div className="relative overflow-hidden rounded-2xl border border-border bg-[#1b2838]/40">
-        <div className="neon-strip" />
-        <div className="p-4 flex items-center gap-3">
-          <div
-            className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
-            style={{ background: "var(--primary)" }}
-          >
-            <Moon className="w-5 h-5 text-[#0e141d]" />
+      <div className="vd-hero" style={{ background: "var(--grad-vocal)", "--hero-color": "#2f7cf6" } as React.CSSProperties}>
+        <div className="flex items-center gap-3.5">
+          <div className="vd-tile w-12 h-12">
+            <Moon className="w-5 h-5" />
           </div>
           <div className="flex-1 min-w-0">
-            <h1 className="text-base font-bold neon-text leading-tight">
+            <h1 className="text-lg font-black leading-tight tracking-tight">
               Голосовые комнаты
             </h1>
-            <p className="text-xs text-muted-foreground mt-0.5">
+            <p className="text-xs text-white/75 mt-1 font-medium">
               Заходи в голос — просто поболтать, без цели
             </p>
           </div>
@@ -73,25 +69,37 @@ export function RoomsTab({ user, embedded = false }: Props) {
       </div>
       )}
 
-      {/* Create CTA — big, friendly */}
+      {/* Create CTA — premium gradient-bordered invitation */}
       <button
         onClick={() => setShowCreate(true)}
-        className="w-full rounded-2xl border border-dashed border-primary/35 p-5 flex items-center gap-3 text-left transition-colors hover:border-primary/60"
-        style={{ background: "rgba(255,255,255,0.02)" }}
+        className="w-full rounded-3xl p-[1px] text-left transition-transform active:scale-[0.985]"
+        style={{
+          background: "linear-gradient(120deg, color-mix(in srgb, var(--primary) 55%, transparent), rgba(123,92,240,0.4) 45%, rgba(255,255,255,0.06))",
+        }}
       >
         <div
-          className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
-          style={{
-            background: "linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 50%, #1b2838))",
-          }}
+          className="rounded-[23px] p-4 flex items-center gap-3.5"
+          style={{ background: "linear-gradient(180deg, rgba(22,32,46,0.96), rgba(15,22,33,0.98))" }}
         >
-          <Plus className="w-5 h-5 text-[#0e141d]" strokeWidth={2.5} />
-        </div>
-        <div className="flex-1">
-          <p className="text-sm font-bold">Создать комнату общения</p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Название не обязательно — всё готово за 5 секунд
-          </p>
+          <div
+            className="vd-tile w-11 h-11"
+            style={{
+              background: "linear-gradient(140deg, #2f7cf6, #7b5cf0)",
+              border: "1px solid rgba(255,255,255,0.25)",
+              boxShadow: "0 8px 20px -6px rgba(94,108,243,0.55)",
+            }}
+          >
+            <Plus className="w-5 h-5" strokeWidth={2.75} />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-bold">Создать комнату общения</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Название не обязательно — всё готово за 5 секунд
+            </p>
+          </div>
+          <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full text-white" style={{ background: "linear-gradient(135deg, #2f7cf6, #7b5cf0)" }}>
+            NEW
+          </span>
         </div>
       </button>
 
@@ -122,16 +130,19 @@ export function RoomsTab({ user, embedded = false }: Props) {
             ))}
           </div>
         ) : rooms.length === 0 ? (
-          <div className="glass-card p-6 text-center">
-            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-3">
-              <MessageCircle className="w-6 h-6 text-primary" />
+          <div className="glass-card p-7 text-center">
+            <div
+              className="w-14 h-14 vd-tile mx-auto mb-4"
+              style={{ background: "linear-gradient(140deg, rgba(47,124,246,0.3), rgba(123,92,240,0.2))", borderColor: "rgba(94,108,243,0.35)" }}
+            >
+              <MessageCircle className="w-6 h-6 text-[#7ba6ff]" />
             </div>
-            <p className="text-sm font-semibold">Тишина...</p>
+            <p className="text-sm font-bold">Тишина...</p>
             <p className="text-xs text-muted-foreground mt-1 mb-4">
               Создай первую комнату и позови людей
             </p>
             <button onClick={() => setShowCreate(true)} className="neon-btn text-xs">
-              <Plus className="w-3 h-3 inline mr-1" />
+              <Plus className="w-3 h-3" />
               Создать комнату
             </button>
           </div>
@@ -142,6 +153,7 @@ export function RoomsTab({ user, embedded = false }: Props) {
                 const memberCount = (room as RoomRow & { member_count?: number }).member_count ?? 0;
                 const isFull = memberCount >= room.max_players;
                 const host = (room as RoomRow & { host?: { photo_url?: string; first_name?: string; id?: number } }).host;
+                const live = memberCount > 0;
                 return (
                   <motion.button
                     key={room.id}
@@ -153,19 +165,25 @@ export function RoomsTab({ user, embedded = false }: Props) {
                     className="room-card w-full text-left group"
                   >
                     <div className="flex items-center gap-3">
-                      {/* Voice icon bubble */}
+                      {/* Voice icon bubble — live glow */}
                       <div
-                        className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 relative"
-                        style={{ background: "rgba(63, 185, 80, 0.12)", border: "1px solid rgba(63, 185, 80, 0.25)" }}
+                        className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 relative"
+                        style={{
+                          background: live
+                            ? "linear-gradient(140deg, rgba(63,185,80,0.22), rgba(34,197,94,0.08))"
+                            : "rgba(255,255,255,0.05)",
+                          border: live ? "1px solid rgba(63,185,80,0.4)" : "1px solid var(--border)",
+                          boxShadow: live ? "0 0 18px -4px rgba(63,185,80,0.45)" : undefined,
+                        }}
                       >
-                        <Mic className="w-5 h-5 text-green-400" />
+                        <Mic className={`w-5 h-5 ${live ? "text-green-400" : "text-muted-foreground"}`} />
                         {memberCount > 1 && (
-                          <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-green-400 animate-pulse border-2 border-[#0e141d]" />
+                          <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-green-400 animate-pulse border-2 border-[#0b111a]" />
                         )}
                       </div>
 
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-sm truncate flex items-center gap-1.5">
+                        <h3 className="font-bold text-sm truncate flex items-center gap-1.5">
                           {room.title}
                           {host?.id === user.id && (
                             <Crown className="w-3 h-3 text-amber-400 shrink-0" fill="currentColor" />
@@ -189,14 +207,20 @@ export function RoomsTab({ user, embedded = false }: Props) {
                         </div>
                       </div>
 
-                      <div className="text-right shrink-0 flex flex-col items-end gap-1">
-                        <div className={`flex items-center gap-1 text-xs font-bold ${
-                          isFull ? "text-red-400" : memberCount > 0 ? "text-green-400" : "text-muted-foreground"
+                      <div className="text-right shrink-0 flex flex-col items-end gap-1.5">
+                        <div className={`flex items-center gap-1 text-xs font-black ${
+                          isFull ? "text-red-400" : live ? "text-green-400" : "text-muted-foreground"
                         }`}>
                           <Users className="w-3 h-3" />
                           {memberCount}/{room.max_players}
                         </div>
-                        <span className="text-[10px] font-semibold text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+                        <span
+                          className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full transition-opacity"
+                          style={{
+                            background: live ? "rgba(63,185,80,0.15)" : "rgba(255,255,255,0.06)",
+                            color: live ? "#4ade80" : "var(--muted-foreground)",
+                          }}
+                        >
                           Войти →
                         </span>
                       </div>

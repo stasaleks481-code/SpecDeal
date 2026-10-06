@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 import {
   Search, UserPlus, Check, X, MessageCircle, Users, Clock,
 } from "lucide-react";
@@ -174,27 +175,31 @@ export function FriendsView({ user: _user }: Props) {
 
   return (
     <div className="max-w-md mx-auto px-4 py-4 pb-6 space-y-4">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="flex-1">
-          <h1 className="text-lg font-bold">Друзья</h1>
-          <p className="text-xs text-muted-foreground">{totalCount} всего</p>
+      {/* Header — duotone hero */}
+      <div className="vd-hero" style={{ background: "linear-gradient(135deg, #2f7cf6 0%, #22b8d4 100%)", "--hero-color": "#2f9df6" } as React.CSSProperties}>
+        <div className="flex items-center gap-3.5">
+          <div className="vd-tile w-12 h-12">
+            <Users className="w-5 h-5" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-lg font-black leading-tight tracking-tight">Друзья</h1>
+            <p className="text-xs text-white/75 mt-1 font-medium">
+              {totalCount > 0 ? `${totalCount} контактов рядом` : "Найди тиммейтов и позови в голос"}
+            </p>
+          </div>
         </div>
       </div>
-
-      {/* Neon strip */}
-      <div className="neon-strip" />
 
       {/* Search bar */}
       <div>
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Найти по @username или имени..."
-            className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-[#1b2838] border border-border focus:border-primary outline-none text-sm"
+            className="vd-input !pl-10"
           />
         </div>
         {searchResults.length > 0 && (
@@ -229,35 +234,46 @@ export function FriendsView({ user: _user }: Props) {
         )}
       </div>
 
-      {/* Tabs — red circle badges replace the old "(N)" text counters */}
-      <div className="flex gap-1 p-1 bg-background/40 rounded-xl border border-border">
-        <button
-          onClick={() => setActiveTab("friends")}
-          className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 ${
-            activeTab === "friends" ? "neon-btn" : "text-muted-foreground"
-          }`}
-        >
-          Друзья
-          {friends.length > 0 && <TabBadge count={friends.length} />}
-        </button>
-        <button
-          onClick={() => setActiveTab("incoming")}
-          className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 ${
-            activeTab === "incoming" ? "neon-btn" : "text-muted-foreground"
-          }`}
-        >
-          Входящие
-          {incoming.length > 0 && <TabBadge count={incoming.length} />}
-        </button>
-        <button
-          onClick={() => setActiveTab("outgoing")}
-          className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 ${
-            activeTab === "outgoing" ? "neon-btn" : "text-muted-foreground"
-          }`}
-        >
-          Отправленные
-          {outgoing.length > 0 && <TabBadge count={outgoing.length} />}
-        </button>
+      {/* Tabs — premium segmented control with red badges */}
+      <div
+        className="flex gap-1 p-1 rounded-2xl border border-border"
+        style={{
+          background: "rgba(255,255,255,0.035)",
+          boxShadow: "0 1px 0 rgba(255,255,255,0.05) inset, 0 8px 20px -12px rgba(0,0,0,0.6)",
+        }}
+      >
+        {([
+          ["friends", "Друзья", friends.length],
+          ["incoming", "Входящие", incoming.length],
+          ["outgoing", "Отправленные", outgoing.length],
+        ] as const).map(([id, label, count]) => {
+          const active = activeTab === id;
+          return (
+            <button
+              key={id}
+              onClick={() => setActiveTab(id)}
+              className={`relative flex-1 py-2.5 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 ${
+                active ? "text-white" : "text-muted-foreground"
+              }`}
+            >
+              {active && (
+                <motion.span
+                  layoutId="friends-tab-pill"
+                  className="absolute inset-0 rounded-xl"
+                  style={{
+                    background: "linear-gradient(135deg, #2f7cf6, #22b8d4)",
+                    boxShadow: "0 6px 16px -6px rgba(47,157,246,0.55), 0 1px 0 rgba(255,255,255,0.3) inset",
+                  }}
+                  transition={{ type: "spring", damping: 26, stiffness: 320 }}
+                />
+              )}
+              <span className="relative z-10 flex items-center gap-1.5">
+                {label}
+                {count > 0 && <TabBadge count={count} />}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {/* List */}
@@ -275,21 +291,30 @@ export function FriendsView({ user: _user }: Props) {
         ) : (
           <div className="space-y-2">
             {friends.map((f) => (
-              <div key={f.friendship_id} className="glass-card p-3 flex items-center gap-3">
+              <div key={f.friendship_id} className="room-card p-3 flex items-center gap-3">
                 <div className="relative">
                   {f.user.photo_url ? (
-                    <img src={f.user.photo_url} alt="" className="w-10 h-10 rounded-full object-cover" />
+                    <img
+                      src={f.user.photo_url}
+                      alt=""
+                      className="w-11 h-11 rounded-full object-cover"
+                      style={{
+                        boxShadow: f.user.is_online
+                          ? "0 0 0 2px rgba(63,185,80,0.55), 0 0 14px -2px rgba(63,185,80,0.5)"
+                          : "0 0 0 2px rgba(255,255,255,0.08)",
+                      }}
+                    />
                   ) : (
-                    <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-sm font-bold">
+                    <div className="w-11 h-11 rounded-full bg-primary/20 flex items-center justify-center text-sm font-bold">
                       {f.user.first_name?.[0] ?? "?"}
                     </div>
                   )}
                   {f.user.is_online && (
-                    <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-[#0e141d]" />
+                    <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-[#0b111a] shadow-[0_0_8px_rgba(63,185,80,0.8)]" />
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold truncate">
+                  <p className="text-sm font-bold truncate">
                     {f.user.username ? `@${f.user.username}` : f.user.first_name}
                   </p>
                   <p className="text-xs text-muted-foreground flex items-center gap-1.5">
@@ -299,7 +324,12 @@ export function FriendsView({ user: _user }: Props) {
                 </div>
                 <button
                   onClick={() => openDM(f.user.id)}
-                  className="p-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-colors"
+                  className="w-9 h-9 rounded-xl flex items-center justify-center transition-colors"
+                  style={{
+                    background: "linear-gradient(140deg, rgba(47,124,246,0.22), rgba(123,92,240,0.12))",
+                    border: "1px solid rgba(94,108,243,0.35)",
+                    color: "#8db4ff",
+                  }}
                   title="Написать"
                 >
                   <MessageCircle className="w-4 h-4" />
@@ -407,10 +437,13 @@ function TabBadge({ count }: { count: number }) {
 function EmptyState({ icon, title, subtitle }: { icon: React.ReactNode; title: string; subtitle: string }) {
   return (
     <div className="glass-card p-8 text-center">
-      <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-3 text-primary">
+      <div
+        className="w-16 h-16 vd-tile mx-auto mb-4"
+        style={{ background: "linear-gradient(140deg, rgba(47,124,246,0.25), rgba(34,184,212,0.12))", borderColor: "rgba(47,157,246,0.3)" }}
+      >
         {icon}
       </div>
-      <p className="text-sm font-semibold">{title}</p>
+      <p className="text-sm font-bold">{title}</p>
       <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>
     </div>
   );

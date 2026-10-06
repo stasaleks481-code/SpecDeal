@@ -45,11 +45,20 @@ export function GameRoomList({ rooms, currentUser }: Props) {
             key={room.id}
             onClick={() => openRoom(room.id)}
             className="room-card w-full text-left"
-            style={{ borderLeft: `3px solid ${game?.color ?? "var(--primary)"}` }}
+            style={{
+              borderLeft: `3px solid ${game?.color ?? "var(--primary)"}`,
+              boxShadow: game ? `inset 3px 0 12px -6px ${game.color}55` : undefined,
+            }}
           >
             <div className="flex items-center gap-3">
-              {/* Game icon */}
-              <div className="relative w-12 h-12 rounded-xl overflow-hidden shrink-0">
+              {/* Game icon — gradient squircle with glow */}
+              <div
+                className="relative w-12 h-12 rounded-2xl overflow-hidden shrink-0"
+                style={{
+                  border: "1px solid rgba(255,255,255,0.14)",
+                  boxShadow: game ? `0 6px 16px -6px ${game.color}60` : undefined,
+                }}
+              >
                 {game?.banner ? (
                   <img
                     src={game.banner}
@@ -59,7 +68,7 @@ export function GameRoomList({ rooms, currentUser }: Props) {
                   />
                 ) : (
                   <div
-                    className="w-full h-full flex items-center justify-center text-sm font-bold"
+                    className="w-full h-full flex items-center justify-center text-sm font-black"
                     style={{
                       background: game?.gradient ?? "rgba(102, 192, 244, 0.15)",
                       color: game?.color ?? "var(--primary)",
@@ -73,7 +82,7 @@ export function GameRoomList({ rooms, currentUser }: Props) {
               {/* Info */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <h3 className="font-semibold text-sm truncate">{room.title}</h3>
+                  <h3 className="font-bold text-sm truncate">{room.title}</h3>
                   {isHost && (
                     <Crown className="w-3 h-3 text-amber-400 shrink-0" fill="currentColor" />
                   )}
@@ -123,7 +132,7 @@ export function GameRoomList({ rooms, currentUser }: Props) {
                     </div>
                   )}
                 </div>
-                <div className={`flex items-center gap-0.5 text-xs font-bold ${
+                <div className={`flex items-center gap-0.5 text-xs font-black ${
                   isFull ? "text-red-400" : "text-muted-foreground"
                 }`}>
                   <Users className="w-3 h-3" />
@@ -131,7 +140,7 @@ export function GameRoomList({ rooms, currentUser }: Props) {
                 </div>
               </div>
 
-              <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+              <ChevronRight className="w-4 h-4 text-muted-foreground/60 shrink-0" />
             </div>
           </button>
         );

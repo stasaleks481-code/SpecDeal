@@ -51,26 +51,22 @@ export function PartyTab({ user }: Props) {
 
   return (
     <div className="max-w-md mx-auto px-4 py-4 pb-6 space-y-5">
-      {/* Hero */}
-      <div className="relative overflow-hidden rounded-2xl border border-border bg-[#1b2838]/40">
-        <div className="neon-strip" />
-        <div className="p-4 flex items-center gap-3">
-          <div
-            className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
-            style={{ background: "linear-gradient(135deg, #8B5CF6, #4C1D95)", boxShadow: "0 0 16px rgba(139,92,246,0.4)" }}
-          >
-            <Dices className="w-6 h-6 text-white" />
+      {/* Hero — party duotone */}
+      <div className="vd-hero" style={{ background: "var(--grad-party)", "--hero-color": "#a855f7" } as React.CSSProperties}>
+        <div className="flex items-center gap-3.5">
+          <div className="vd-tile w-12 h-12">
+            <Dices className="w-6 h-6" />
           </div>
           <div className="flex-1 min-w-0">
-            <h1 className="text-base font-bold neon-text leading-tight">Настольные игры</h1>
-            <p className="text-xs text-muted-foreground mt-0.5">
+            <h1 className="text-lg font-black leading-tight tracking-tight">Настольные игры</h1>
+            <p className="text-xs text-white/75 mt-1 font-medium">
               Голос + встроенная логика: роли, карты и таймеры
             </p>
           </div>
         </div>
       </div>
 
-      {/* Create CTA */}
+      {/* Create CTA — gradient-bordered invitation */}
       <button
         onClick={() => {
           haptic.impact("medium");
@@ -81,22 +77,31 @@ export function PartyTab({ user }: Props) {
           }
           setShowCreate(true);
         }}
-        className="w-full rounded-2xl border border-dashed border-primary/35 p-5 flex items-center gap-3 text-left transition-colors hover:border-primary/60"
-        style={{ background: "rgba(255,255,255,0.02)" }}
+        className="w-full rounded-3xl p-[1px] text-left transition-transform active:scale-[0.985]"
+        style={{
+          background: "linear-gradient(120deg, rgba(168,85,247,0.65), rgba(236,72,153,0.45) 50%, rgba(255,255,255,0.06))",
+        }}
       >
         <div
-          className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
-          style={{
-            background: "linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 50%, #1b2838))",
-          }}
+          className="rounded-[23px] p-4 flex items-center gap-3.5"
+          style={{ background: "linear-gradient(180deg, rgba(22,32,46,0.96), rgba(15,22,33,0.98))" }}
         >
-          <Plus className="w-5 h-5 text-[#0e141d]" strokeWidth={2.5} />
-        </div>
-        <div className="flex-1">
-          <p className="text-sm font-bold">Собрать партию</p>
-          <p className="text-[11px] text-muted-foreground mt-0.5">
-            Выбери игру — роли и таймеры выдадутся автоматически
-          </p>
+          <div
+            className="vd-tile w-11 h-11"
+            style={{
+              background: "linear-gradient(140deg, #a855f7, #ec4899)",
+              border: "1px solid rgba(255,255,255,0.25)",
+              boxShadow: "0 8px 20px -6px rgba(204,84,200,0.55)",
+            }}
+          >
+            <Plus className="w-5 h-5" strokeWidth={2.75} />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-bold">Собрать партию</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              Выбери игру — роли и таймеры выдадутся автоматически
+            </p>
+          </div>
         </div>
       </button>
 
@@ -135,9 +140,14 @@ export function PartyTab({ user }: Props) {
           ))}
         </div>
       ) : rooms.length === 0 ? (
-        <div className="glass-card p-6 text-center">
-          <Drama className="w-9 h-9 mx-auto mb-2 text-purple-300/70" />
-          <p className="text-sm font-semibold mb-1">Пока пусто</p>
+        <div className="glass-card p-7 text-center">
+          <div
+            className="w-14 h-14 vd-tile mx-auto mb-4"
+            style={{ background: "linear-gradient(140deg, rgba(168,85,247,0.3), rgba(236,72,153,0.18))", borderColor: "rgba(204,84,200,0.35)" }}
+          >
+            <Drama className="w-6 h-6 text-fuchsia-300" />
+          </div>
+          <p className="text-sm font-bold mb-1">Пока пусто</p>
           <p className="text-xs text-muted-foreground">
             {filterGame
               ? `Нет активных партий «${partyGame(filterGame)?.name}». Создай первую!`
@@ -163,19 +173,24 @@ export function PartyTab({ user }: Props) {
                     haptic.impact("light");
                     router.push(`/rooms/${room.id}`);
                   }}
-                  className="w-full glass-card p-3.5 flex items-center gap-3 text-left hover:border-primary/40 transition-colors"
+                  className="w-full room-card flex items-center gap-3 text-left"
+                  style={game ? { borderLeft: `3px solid ${game.color}` } : undefined}
                 >
                   <div
-                    className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
-                    style={{ background: game?.gradient ?? "rgba(255,255,255,0.06)", boxShadow: game ? `0 0 14px ${game.color}45` : undefined }}
+                    className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 text-white"
+                    style={{
+                      background: game?.gradient ?? "rgba(255,255,255,0.06)",
+                      boxShadow: game ? `0 8px 20px -6px ${game.color}70, 0 1px 0 rgba(255,255,255,0.25) inset` : undefined,
+                      border: "1px solid rgba(255,255,255,0.18)",
+                    }}
                   >
-                    <PartyGameIcon code={game?.code} className="w-6 h-6 text-white" />
+                    <PartyGameIcon code={game?.code} className="w-6 h-6" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold truncate">{room.title}</p>
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
                       <span
-                        className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md"
+                        className="text-[10px] font-bold px-1.5 py-0.5 rounded-md"
                         style={{
                           background: `${game?.color ?? "#666"}22`,
                           color: game?.color ?? "#aaa",

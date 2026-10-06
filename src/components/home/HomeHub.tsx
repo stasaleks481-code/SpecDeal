@@ -63,10 +63,10 @@ export function HomeHub({ user }: { user: UserRow }) {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  const tabs: { id: HomeSection; label: string; icon: React.ReactNode; color: string }[] = [
-    { id: "casual", label: "Общение", icon: <MessageCircle className="w-4 h-4" />, color: "var(--primary)" },
-    { id: "pc", label: "ПК-Игры", icon: <Gamepad2 className="w-4 h-4" />, color: "#F7A600" },
-    { id: "party", label: "Настольные", icon: <Dices className="w-4 h-4" />, color: "#8B5CF6" },
+  const tabs: { id: HomeSection; label: string; icon: React.ReactNode; grad: string; glow: string }[] = [
+    { id: "casual", label: "Общение", icon: <MessageCircle className="w-4 h-4" />, grad: "linear-gradient(135deg, #2f7cf6, #7b5cf0)", glow: "rgba(94, 108, 243, 0.5)" },
+    { id: "pc", label: "ПК-Игры", icon: <Gamepad2 className="w-4 h-4" />, grad: "linear-gradient(135deg, #ff9a3d, #ff5e62)", glow: "rgba(255, 122, 80, 0.5)" },
+    { id: "party", label: "Настольные", icon: <Dices className="w-4 h-4" />, grad: "linear-gradient(135deg, #a855f7, #ec4899)", glow: "rgba(204, 84, 200, 0.5)" },
   ];
 
   return (
@@ -75,18 +75,24 @@ export function HomeHub({ user }: { user: UserRow }) {
           Sticks FLUSH under the header (top = measured header height);
           slides under it while scrolling down (smart-hide). ── */}
       <div
-        className="sticky z-10 border-b border-border bg-[#0e141d]"
+        className="sticky z-10 border-b border-border"
         style={{
           top: headerH,
           transform: barHidden ? "translateY(-120%)" : "translateY(0)",
           transition: "transform 220ms cubic-bezier(0.4, 0, 0.2, 1)",
           willChange: "transform",
+          background: "linear-gradient(180deg, rgba(11,17,26,0.96) 0%, rgba(11,17,26,0.88) 100%)",
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
         }}
       >
         <div className="max-w-md mx-auto px-4 py-2.5">
           <div
-            className="grid grid-cols-3 gap-1 p-1 rounded-xl border border-border"
-            style={{ background: "rgba(255,255,255,0.03)" }}
+            className="grid grid-cols-3 gap-1 p-1 rounded-2xl border border-border"
+            style={{
+              background: "rgba(255,255,255,0.035)",
+              boxShadow: "0 1px 0 rgba(255,255,255,0.05) inset, 0 8px 20px -12px rgba(0,0,0,0.6)",
+            }}
           >
             {tabs.map((t) => {
               const active = section === t.id;
@@ -101,17 +107,17 @@ export function HomeHub({ user }: { user: UserRow }) {
                     // Fresh section starts from the top (also re-reveals the bar)
                     window.scrollTo(0, 0);
                   }}
-                  className={`relative flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition-colors ${
-                    active ? "text-[#0e141d]" : "text-muted-foreground hover:text-foreground"
+                  className={`relative flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-colors ${
+                    active ? "text-white" : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
                   {active && (
                     <motion.div
                       layoutId="home-section-pill"
-                      className="absolute inset-0 rounded-lg"
+                      className="absolute inset-0 rounded-xl"
                       style={{
-                        background: t.color,
-                        boxShadow: `0 0 14px color-mix(in srgb, ${t.color} 45%, transparent)`,
+                        background: t.grad,
+                        boxShadow: `0 6px 18px -6px ${t.glow}, 0 1px 0 rgba(255,255,255,0.3) inset`,
                       }}
                       transition={{ type: "spring", damping: 26, stiffness: 320 }}
                     />

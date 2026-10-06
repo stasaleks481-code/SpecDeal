@@ -144,9 +144,22 @@ export function ProfileView({ user, onUserUpdate }: Props) {
 
   return (
     <div className="max-w-md mx-auto px-4 py-4 pb-6 space-y-4">
-      {/* ── Profile header card ── */}
-      <div className="relative overflow-hidden rounded-2xl border border-border bg-[#1b2838]/40">
-        <div className="neon-strip" />
+      {/* ── Profile header card — premium gradient panel ── */}
+      <div
+        className="relative overflow-hidden rounded-3xl border border-border"
+        style={{
+          background: "linear-gradient(160deg, rgba(30,43,61,0.9) 0%, rgba(17,24,35,0.95) 60%), radial-gradient(300px 180px at 100% 0%, color-mix(in srgb, var(--primary) 14%, transparent), transparent 70%)",
+          boxShadow: "var(--shadow-card)",
+        }}
+      >
+        {/* Accent glow line on top */}
+        <div
+          className="absolute top-0 left-0 right-0 h-[2px]"
+          style={{
+            background: "linear-gradient(90deg, transparent 5%, color-mix(in srgb, var(--primary) 80%, transparent) 30%, color-mix(in srgb, var(--primary) 80%, transparent) 70%, transparent 95%)",
+            boxShadow: "0 0 12px color-mix(in srgb, var(--primary) 55%, transparent)",
+          }}
+        />
         {/* Steam neon icon + info popup (top-right) */}
         {(isSteam || user.steam_id) && (
           <div className="absolute top-3 right-3 z-10">
@@ -159,28 +172,36 @@ export function ProfileView({ user, onUserUpdate }: Props) {
         <div className="p-5">
           <div className="flex items-center gap-4">
             <div className="relative">
-              {user.photo_url ? (
-                <img
-                  src={user.photo_url}
-                  alt={user.first_name}
-                  className="w-20 h-20 rounded-2xl object-cover border-2"
-                  style={{ borderColor: "var(--primary)" }}
-                />
-              ) : (
-                <div className="w-20 h-20 rounded-2xl bg-primary/20 flex items-center justify-center text-3xl font-bold neon-text border-2 border-primary">
-                  {user.first_name?.[0] ?? "?"}
-                </div>
-              )}
+              {/* Gradient ring around avatar */}
+              <div
+                className="p-[2.5px] rounded-[19px]"
+                style={{
+                  background: "linear-gradient(135deg, color-mix(in srgb, var(--primary) 90%, #fff), var(--primary) 40%, color-mix(in srgb, var(--primary) 35%, #0a2a3a))",
+                  boxShadow: "0 6px 20px -6px color-mix(in srgb, var(--primary) 55%, transparent)",
+                }}
+              >
+                {user.photo_url ? (
+                  <img
+                    src={user.photo_url}
+                    alt={user.first_name}
+                    className="w-20 h-20 rounded-[17px] object-cover"
+                  />
+                ) : (
+                  <div className="w-20 h-20 rounded-[17px] flex items-center justify-center text-3xl font-black" style={{ background: "rgba(11,17,26,0.92)", color: "var(--primary)" }}>
+                    {user.first_name?.[0] ?? "?"}
+                  </div>
+                )}
+              </div>
               <div
                 className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full border-2 flex items-center justify-center"
-                style={{ background: trustColor, borderColor: "#0e141d" }}
+                style={{ background: trustColor, borderColor: "#0b111a", boxShadow: `0 0 10px ${trustColor}70` }}
               >
-                <ShieldCheck className="w-3.5 h-3.5 text-[#0e141d]" />
+                <ShieldCheck className="w-3.5 h-3.5 text-[#0b111a]" />
               </div>
             </div>
 
             <div className="flex-1 min-w-0">
-              <h1 className="text-xl font-bold truncate leading-tight">
+              <h1 className="text-xl font-black truncate leading-tight tracking-tight">
                 {user.first_name} {user.last_name}
               </h1>
               {user.username && (
@@ -188,21 +209,21 @@ export function ProfileView({ user, onUserUpdate }: Props) {
               )}
               <div className="flex items-center gap-1.5 mt-2 flex-wrap">
                 <span
-                  className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
-                  style={{ background: `${trustColor}20`, color: trustColor, border: `1px solid ${trustColor}40` }}
+                  className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full"
+                  style={{ background: `${trustColor}1f`, color: trustColor, border: `1px solid ${trustColor}45`, boxShadow: `0 0 12px -4px ${trustColor}60` }}
                 >
                   {trustLevel} доверие
                 </span>
                 {isSteam && (
                   <span
-                    className="text-[10px] px-2 py-0.5 rounded-full font-semibold flex items-center gap-1"
-                    style={{ background: "#1b2838", border: "1px solid #66c0f440", color: "#66c0f4" }}
+                    className="text-[10px] px-2 py-1 rounded-full font-bold flex items-center gap-1"
+                    style={{ background: "rgba(27,40,56,0.9)", border: "1px solid rgba(102,192,244,0.35)", color: "#66c0f4" }}
                   >
                     <SteamLogo className="w-3 h-3" color="#66c0f4" /> Steam
                   </span>
                 )}
                 {isAnonymous && (
-                  <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-amber-400/15 text-amber-300 border border-amber-400/30">
+                  <span className="text-[10px] px-2 py-1 rounded-full font-bold bg-amber-400/15 text-amber-300 border border-amber-400/30">
                     Аноним
                   </span>
                 )}
@@ -243,22 +264,22 @@ export function ProfileView({ user, onUserUpdate }: Props) {
 
       {/* ── Tabs ── */}
       <Tabs defaultValue="stats" className="w-full">
-        <TabsList className="w-full grid grid-cols-4 bg-background/40 border border-border h-11 p-1 rounded-xl">
-          <TabsTrigger value="stats" className="text-[11px] gap-1 rounded-lg data-[state=active]:neon-btn">
+        <TabsList className="w-full grid grid-cols-4 border border-border h-12 p-1 rounded-2xl" style={{ background: "rgba(255,255,255,0.035)" }}>
+          <TabsTrigger value="stats" className="text-[11px] gap-1 rounded-xl data-[state=active]:neon-btn font-bold">
             <BarChart3 className="w-3.5 h-3.5" />
             Стата
           </TabsTrigger>
-          <TabsTrigger value="account" className="text-[11px] gap-1 rounded-lg data-[state=active]:neon-btn">
+          <TabsTrigger value="account" className="text-[11px] gap-1 rounded-xl data-[state=active]:neon-btn font-bold">
             <Link2 className="w-3.5 h-3.5" />
             Аккаунт
           </TabsTrigger>
-          <TabsTrigger value="settings" className="text-[11px] gap-1 rounded-lg data-[state=active]:neon-btn">
+          <TabsTrigger value="settings" className="text-[11px] gap-1 rounded-xl data-[state=active]:neon-btn font-bold">
             <Settings2 className="w-3.5 h-3.5" />
             Настройки
           </TabsTrigger>
           <TabsTrigger
             value="reviews"
-            className="text-[11px] gap-1 rounded-lg data-[state=active]:neon-btn"
+            className="text-[11px] gap-1 rounded-xl data-[state=active]:neon-btn font-bold"
             onClick={() => reviews.length === 0 && loadReviews()}
           >
             <MessageSquareQuote className="w-3.5 h-3.5" />
@@ -306,19 +327,26 @@ export function ProfileView({ user, onUserUpdate }: Props) {
             </p>
           </div>
 
-          {/* Leaderboard CTA */}
+          {/* Leaderboard CTA — gold gradient row */}
           <button
             onClick={() => router.push("/leaderboard")}
             className="room-card w-full flex items-center gap-3 text-left"
+            style={{
+              background: "linear-gradient(135deg, rgba(255,215,111,0.09), rgba(255,157,61,0.04))",
+              borderColor: "rgba(255,200,90,0.28)",
+            }}
           >
-            <div className="w-11 h-11 rounded-xl bg-amber-400/15 flex items-center justify-center shrink-0">
-              <Crown className="w-5 h-5 text-amber-400" fill="currentColor" />
+            <div
+              className="vd-tile w-11 h-11"
+              style={{ background: "linear-gradient(140deg, #ffd76f, #ff9d3d)", border: "1px solid rgba(255,220,140,0.4)", boxShadow: "0 8px 20px -6px rgba(255,170,80,0.5)" }}
+            >
+              <Crown className="w-5 h-5 text-[#3a2506]" fill="currentColor" />
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-sm">Топ игроков</h3>
+              <h3 className="font-bold text-sm">Топ игроков</h3>
               <p className="text-xs text-muted-foreground mt-0.5">Лидерборд и рейтинги</p>
             </div>
-            <Crown className="w-4 h-4 text-muted-foreground" />
+            <Crown className="w-4 h-4 text-amber-400/60" />
           </button>
 
           {/* History summary */}
@@ -552,11 +580,11 @@ export function ProfileView({ user, onUserUpdate }: Props) {
 
           {/* Onboarding */}
           <button onClick={restartTour} className="room-card w-full flex items-center gap-3 text-left">
-            <div className="w-11 h-11 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
-              <GraduationCap className="w-5 h-5 text-primary" />
+            <div className="vd-tile w-11 h-11" style={{ background: "linear-gradient(140deg, rgba(47,124,246,0.25), rgba(123,92,240,0.12))", borderColor: "rgba(94,108,243,0.3)" }}>
+              <GraduationCap className="w-5 h-5 text-[#8db4ff]" />
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-sm">Повторить обучение</h3>
+              <h3 className="font-bold text-sm">Повторить обучение</h3>
               <p className="text-xs text-muted-foreground mt-0.5">Интерактивный гайд по приложению</p>
             </div>
           </button>
@@ -566,13 +594,18 @@ export function ProfileView({ user, onUserUpdate }: Props) {
             onClick={() => { haptic.impact("light"); setShowSupport(true); }}
             className="room-card w-full flex items-center gap-3 text-left"
           >
-            <div className="w-11 h-11 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
-              <LifeBuoy className="w-5 h-5 text-primary" />
+            <div className="vd-tile w-11 h-11" style={{ background: "linear-gradient(140deg, rgba(52,211,153,0.25), rgba(34,211,238,0.12))", borderColor: "rgba(52,211,153,0.3)" }}>
+              <LifeBuoy className="w-5 h-5 text-emerald-300" />
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-sm flex items-center gap-2">
+              <h3 className="font-bold text-sm flex items-center gap-2">
                 Поддержка
-                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/15 text-primary font-bold">NEW</span>
+                <span
+                  className="text-[9px] px-1.5 py-0.5 rounded-full font-black uppercase tracking-wider text-white"
+                  style={{ background: "linear-gradient(135deg, #34d399, #22d3ee)" }}
+                >
+                  NEW
+                </span>
               </h3>
               <p className="text-xs text-muted-foreground mt-0.5">Баги, идеи, вопросы — напиши нам, ответим здесь же</p>
             </div>
@@ -659,11 +692,11 @@ export function ProfileView({ user, onUserUpdate }: Props) {
             onClick={() => router.push("/friends")}
             className="room-card w-full flex items-center gap-3 text-left"
           >
-            <div className="w-11 h-11 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
-              <Users className="w-5 h-5 text-primary" />
+            <div className="vd-tile w-11 h-11" style={{ background: "linear-gradient(140deg, rgba(47,124,246,0.25), rgba(34,184,212,0.12))", borderColor: "rgba(47,157,246,0.3)" }}>
+              <Users className="w-5 h-5 text-[#7cc8f0]" />
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-sm">Друзья</h3>
+              <h3 className="font-bold text-sm">Друзья</h3>
               <p className="text-xs text-muted-foreground mt-0.5">Список, заявки, личные сообщения</p>
             </div>
           </button>

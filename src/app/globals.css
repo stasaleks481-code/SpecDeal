@@ -31,85 +31,104 @@
 }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   STEAM NEON THEME — dark blue base + neon accent
+   VOICEDECK «AURORA» DESIGN SYSTEM
+   Deep-space navy + aurora glow + duotone gradients + glass surfaces.
+
+   Principles:
+   - Surfaces are layered (base → glass → elevated), never flat gray.
+   - Accent moments use duotone gradients (per-section brand colors);
+     theme accents (--primary) still drive interactive elements.
+   - Motion: transform/opacity only. No repaint-heavy filters on lists.
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
 :root {
-  --radius: 0.75rem;
+  --radius: 1rem;
 
-  /* Base — Steam dark blue palette */
-  --background: #0e141d;          /* deepest navy */
-  --foreground: #c7d5e0;          /* off-white text */
+  /* Base — deep space navy */
+  --background: #0b111a;          /* deepest navy (slightly richer than before) */
+  --foreground: #dce8f2;          /* airy off-white */
 
-  /* Card surface — slightly lighter than bg, semi-transparent glass */
-  --card: rgba(27, 40, 56, 0.6);   /* #1b2838 with alpha */
-  --card-foreground: #c7d5e0;
+  /* Layered surfaces */
+  --surface-1: rgba(22, 32, 46, 0.55);   /* glass card on base */
+  --surface-2: rgba(30, 43, 61, 0.65);   /* elevated */
+  --surface-3: rgba(41, 58, 81, 0.8);    /* highest */
 
-  --popover: #1b2838;
-  --popover-foreground: #c7d5e0;
+  --card: rgba(27, 40, 56, 0.55);
+  --card-foreground: #dce8f2;
+
+  --popover: #141c29;
+  --popover-foreground: #dce8f2;
 
   /* Primary — neon cyan (default theme; overridden by data-accent attr) */
   --primary: #00f0ff;
-  --primary-foreground: #0e141d;
+  --primary-foreground: #071019;
 
-  /* Secondary — darker surface */
   --secondary: rgba(23, 26, 33, 0.7);
-  --secondary-foreground: #c7d5e0;
+  --secondary-foreground: #dce8f2;
 
   --muted: rgba(23, 26, 33, 0.5);
-  --muted-foreground: #66c0f4;     /* steam blue accent for muted */
+  --muted-foreground: #7d95ad;
 
-  --accent: rgba(0, 240, 255, 0.15);
+  --accent: rgba(0, 240, 255, 0.14);
   --accent-foreground: #00f0ff;
 
-  --destructive: #ff3b3b;
+  --destructive: #ff4d6a;
 
-  --border: rgba(102, 192, 244, 0.15);
-  --input: rgba(102, 192, 244, 0.1);
+  --border: rgba(125, 165, 205, 0.14);
+  --input: rgba(125, 165, 205, 0.1);
   --ring: #00f0ff;
+
+  /* ── Aurora duotone gradients (brand moments, theme-independent) ── */
+  --grad-vocal: linear-gradient(135deg, #2f7cf6 0%, #7b5cf0 100%);   /* Общение — blue→violet */
+  --grad-gaming: linear-gradient(135deg, #ff9a3d 0%, #ff5e62 100%);  /* ПК-Игры — orange→coral */
+  --grad-party: linear-gradient(135deg, #a855f7 0%, #ec4899 100%);   /* Настольные — purple→pink */
+  --grad-premium: linear-gradient(135deg, #34d399 0%, #22d3ee 100%); /* success/mint */
+  --grad-danger: linear-gradient(135deg, #ff4d6a 0%, #ff8551 100%);  /* destructive */
+  --grad-gold: linear-gradient(135deg, #ffd76f 0%, #ff9d3d 100%);    /* leaderboard/crown */
+
+  /* Shadows */
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 10px 32px -12px rgba(0, 0, 0, 0.55);
+  --shadow-pop: 0 24px 70px -18px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
 /* Theme variants — applied via data-accent="pink|green|amber|steam" on <html> */
 [data-accent="pink"] {
   --primary: #ff3ec9;
-  --primary-foreground: #0e141d;
+  --primary-foreground: #160612;
   --accent: rgba(255, 62, 201, 0.15);
   --accent-foreground: #ff3ec9;
   --ring: #ff3ec9;
-  --muted-foreground: #ff8fd5;
   --border: rgba(255, 62, 201, 0.18);
 }
 
 [data-accent="green"] {
   --primary: #39ff14;
-  --primary-foreground: #0e141d;
+  --primary-foreground: #07140a;
   --accent: rgba(57, 255, 20, 0.15);
   --accent-foreground: #39ff14;
   --ring: #39ff14;
-  --muted-foreground: #80ff66;
   --border: rgba(57, 255, 20, 0.18);
 }
 
 [data-accent="amber"] {
   --primary: #ffb627;
-  --primary-foreground: #0e141d;
+  --primary-foreground: #171003;
   --accent: rgba(255, 182, 39, 0.15);
   --accent-foreground: #ffb627;
   --ring: #ffb627;
-  --muted-foreground: #ffd06b;
   --border: rgba(255, 182, 39, 0.18);
 }
 
-/* Steam Classic — dark graphite/graphite blue base, Steam blue neon accent */
+/* Steam Classic — graphite base, Steam blue accent */
 [data-accent="steam"] {
-  --background: #171a21;            /* Steam client graphite */
+  --background: #12151c;
   --foreground: #c7d5e0;
-  --card: rgba(27, 34, 44, 0.72);
+  --card: rgba(32, 40, 52, 0.65);
   --card-foreground: #c7d5e0;
   --popover: #1b222c;
   --popover-foreground: #c7d5e0;
-  --primary: #66c0f4;               /* Steam blue — neon glow preserved */
-  --primary-foreground: #171a21;
+  --primary: #66c0f4;
+  --primary-foreground: #0d1117;
   --secondary: rgba(30, 36, 46, 0.8);
   --secondary-foreground: #c7d5e0;
   --muted: rgba(30, 36, 46, 0.6);
@@ -130,206 +149,290 @@
     background: var(--background);
     color: var(--foreground);
     min-height: 100vh;
-    /* Use simple linear gradient instead of multiple radial-gradients —
-       radial-gradients cause repaints on scroll on low-end devices */
-    background-image: linear-gradient(180deg, var(--background) 0%, #131923 100%);
+    background-image: linear-gradient(180deg, var(--background) 0%, #0f1723 100%);
     background-attachment: fixed;
   }
 
-  /* Steam theme body gradient override (graphite tones) */
+  /* Aurora glow — painted ONCE on a fixed layer (no scroll repaints).
+     Two soft color fields in the top corners give depth without noise. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(560px 340px at 12% -6%, rgba(47, 124, 246, 0.13), transparent 68%),
+      radial-gradient(620px 380px at 96% -2%, rgba(168, 85, 247, 0.1), transparent 66%);
+  }
+
   [data-accent="steam"] body {
-    background-image: linear-gradient(180deg, #171a21 0%, #1b222c 100%);
+    background-image: linear-gradient(180deg, #12151c 0%, #161b24 100%);
+  }
+  [data-accent="steam"] body::before {
+    background:
+      radial-gradient(560px 340px at 12% -6%, rgba(102, 192, 244, 0.1), transparent 68%),
+      radial-gradient(620px 380px at 96% -2%, rgba(27, 40, 56, 0.5), transparent 66%);
   }
 
   body {
     overscroll-behavior: none;
     -webkit-tap-highlight-color: transparent;
     user-select: none;
-    /* Optimize touch scrolling on mobile */
     -webkit-overflow-scrolling: touch;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
   }
+
+  ::selection {
+    background: color-mix(in srgb, var(--primary) 30%, transparent);
+  }
 }
 
-/* ━━━ Utility classes ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+/* ━━━ Components ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
 @layer components {
-  /* Glassmorphic card — Steam-style (8px blur is lighter than 12px) */
+  /* ── GLASS CARD — base surface for lists, sheets, popups ── */
   .glass-card {
-    background: rgba(27, 40, 56, 0.6);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    position: relative;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.045) 0%, rgba(255, 255, 255, 0.012) 38%), var(--surface-1);
     border: 1px solid var(--border);
-    border-radius: 14px;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+    border-radius: 20px;
+    box-shadow: var(--shadow-card);
+  }
+  /* Hairline top highlight — the "premium edge" */
+  .glass-card::before {
+    content: "";
+    position: absolute;
+    inset: 0 12% auto 12%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.16), transparent);
+    border-radius: 999px;
+    pointer-events: none;
   }
 
-  /* Neon glow button — primary CTA (single shadow, no double glow) */
+  /* ── INTERACTIVE CARD — list rows (rooms, friends, lobby) ── */
+  .room-card {
+    position: relative;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.008) 45%), var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 0.875rem;
+    transition: border-color 0.16s ease, transform 0.16s ease, box-shadow 0.16s ease;
+  }
+  .room-card:hover {
+    border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
+    box-shadow: 0 8px 28px -10px color-mix(in srgb, var(--primary) 26%, transparent);
+  }
+  .room-card:active {
+    transform: scale(0.985);
+  }
+
+  /* ── HERO CARD — big duotone gradient banner (section headers) ── */
+  .vd-hero {
+    position: relative;
+    overflow: hidden;
+    border-radius: 24px;
+    padding: 1.125rem 1.125rem 1.25rem;
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow:
+      0 18px 44px -18px color-mix(in srgb, var(--hero-color, #2f7cf6) 55%, transparent),
+      0 1px 0 rgba(255, 255, 255, 0.2) inset;
+  }
+  .vd-hero::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(340px 190px at 88% -20%, rgba(255, 255, 255, 0.28), transparent 60%),
+      radial-gradient(260px 220px at -10% 120%, rgba(0, 0, 0, 0.32), transparent 62%);
+    pointer-events: none;
+  }
+  /* Animated sheen sweep — GPU transform, plays once */
+  .vd-hero::after {
+    content: "";
+    position: absolute;
+    top: -40%;
+    bottom: -40%;
+    left: -80%;
+    width: 55%;
+    background: linear-gradient(105deg, transparent, rgba(255, 255, 255, 0.14), transparent);
+    transform: skewX(-18deg);
+    animation: vdSheen 3.4s cubic-bezier(0.4, 0, 0.2, 1) 0.6s 1 both;
+    pointer-events: none;
+  }
+  @keyframes vdSheen {
+    to { left: 130%; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .vd-hero::after { animation: none; }
+  }
+  .vd-hero > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Squircle icon tile sitting inside hero / CTA rows */
+  .vd-tile {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    box-shadow: 0 6px 18px -6px rgba(0, 0, 0, 0.45), 0 1px 0 rgba(255, 255, 255, 0.25) inset;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    color: #fff;
+  }
+
+  /* ── BUTTONS ── */
   .neon-btn {
-    background: linear-gradient(135deg, var(--primary) 0%, color-mix(in srgb, var(--primary) 60%, #1b2838) 100%);
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    background: linear-gradient(160deg, color-mix(in srgb, var(--primary) 92%, #ffffff) 0%, var(--primary) 42%, color-mix(in srgb, var(--primary) 62%, #0a2a3a) 100%);
     color: var(--primary-foreground);
-    border-radius: 10px;
-    padding: 0.625rem 1rem;
-    font-weight: 700;
-    box-shadow: 0 2px 8px color-mix(in srgb, var(--primary) 30%, transparent);
-    transition: transform 0.1s ease, box-shadow 0.1s ease;
+    border-radius: 14px;
+    padding: 0.6875rem 1.125rem;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    border: 1px solid color-mix(in srgb, var(--primary) 55%, rgba(255, 255, 255, 0.35));
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.35) inset,
+      0 8px 22px -8px color-mix(in srgb, var(--primary) 55%, transparent);
+    transition: transform 0.12s ease, box-shadow 0.15s ease, filter 0.15s ease;
+    overflow: hidden;
+  }
+  .neon-btn::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.22), transparent 46%);
+    border-radius: inherit;
+    pointer-events: none;
   }
   .neon-btn:hover {
-    box-shadow: 0 4px 12px color-mix(in srgb, var(--primary) 45%, transparent);
+    filter: brightness(1.06);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.35) inset,
+      0 10px 30px -8px color-mix(in srgb, var(--primary) 65%, transparent);
   }
   .neon-btn:active {
-    transform: scale(0.98);
+    transform: scale(0.97);
   }
   .neon-btn:disabled {
     opacity: 0.4;
     cursor: not-allowed;
     transform: none;
     box-shadow: none;
+    filter: none;
   }
 
-  /* Neon text — for highlights / labels */
+  /* Secondary / glass button */
+  .vd-btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border);
+    color: var(--foreground);
+    border-radius: 14px;
+    padding: 0.6875rem 1.125rem;
+    font-weight: 700;
+    transition: background 0.14s ease, border-color 0.14s ease, transform 0.12s ease;
+  }
+  .vd-btn-ghost:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
+  }
+  .vd-btn-ghost:active {
+    transform: scale(0.97);
+  }
+  .vd-btn-ghost:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  /* Danger button */
+  .vd-btn-danger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    background: var(--grad-danger);
+    color: #fff;
+    border-radius: 14px;
+    padding: 0.6875rem 1.125rem;
+    font-weight: 800;
+    border: 1px solid rgba(255, 120, 130, 0.45);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.25) inset,
+      0 8px 22px -8px rgba(255, 77, 106, 0.5);
+    transition: transform 0.12s ease, filter 0.15s ease;
+  }
+  .vd-btn-danger:active {
+    transform: scale(0.97);
+  }
+  .vd-btn-danger:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  /* ── NEON TEXT (brand highlights) ── */
   .neon-text {
     color: var(--primary);
     text-shadow:
-      0 0 4px color-mix(in srgb, var(--primary) 50%, transparent),
-      0 0 8px color-mix(in srgb, var(--primary) 30%, transparent);
+      0 0 6px color-mix(in srgb, var(--primary) 45%, transparent),
+      0 0 14px color-mix(in srgb, var(--primary) 25%, transparent);
   }
 
-  /* Game tile — flat, performant, with banner image overlay.
-     aspect-ratio 3:4 matches Steam library_600x900 (2:3 close enough,
-     with object-fit cover it shows full banner without weird cropping). */
-  .game-tile {
-    position: relative;
-    overflow: hidden;
-    border-radius: 14px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    aspect-ratio: 3 / 4;
-    cursor: pointer;
-    transition: border-color 0.15s ease;
-    background: var(--game-gradient, linear-gradient(135deg, #1b2838, #0e141d));
+  /* Gradient headline text */
+  .vd-gradient-text {
+    background: linear-gradient(92deg, #ffffff 10%, color-mix(in srgb, var(--primary) 75%, #ffffff) 55%, var(--primary) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
   }
 
-  .game-tile__banner {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .game-tile__overlay {
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(
-      180deg,
-      rgba(14, 20, 29, 0.1) 0%,
-      rgba(14, 20, 29, 0.4) 50%,
-      rgba(14, 20, 29, 0.92) 100%
-    );
-  }
-
-  .game-tile__content {
-    position: relative;
-    z-index: 2;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    padding: 0.75rem;
-  }
-
-  .game-tile__title {
-    font-weight: 900;
-    letter-spacing: -0.02em;
-    line-height: 1;
-    color: #ffffff;
-    text-shadow:
-      0 1px 2px rgba(0, 0, 0, 0.8),
-      0 0 8px rgba(0, 0, 0, 0.5);
-  }
-
-  .game-tile__accent {
-    display: inline-block;
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    box-shadow: 0 0 6px currentColor;
-  }
-
-  .game-tile:hover {
-    border-color: var(--game-color, var(--primary));
-  }
-
-  .game-tile--selected {
-    border-color: var(--game-color, var(--primary));
-    box-shadow: 0 0 0 2px var(--game-color, var(--primary));
-  }
-
-  /* Section header — small uppercase label */
+  /* ── SECTION LABEL ── */
   .section-label {
-    font-size: 0.7rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--muted-foreground);
   }
 
-  /* Pill / chip */
+  /* ── CHIP / PILLS ── */
   .chip {
     display: inline-flex;
     align-items: center;
-    gap: 0.25rem;
-    padding: 0.25rem 0.625rem;
+    gap: 0.3rem;
+    padding: 0.4rem 0.8rem;
     border-radius: 999px;
-    font-size: 0.7rem;
-    font-weight: 600;
+    font-size: 0.72rem;
+    font-weight: 700;
     border: 1px solid var(--border);
-    background: rgba(255, 255, 255, 0.03);
-    transition: background 0.12s ease, color 0.12s ease;
+    background: rgba(255, 255, 255, 0.045);
+    color: var(--foreground);
+    transition: background 0.14s ease, color 0.14s ease, border-color 0.14s ease, transform 0.12s ease;
+  }
+  .chip:active {
+    transform: scale(0.95);
   }
   .chip--active {
     background: var(--primary);
     color: var(--primary-foreground);
-    border-color: var(--primary);
+    border-color: color-mix(in srgb, var(--primary) 70%, #ffffff);
+    box-shadow: 0 4px 14px -4px color-mix(in srgb, var(--primary) 60%, transparent);
   }
 
-  /* Stat block */
-  .stat-block {
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 100%);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: 14px;
-    padding: 0.875rem 0.5rem;
-    text-align: center;
-  }
-  .stat-block__value {
-    font-size: 1.5rem;
-    font-weight: 800;
-    line-height: 1;
-    color: var(--primary);
-  }
-  .stat-block__label {
-    margin-top: 0.25rem;
-    font-size: 0.65rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--muted-foreground);
-  }
-
-  /* Room card — modern list item */
-  .room-card {
-    background: linear-gradient(180deg, rgba(27, 40, 56, 0.5) 0%, rgba(14, 20, 29, 0.4) 100%);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 0.75rem;
-    transition: border-color 0.12s ease;
-  }
-  .room-card:hover {
-    border-color: color-mix(in srgb, var(--primary) 50%, var(--border));
-  }
-
-  /* Topic pill button */
   .topic-pill {
     display: inline-flex;
     align-items: center;
@@ -348,7 +451,115 @@
     border-color: var(--primary);
   }
 
-  /* Neon strip — glowing horizontal line, used as section divider */
+  /* ── STAT BLOCK ── */
+  .stat-block {
+    position: relative;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 0.9375rem 0.5rem 0.8125rem;
+    text-align: center;
+    overflow: hidden;
+  }
+  .stat-block::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 20%;
+    right: 20%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--primary) 45%, transparent), transparent);
+  }
+  .stat-block__value {
+    font-size: 1.4rem;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    color: var(--primary);
+    text-shadow: 0 0 14px color-mix(in srgb, var(--primary) 35%, transparent);
+  }
+  .stat-block__label {
+    margin-top: 0.3rem;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+  }
+
+  /* ── GAME TILE (Steam banner) ── */
+  .game-tile {
+    position: relative;
+    overflow: hidden;
+    border-radius: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    aspect-ratio: 3 / 4;
+    cursor: pointer;
+    transition: border-color 0.16s ease, transform 0.16s ease, box-shadow 0.16s ease;
+    background: var(--game-gradient, linear-gradient(135deg, #1b2838, #0e141d));
+    box-shadow: 0 10px 26px -14px rgba(0, 0, 0, 0.6);
+  }
+  .game-tile__banner {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .game-tile:hover .game-tile__banner {
+    transform: scale(1.05);
+  }
+  .game-tile__overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      180deg,
+      rgba(11, 17, 26, 0.05) 0%,
+      rgba(11, 17, 26, 0.38) 52%,
+      rgba(11, 17, 26, 0.94) 100%
+    );
+  }
+  .game-tile__content {
+    position: relative;
+    z-index: 2;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 0.8125rem;
+  }
+  .game-tile__title {
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    color: #ffffff;
+    text-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.8),
+      0 0 10px rgba(0, 0, 0, 0.5);
+  }
+  .game-tile__accent {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    box-shadow: 0 0 6px currentColor;
+  }
+  .game-tile:hover {
+    border-color: color-mix(in srgb, var(--game-color, var(--primary)) 65%, transparent);
+    box-shadow:
+      0 14px 34px -14px color-mix(in srgb, var(--game-color, var(--primary)) 45%, transparent),
+      0 10px 26px -14px rgba(0, 0, 0, 0.6);
+  }
+  .game-tile:active {
+    transform: scale(0.975);
+  }
+  .game-tile--selected {
+    border-color: var(--game-color, var(--primary));
+    box-shadow: 0 0 0 2px var(--game-color, var(--primary));
+  }
+
+  /* ── NEON STRIP (divider glow) ── */
   .neon-strip {
     position: relative;
     height: 2px;
@@ -362,10 +573,9 @@
     box-shadow:
       0 0 6px var(--primary),
       0 0 12px color-mix(in srgb, var(--primary) 50%, transparent);
-    opacity: 0.8;
+    opacity: 0.75;
   }
 
-  /* Neon strip — vertical variant */
   .neon-strip-v {
     position: relative;
     width: 2px;
@@ -381,11 +591,53 @@
       0 0 12px color-mix(in srgb, var(--primary) 50%, transparent);
   }
 
-  /* Slide-in animation for sub-views (game → rooms) */
+  /* ── LIVE DOT — pulsing "in voice" indicator ── */
+  .vd-live {
+    position: relative;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #3fb950;
+    box-shadow: 0 0 8px rgba(63, 185, 80, 0.8);
+  }
+  .vd-live::after {
+    content: "";
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(63, 185, 80, 0.6);
+    animation: vdLiveRing 1.6s ease-out infinite;
+  }
+  @keyframes vdLiveRing {
+    0% { transform: scale(0.55); opacity: 1; }
+    100% { transform: scale(1.5); opacity: 0; }
+  }
+
+  /* ── INPUT ── */
+  .vd-input {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.045);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 0.6875rem 0.875rem;
+    font-size: 0.875rem;
+    color: var(--foreground);
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  }
+  .vd-input::placeholder {
+    color: color-mix(in srgb, var(--muted-foreground) 72%, transparent);
+  }
+  .vd-input:focus {
+    border-color: color-mix(in srgb, var(--primary) 60%, var(--border));
+    background: rgba(255, 255, 255, 0.06);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 16%, transparent);
+  }
+
+  /* ── Animations ── */
   .slide-in {
     animation: slideInRight 0.22s cubic-bezier(0.4, 0, 0.2, 1);
   }
-
   @keyframes slideInRight {
     from {
       opacity: 0;
@@ -397,14 +649,21 @@
     }
   }
 
-  /* Fade-in animation for content */
   .fade-in {
     animation: fadeIn 0.18s ease-out;
   }
-
   @keyframes fadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
+  }
+
+  /* Stagger-in for lists */
+  .vd-rise {
+    animation: vdRise 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  @keyframes vdRise {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
   }
 }
 
@@ -417,7 +676,7 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(102, 192, 244, 0.3);
+  background: rgba(125, 165, 205, 0.25);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {

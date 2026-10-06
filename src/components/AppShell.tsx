@@ -148,43 +148,65 @@ export function AppShell({ user, children }: Props) {
 
   return (
     <main className="min-h-screen flex flex-col">
-      {/* Top header */}
-      <header className="sticky top-0 z-20 bg-[#0e141d] border-b border-border">
-        <div className="neon-strip" />
+      {/* Top header — floating glass with gradient brand mark */}
+      <header
+        className="sticky top-0 z-20 border-b border-border"
+        style={{
+          background: "linear-gradient(180deg, rgba(11,17,26,0.94) 0%, rgba(11,17,26,0.82) 100%)",
+          backdropFilter: "blur(14px)",
+          WebkitBackdropFilter: "blur(14px)",
+        }}
+      >
         <div className="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
           <button
             onClick={() => navigate("/")}
             className="flex items-center gap-2.5"
           >
             <div
-              className="w-9 h-9 rounded-xl flex items-center justify-center"
-              style={{ background: "var(--primary)" }}
+              className="w-9 h-9 rounded-[13px] flex items-center justify-center relative overflow-hidden"
+              style={{
+                background: "linear-gradient(140deg, color-mix(in srgb, var(--primary) 90%, #ffffff) 0%, var(--primary) 45%, color-mix(in srgb, var(--primary) 45%, #0a2a3a) 100%)",
+                boxShadow: "0 4px 16px -4px color-mix(in srgb, var(--primary) 60%, transparent), 0 1px 0 rgba(255,255,255,0.4) inset",
+              }}
             >
-              <span className="text-[#0e141d] font-black text-sm">V</span>
+              {/* waveform mark */}
+              <span className="flex items-end gap-[2px] relative z-10" aria-hidden>
+                <span className="w-[2.5px] h-2 rounded-full" style={{ background: "var(--primary-foreground)", opacity: 0.9 }} />
+                <span className="w-[2.5px] h-3.5 rounded-full" style={{ background: "var(--primary-foreground)" }} />
+                <span className="w-[2.5px] h-1.5 rounded-full" style={{ background: "var(--primary-foreground)", opacity: 0.9 }} />
+              </span>
             </div>
             <div className="text-left">
-              <p className="text-base font-bold neon-text leading-tight">VoiceDeck</p>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider leading-tight">
+              <p className="text-[15px] font-black leading-tight vd-gradient-text tracking-tight">VoiceDeck</p>
+              <p className="text-[9.5px] text-muted-foreground uppercase tracking-[0.14em] leading-tight font-semibold">
                 {contextLabel}
               </p>
             </div>
           </button>
           <button
             onClick={() => navigate("/profile")}
-            className={`flex items-center gap-2 pl-1 pr-3 py-1 rounded-full border transition-colors ${
+            className={`flex items-center gap-2 pl-1 pr-2.5 py-1 rounded-full border transition-all ${
               pathname.startsWith("/profile") || pathname.startsWith("/leaderboard") || pathname.startsWith("/users")
-                ? "border-primary/40 bg-primary/10"
-                : "border-border hover:border-primary/30"
+                ? "border-primary/45 bg-primary/10"
+                : "border-border hover:border-primary/30 bg-white/[0.03]"
             }`}
           >
             {user.photo_url ? (
-              <img src={user.photo_url} alt={user.first_name} className="w-7 h-7 rounded-full object-cover" />
+              <img
+                src={user.photo_url}
+                alt={user.first_name}
+                className="w-7 h-7 rounded-full object-cover ring-2"
+                style={{
+                  // @ts-expect-error css var in ring color
+                  "--tw-ring-color": "color-mix(in srgb, var(--primary) 35%, transparent)",
+                }}
+              />
             ) : (
-              <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold">
+              <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold neon-text">
                 {user.first_name?.[0] ?? "?"}
               </div>
             )}
-            <span className="text-xs font-semibold max-w-[80px] truncate">
+            <span className="text-xs font-bold max-w-[80px] truncate">
               {user.username ? user.username : user.first_name}
             </span>
           </button>
@@ -201,10 +223,13 @@ export function AppShell({ user, children }: Props) {
             className="max-w-md mx-auto px-4 mt-2"
           >
             <div
-              className="rounded-xl border p-3 pr-9 relative"
+              className="rounded-2xl border p-3.5 pr-9 relative overflow-hidden"
               style={{
-                background: announcement.kind === "warning" ? "rgba(247,166,0,0.1)" : "rgba(0,240,255,0.06)",
-                borderColor: announcement.kind === "warning" ? "rgba(247,166,0,0.4)" : "rgba(0,240,255,0.3)",
+                background: announcement.kind === "warning"
+                  ? "linear-gradient(135deg, rgba(255,182,39,0.14), rgba(255,138,39,0.05))"
+                  : "linear-gradient(135deg, rgba(47,124,246,0.14), rgba(123,92,240,0.07))",
+                borderColor: announcement.kind === "warning" ? "rgba(255,182,39,0.4)" : "rgba(47,124,246,0.35)",
+                boxShadow: "0 8px 24px -12px rgba(0,0,0,0.5)",
               }}
             >
               <div className="flex items-start gap-2">
@@ -236,13 +261,13 @@ export function AppShell({ user, children }: Props) {
       <div className="fixed bottom-0 left-0 right-0 z-30 px-4 pb-4 safe-area-inset-bottom pointer-events-none">
         <nav className="max-w-md mx-auto pointer-events-auto">
           <div
-            className="flex items-center justify-around rounded-2xl px-2 py-2"
+            className="flex items-center justify-around rounded-3xl px-2 py-2"
             style={{
-              background: "rgba(14, 20, 29, 0.85)",
-              backdropFilter: "blur(16px)",
-              WebkitBackdropFilter: "blur(16px)",
-              border: "1px solid var(--border)",
-              boxShadow: "0 4px 24px rgba(0, 0, 0, 0.5)",
+              background: "linear-gradient(180deg, rgba(20,28,40,0.92), rgba(11,17,26,0.94))",
+              backdropFilter: "blur(18px)",
+              WebkitBackdropFilter: "blur(18px)",
+              border: "1px solid rgba(255,255,255,0.09)",
+              boxShadow: "0 16px 44px -12px rgba(0, 0, 0, 0.7), 0 1px 0 rgba(255, 255, 255, 0.08) inset",
             }}
           >
             <TabButton
@@ -261,23 +286,23 @@ export function AppShell({ user, children }: Props) {
               isMoving={isMoving}
             />
 
-            {/* Central + button with neon glow */}
+            {/* Central + button — duotone gradient orb */}
             <button
               onClick={handleCreateTap}
-              className="relative flex items-center justify-center shrink-0"
+              className="relative flex items-center justify-center shrink-0 active:scale-95 transition-transform"
               style={{ width: 48, height: 48 }}
               aria-label="Создать комнату"
               data-tour="nav-create"
             >
               <div
-                className="absolute inset-0 rounded-xl"
+                className="absolute inset-0 rounded-2xl"
                 style={{
-                  background: "linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 50%, #1b2838))",
+                  background: "linear-gradient(140deg, #2f7cf6 0%, #7b5cf0 55%, #a855f7 100%)",
                   boxShadow:
-                    "0 0 16px color-mix(in srgb, var(--primary) 50%, transparent), 0 4px 12px rgba(0,0,0,0.4)",
+                    "0 8px 24px -6px rgba(123, 92, 240, 0.55), 0 1px 0 rgba(255,255,255,0.35) inset, 0 0 0 1px rgba(255,255,255,0.12)",
                 }}
               />
-              <Plus className="w-6 h-6 text-[#0e141d] relative z-10" strokeWidth={2.5} />
+              <Plus className="w-6 h-6 text-white relative z-10" strokeWidth={3} />
             </button>
 
             <TabButton
@@ -368,14 +393,14 @@ const TabButton = memo(function TabButton({
       {active && (
         <motion.div
           layoutId="bottom-nav-active"
-          className="absolute inset-0 rounded-full"
+          className="absolute inset-0 rounded-2xl"
           style={{
-            // Glass appearance — floating, slightly transparent
-            background: "rgba(255, 255, 255, 0.08)",
-            border: "1px solid rgba(255, 255, 255, 0.15)",
+            // Aurora glass pill — primary-tinted, floating
+            background: "linear-gradient(150deg, color-mix(in srgb, var(--primary) 22%, transparent), rgba(255, 255, 255, 0.06))",
+            border: "1px solid color-mix(in srgb, var(--primary) 38%, rgba(255,255,255,0.14))",
             boxShadow: isMoving
-              ? "0 8px 24px rgba(0, 0, 0, 0.6), 0 0 16px rgba(255, 255, 255, 0.15)"
-              : "0 2px 8px rgba(0, 0, 0, 0.3)",
+              ? "0 10px 28px -6px color-mix(in srgb, var(--primary) 40%, transparent), 0 1px 0 rgba(255,255,255,0.18) inset"
+              : "0 4px 16px -4px color-mix(in srgb, var(--primary) 30%, transparent), 0 1px 0 rgba(255,255,255,0.14) inset",
           }}
           // Keyframes: grow → hold → shrink (the "detach" effect)
           animate={{
@@ -393,7 +418,9 @@ const TabButton = memo(function TabButton({
           }}
         />
       )}
-      <div className="relative z-10">{icon}</div>
+      <div className={`relative z-10 transition-all duration-150 ${active ? "drop-shadow-[0_0_8px_color-mix(in_srgb,var(--primary)_60%,transparent)]" : ""}`}>
+        {icon}
+      </div>
     </button>
   );
 });

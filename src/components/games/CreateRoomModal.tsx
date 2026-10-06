@@ -122,7 +122,7 @@ export function CreateRoomModal({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.18 }}
-      style={{ background: "rgba(5, 8, 12, 0.72)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)" }}
+      style={{ background: "rgba(5, 8, 12, 0.74)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }}
       onClick={onClose}
     >
       <motion.div
@@ -130,30 +130,61 @@ export function CreateRoomModal({
         animate={{ y: 0, opacity: 1, scale: 1 }}
         exit={{ y: 80, opacity: 0, scale: 0.97 }}
         transition={{ type: "spring", damping: 28, stiffness: 340 }}
-        className="glass-card p-5 w-full max-w-md max-h-[88vh] overflow-y-auto"
+        className="w-full max-w-md max-h-[88vh] overflow-y-auto rounded-3xl border border-border"
+        style={{
+          background: "linear-gradient(180deg, rgba(30,43,61,0.85), rgba(17,24,35,0.97))",
+          boxShadow: "var(--shadow-pop)",
+        }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-bold neon-text">Создать комнату</h2>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors p-1">
-            <X className="w-5 h-5" />
-          </button>
+        {/* Gradient header band */}
+        <div
+          className="px-5 pt-5 pb-4 sticky top-0 z-10"
+          style={{
+            background: "linear-gradient(180deg, rgba(30,43,61,0.98) 0%, rgba(30,43,61,0.92) 70%, rgba(30,43,61,0) 100%)",
+          }}
+        >
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-black vd-gradient-text tracking-tight">Создать комнату</h2>
+            <button
+              onClick={onClose}
+              className="w-8 h-8 rounded-full bg-white/[0.06] border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-white/[0.1] transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
-        {/* Category toggle — 3 sections */}
-        <div className="grid grid-cols-3 gap-1 mb-5 p-1 bg-background/40 rounded-xl border border-border">
-          {CATEGORY_TABS.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => switchCategory(t.id)}
-              className={`py-2 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
-                category === t.id ? "neon-btn" : "text-muted-foreground"
-              }`}
-            >
-              {t.icon}
-              {t.label}
-            </button>
-          ))}
+        <div className="px-5 pb-5 -mt-2">
+        {/* Category toggle — 3 sections with per-section gradient */}
+        <div className="grid grid-cols-3 gap-1 mb-5 p-1 rounded-2xl border border-border" style={{ background: "rgba(255,255,255,0.035)" }}>
+          {CATEGORY_TABS.map((t) => {
+            const active = category === t.id;
+            const grad = t.id === "game"
+              ? "linear-gradient(135deg, #ff9a3d, #ff5e62)"
+              : t.id === "casual"
+              ? "linear-gradient(135deg, #2f7cf6, #7b5cf0)"
+              : "linear-gradient(135deg, #a855f7, #ec4899)";
+            return (
+              <button
+                key={t.id}
+                onClick={() => switchCategory(t.id)}
+                className={`relative py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                  active ? "text-white" : "text-muted-foreground"
+                }`}
+              >
+                {active && (
+                  <motion.span
+                    layoutId="create-category-pill"
+                    className="absolute inset-0 rounded-xl"
+                    style={{ background: grad, boxShadow: "0 6px 16px -6px rgba(0,0,0,0.5), 0 1px 0 rgba(255,255,255,0.3) inset" }}
+                    transition={{ type: "spring", damping: 26, stiffness: 320 }}
+                  />
+                )}
+                <span className="relative z-10 flex items-center gap-1.5">{t.icon}{t.label}</span>
+              </button>
+            );
+          })}
         </div>
 
         {/* ── GAME ROOM (PC LFG) ── */}
@@ -201,7 +232,7 @@ export function CreateRoomModal({
                       onChange={(e) => setGameQuery(e.target.value)}
                       placeholder="Начни вводить название..."
                       autoFocus
-                      className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-background/40 border border-border focus:border-primary outline-none text-sm transition-colors placeholder:text-muted-foreground/60"
+                      className="vd-input !pl-9"
                     />
                   </div>
 
@@ -320,12 +351,15 @@ export function CreateRoomModal({
           <motion.div
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-4 rounded-2xl border border-border p-4"
-            style={{ background: "rgba(255,255,255,0.03)" }}
+            className="mb-4 rounded-2xl border p-4 relative overflow-hidden"
+            style={{
+              background: "linear-gradient(135deg, rgba(47,124,246,0.12), rgba(123,92,240,0.06))",
+              borderColor: "rgba(94,108,243,0.3)",
+            }}
           >
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: "var(--primary)/15" }}>
-                <MessageCircle className="w-5 h-5 neon-text" />
+              <div className="vd-tile w-10 h-10" style={{ background: "linear-gradient(140deg, #2f7cf6, #7b5cf0)", border: "1px solid rgba(255,255,255,0.22)" }}>
+                <MessageCircle className="w-5 h-5" />
               </div>
               <div>
                 <p className="text-sm font-bold">Голосовая комната общения</p>
@@ -413,7 +447,7 @@ export function CreateRoomModal({
               : "Например: Ночные разговоры"
             }
             maxLength={50}
-            className="w-full px-3 py-2.5 rounded-xl bg-background/40 border border-border focus:border-primary outline-none text-sm transition-colors placeholder:text-muted-foreground/60"
+            className="vd-input"
           />
         </div>
 
@@ -457,7 +491,7 @@ export function CreateRoomModal({
           whileTap={{ scale: 0.98 }}
           onClick={handleSubmit}
           disabled={submitting || (category === "game" && !selectedGame)}
-          className="neon-btn w-full"
+          className="neon-btn w-full py-3.5 text-sm"
         >
           {submitting
             ? "Создаём..."
@@ -467,6 +501,7 @@ export function CreateRoomModal({
             ? `Собрать партию${selectedPartyGame ? ` · ${selectedPartyGame.name}` : ""}`
             : "Создать комнату"}
         </motion.button>
+        </div>
       </motion.div>
     </motion.div>
   );

@@ -156,13 +156,19 @@ export function DMView({ user }: Props) {
 
   return (
     <div className="flex flex-col h-screen">
-      {/* Header */}
-      <header className="bg-[#0e141d] border-b border-border sticky top-0 z-20">
-        <div className="neon-strip" />
+      {/* Header — floating glass */}
+      <header
+        className="border-b border-border sticky top-0 z-20"
+        style={{
+          background: "linear-gradient(180deg, rgba(11,17,26,0.96) 0%, rgba(11,17,26,0.88) 100%)",
+          backdropFilter: "blur(14px)",
+          WebkitBackdropFilter: "blur(14px)",
+        }}
+      >
         <div className="px-3 py-3 flex items-center gap-3">
           <button
             onClick={() => router.push("/friends")}
-            className="p-1.5 -ml-1.5 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+            className="w-9 h-9 rounded-xl bg-white/[0.05] border border-border flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-white/[0.08] transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
@@ -170,19 +176,28 @@ export function DMView({ user }: Props) {
           {/* Avatar */}
           <div className="relative">
             {partner.photo_url ? (
-              <img src={partner.photo_url} alt="" className="w-9 h-9 rounded-full object-cover" />
+              <img
+                src={partner.photo_url}
+                alt=""
+                className="w-10 h-10 rounded-full object-cover"
+                style={{
+                  boxShadow: partner.is_online
+                    ? "0 0 0 2px rgba(63,185,80,0.5), 0 0 12px -2px rgba(63,185,80,0.45)"
+                    : "0 0 0 2px rgba(255,255,255,0.08)",
+                }}
+              />
             ) : (
-              <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center text-sm font-bold">
+              <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-sm font-bold">
                 {partner.first_name?.[0] ?? "?"}
               </div>
             )}
             {partner.is_online && (
-              <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-[#0e141d]" />
+              <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-[#0b111a] shadow-[0_0_8px_rgba(63,185,80,0.8)]" />
             )}
           </div>
 
           <div className="flex-1 min-w-0">
-            <h1 className="font-semibold text-sm truncate">
+            <h1 className="font-bold text-sm truncate tracking-tight">
               {partner.username ? `@${partner.username}` : `${partner.first_name} ${partner.last_name ?? ""}`}
             </h1>
             <p className="text-xs text-muted-foreground flex items-center gap-1.5">
@@ -207,11 +222,19 @@ export function DMView({ user }: Props) {
               <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
                 <div className={`max-w-[80%]`}>
                   <div
-                    className={`rounded-2xl px-3 py-2 text-sm break-words ${
+                    className={`rounded-2xl px-3.5 py-2 text-sm break-words ${
                       isMe
-                        ? "bg-primary text-[#0e141d] rounded-br-md font-medium"
-                        : "bg-[#1b2838] border border-border rounded-bl-md"
+                        ? "text-[#071019] rounded-br-md font-medium"
+                        : "text-foreground rounded-bl-md border border-border"
                     }`}
+                    style={
+                      isMe
+                        ? {
+                            background: "linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 60%, #2f7cf6))",
+                            boxShadow: "0 4px 14px -6px color-mix(in srgb, var(--primary) 50%, transparent)",
+                          }
+                        : { background: "rgba(255,255,255,0.05)" }
+                    }
                   >
                     {msg.content}
                   </div>
@@ -227,7 +250,14 @@ export function DMView({ user }: Props) {
       </div>
 
       {/* Input */}
-      <div className="bg-[#0e141d] border-t border-border p-2 safe-area-inset-bottom">
+      <div
+        className="border-t border-border p-2.5 safe-area-inset-bottom"
+        style={{
+          background: "linear-gradient(0deg, rgba(11,17,26,0.98) 0%, rgba(11,17,26,0.92) 100%)",
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
+        }}
+      >
         <div className="flex items-center gap-2">
           <input
             ref={inputRef}
@@ -242,7 +272,7 @@ export function DMView({ user }: Props) {
             }}
             placeholder="Сообщение..."
             maxLength={1000}
-            className="flex-1 px-4 py-2.5 rounded-full bg-[#1b2838] border border-border focus:border-primary outline-none text-sm transition-colors"
+            className="flex-1 vd-input !rounded-full !py-2.5"
           />
           <button
             onClick={sendMessage}

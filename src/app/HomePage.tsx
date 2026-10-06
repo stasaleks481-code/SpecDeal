@@ -83,23 +83,24 @@ function HomePageContent() {
 
       // Wait for Telegram WebApp SDK (up to 3s), collect initData
       let initData = "";
+      type TgWebApp = { initData?: string; ready?: () => void; expand?: () => void };
       if (typeof window !== "undefined") {
         for (let i = 0; i < 30; i++) {
-          const tg = (window as unknown as { Telegram?: { WebApp?: { initData?: string } } }).Telegram;
+          const tg = (window as unknown as { Telegram?: { WebApp?: TgWebApp } }).Telegram;
           if (tg?.WebApp && typeof tg.WebApp.initData === "string" && tg.WebApp.initData.length > 0) {
             initData = tg.WebApp.initData;
-            tg.WebApp.ready();
-            tg.WebApp.expand();
+            tg.WebApp.ready?.();
+            tg.WebApp.expand?.();
             break;
           }
           await new Promise((r) => setTimeout(r, 100));
         }
         if (!initData) {
-          const tg = (window as unknown as { Telegram?: { WebApp?: { initData?: string } } }).Telegram;
+          const tg = (window as unknown as { Telegram?: { WebApp?: TgWebApp } }).Telegram;
           if (tg?.WebApp?.initData) {
             initData = tg.WebApp.initData;
-            tg.WebApp.ready();
-            tg.WebApp.expand();
+            tg.WebApp.ready?.();
+            tg.WebApp.expand?.();
           }
         }
 
