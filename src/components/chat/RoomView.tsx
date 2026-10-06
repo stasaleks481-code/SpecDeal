@@ -2,8 +2,8 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Send, Users, Crown, Phone, PhoneOff, Mic, MicOff, LogOut } from "lucide-react";
-import { GAMES, CASUAL_TOPICS } from "@/lib/supabase/client";
+import { ArrowLeft, Send, Crown, Mic, MicOff, PhoneOff, Users, LogOut, MessageSquare, Volume2 } from "lucide-react";
+import { GAMES } from "@/lib/supabase/client";
 import { supabase } from "@/lib/supabase/client";
 import type { UserRow } from "@/lib/supabase/client";
 import { useTelegramBackButton } from "@/lib/telegram/useBackButton";
@@ -64,20 +64,26 @@ export function RoomView({ user }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
-  const [showMembers, setShowMembers] = useState(false);
+  const [showChat, setShowChat] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // WebRTC voice call
-  const voiceCall = useVoiceCall({ roomId, userId: user.id });
+  // Voice call — auto-joins on mount
+  const voiceCall = useVoiceCall({
+    roomId,
+    userId: user.id,
+    userInfo: {
+      username: user.username,
+      firstName: user.first_name,
+      photoUrl: user.photo_url,
+    },
+  });
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Native Telegram BackButton support
   const goBack = useCallback(() => router.push("/"), [router]);
   useTelegramBackButton(goBack);
 
-  // Fetch room + members + messages
   const fetchRoom = useCallback(async () => {
     try {
       const res = await fetch(`/api/rooms/${roomId}`, { credentials: "include" });
@@ -89,17 +95,13 @@ export function RoomView({ user }: Props) {
       setRoom(data.room);
       setMembers(data.members ?? []);
 
-      // Join room if not already member (auto-join on view)
-      const isMember = (data.members ?? []).some(
-        (m: Member) => m.user_id === user.id
-      );
+      const isMember = (data.members ?? []).some((m: Member) => m.user_id === user.id);
       if (!isMember && data.room.host_id !== user.id) {
         const joinRes = await fetch(`/api/rooms/${roomId}/join`, { method: "POST", credentials: "include" });
         if (!joinRes.ok) {
           const jdata = await joinRes.json().catch(() => ({}));
           throw new Error(jdata.error ?? "Failed to join");
         }
-        // Refetch to get updated member list including me
         const refetch = await fetch(`/api/rooms/${roomId}`, { credentials: "include" });
         if (refetch.ok) {
           const rdata = await refetch.json();
@@ -130,49 +132,33 @@ export function RoomView({ user }: Props) {
     fetchMessages();
   }, [fetchRoom, fetchMessages]);
 
-  // Realtime subscription for new messages + member changes
+  // Realtime: new messages + member changes
   useEffect(() => {
     if (!room) return;
 
-    // Subscribe to new messages
     const msgChannel = supabase
       .channel(`room_messages_${roomId}`)
       .on(
         "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "room_messages",
-          filter: `room_id=eq.${roomId}`,
-        },
+        { event: "INSERT", schema: "public", table: "room_messages", filter: `room_id=eq.${roomId}` },
         async (payload) => {
           const newMsg = payload.new as { id: number; content: string; created_at: string; sender_id: number };
-          // Fetch sender info
           const { data: sender } = await supabase
             .from("users")
             .select("id, username, first_name, last_name, photo_url")
             .eq("id", newMsg.sender_id)
             .maybeSingle();
-
-          setMessages((prev) => [
-            ...prev,
-            {
-              ...newMsg,
-              sender: sender ?? { id: newMsg.sender_id, username: null, first_name: "?", last_name: null, photo_url: null },
-            },
-          ]);
+          setMessages((prev) => [...prev, { ...newMsg, sender: sender ?? { id: newMsg.sender_id, username: null, first_name: "?", last_name: null, photo_url: null } }]);
         }
       )
       .subscribe();
 
-    // Subscribe to member changes
     const memberChannel = supabase
       .channel(`room_members_${roomId}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "room_members", filter: `room_id=eq.${roomId}` },
         async () => {
-          // Refetch members
           const res = await fetch(`/api/rooms/${roomId}`, { credentials: "include" });
           if (res.ok) {
             const data = await res.json();
@@ -188,7 +174,6 @@ export function RoomView({ user }: Props) {
     };
   }, [room, roomId]);
 
-  // Auto-scroll on new messages
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -198,10 +183,8 @@ export function RoomView({ user }: Props) {
   const sendMessage = async () => {
     const content = input.trim();
     if (!content) return;
-
     setInput("");
     inputRef.current?.focus();
-
     try {
       const res = await fetch(`/api/rooms/${roomId}/messages`, {
         method: "POST",
@@ -213,13 +196,12 @@ export function RoomView({ user }: Props) {
         const data = await res.json().catch(() => ({}));
         haptic.error();
         alert(data.error ?? "Failed to send");
-        setInput(content); // restore on error
+        setInput(content);
       } else {
         haptic.impact("light");
       }
-    } catch (err) {
+    } catch {
       haptic.error();
-      console.error("[send] error:", err);
       setInput(content);
     }
   };
@@ -236,7 +218,7 @@ export function RoomView({ user }: Props) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-6">
+      <div className="min-h-screen flex flex-col items-center justify-center">
         <div className="w-12 h-12 rounded-full border-2 border-primary/20 border-t-primary animate-spin mb-3" />
         <p className="text-sm text-muted-foreground">Загружаем комнату...</p>
       </div>
@@ -260,12 +242,11 @@ export function RoomView({ user }: Props) {
   const game = room.game_name ? GAMES.find((g) => g.code === room.game_name) : null;
   const isHost = room.host_id === user.id;
   const memberCount = members.length;
-  const isFull = memberCount >= room.max_players;
 
   return (
     <div className="flex flex-col h-screen">
       {/* Header */}
-      <header className="bg-[#0e141d] border-b border-border sticky top-0 z-20">
+      <header className="bg-[#0e141d] border-b border-border">
         <div className="neon-strip" />
         <div className="px-3 py-3 flex items-center gap-3">
           <button
@@ -275,15 +256,12 @@ export function RoomView({ user }: Props) {
             <ArrowLeft className="w-5 h-5" />
           </button>
 
-          {/* Game icon */}
           {game && (
             <div className="relative w-9 h-9 rounded-lg overflow-hidden shrink-0">
               {game.banner ? (
                 <img src={game.banner} alt="" className="w-full h-full object-cover" />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-xl" style={{ background: game.gradient }}>
-                  {game.emoji}
-                </div>
+                <div className="w-full h-full" style={{ background: game.gradient }} />
               )}
             </div>
           )}
@@ -291,7 +269,6 @@ export function RoomView({ user }: Props) {
           <div className="flex-1 min-w-0">
             <h1 className="font-semibold text-sm truncate">{room.title}</h1>
             <button
-              onClick={() => setShowMembers(true)}
               className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
             >
               <Users className="w-3 h-3" />
@@ -299,50 +276,10 @@ export function RoomView({ user }: Props) {
             </button>
           </div>
 
-          {/* Voice call button */}
-          <button
-            onClick={() => {
-              haptic.impact("medium");
-              if (voiceCall.isInCall) {
-                voiceCall.leaveCall();
-              } else {
-                voiceCall.joinCall();
-              }
-            }}
-            className={`p-2 rounded-lg transition-colors ${
-              voiceCall.isInCall
-                ? "bg-red-500/20 text-red-400 hover:bg-red-500/30"
-                : "bg-primary/10 hover:bg-primary/20 text-primary"
-            }`}
-            title={voiceCall.isInCall ? "Покинуть звонок" : "Голосовой чат"}
-          >
-            {voiceCall.isInCall ? <PhoneOff className="w-4 h-4" /> : <Phone className="w-4 h-4" />}
-          </button>
-
-          {/* Mute button — only visible when in call */}
-          {voiceCall.isInCall && (
-            <button
-              onClick={() => {
-                haptic.impact("light");
-                voiceCall.toggleMute();
-              }}
-              className={`p-2 rounded-lg transition-colors ${
-                voiceCall.isMuted
-                  ? "bg-red-500/20 text-red-400"
-                  : "bg-primary/10 text-primary hover:bg-primary/20"
-              }`}
-              title={voiceCall.isMuted ? "Включить микрофон" : "Выключить микрофон"}
-            >
-              {voiceCall.isMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-            </button>
-          )}
-
-          {/* Leave button */}
           {!isHost && (
             <button
               onClick={leaveRoom}
               className="p-2 rounded-lg hover:bg-red-500/10 text-muted-foreground hover:text-red-400 transition-colors"
-              title="Выйти из комнаты"
             >
               <LogOut className="w-4 h-4" />
             </button>
@@ -350,165 +287,230 @@ export function RoomView({ user }: Props) {
         </div>
       </header>
 
-      {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
-        {messages.length === 0 ? (
-          <div className="text-center text-sm text-muted-foreground py-12">
-            <p>👋 Привет! Это комната чата.</p>
-            <p className="mt-1 text-xs">Напиши первое сообщение!</p>
+      {/* ━━━ VOICE CALL — main area ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      <div className="flex-1 overflow-y-auto px-4 py-4">
+        {voiceCall.error ? (
+          <div className="flex flex-col items-center justify-center h-full gap-4">
+            <div className="w-16 h-16 rounded-2xl bg-red-500/20 flex items-center justify-center">
+              <MicOff className="w-8 h-8 text-red-400" />
+            </div>
+            <p className="text-sm font-semibold text-red-300">Нет доступа к микрофону</p>
+            <p className="text-xs text-muted-foreground text-center max-w-xs">{voiceCall.error}</p>
+            <button onClick={() => voiceCall.joinCall()} className="neon-btn text-xs">
+              Повторить
+            </button>
           </div>
         ) : (
-          messages.map((msg) => {
-            const isMe = msg.sender.id === user.id;
-            return (
-              <div key={msg.id} className={`flex gap-2 ${isMe ? "flex-row-reverse" : ""}`}>
-                {/* Avatar */}
-                {msg.sender.photo_url ? (
-                  <img
-                    src={msg.sender.photo_url}
-                    alt=""
-                    className="w-7 h-7 rounded-full object-cover shrink-0 mt-0.5"
-                  />
-                ) : (
-                  <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">
-                    {msg.sender.first_name?.[0] ?? "?"}
-                  </div>
-                )}
-
-                {/* Bubble */}
-                <div className={`max-w-[75%] ${isMe ? "items-end" : "items-start"}`}>
-                  {!isMe && (
-                    <p className="text-[10px] text-muted-foreground mb-0.5 px-1">
-                      {msg.sender.username ? `@${msg.sender.username}` : msg.sender.first_name}
-                      {msg.sender.id === room.host_id && (
-                        <Crown className="inline w-2.5 h-2.5 ml-1 text-amber-400" fill="currentColor" />
-                      )}
-                    </p>
-                  )}
-                  <div
-                    className={`rounded-2xl px-3 py-2 text-sm break-words ${
-                      isMe
-                        ? "bg-primary text-[#0e141d] rounded-br-md font-medium"
-                        : "bg-[#1b2838] border border-border rounded-bl-md"
-                    }`}
-                  >
-                    {msg.content}
-                  </div>
-                  <p className={`text-[9px] text-muted-foreground mt-0.5 px-1 ${isMe ? "text-right" : ""}`}>
-                    {formatTime(msg.created_at)}
-                  </p>
-                </div>
+          <div className="space-y-4">
+            {/* Call status */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full ${
+                  voiceCall.isInCall ? "bg-green-500 animate-pulse" : "bg-amber-400 animate-pulse"
+                }`} />
+                <span className="text-sm font-semibold">
+                  {voiceCall.isInCall ? "В звонке" : "Подключение..."}
+                </span>
               </div>
-            );
-          })
-        )}
-      </div>
-
-      {/* Input */}
-      <div className="bg-[#0e141d] border-t border-border p-2 safe-area-inset-bottom">
-        <div className="flex items-center gap-2">
-          <input
-            ref={inputRef}
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                sendMessage();
-              }
-            }}
-            placeholder="Сообщение..."
-            maxLength={1000}
-            className="flex-1 px-4 py-2.5 rounded-full bg-[#1b2838] border border-border focus:border-primary outline-none text-sm transition-colors"
-          />
-          <button
-            onClick={sendMessage}
-            disabled={!input.trim()}
-            className="neon-btn !p-2.5 !rounded-full disabled:opacity-40"
-          >
-            <Send className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-
-      {/* Voice call error toast */}
-      {voiceCall.error && voiceCall.isInCall === false && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl bg-red-500/20 border border-red-500/40 text-red-300 text-xs text-center max-w-xs">
-          {voiceCall.error}
-        </div>
-      )}
-
-      {/* Voice call status bar */}
-      {voiceCall.isInCall && (
-        <div className="fixed top-16 left-0 right-0 z-40 px-4">
-          <div className="max-w-md mx-auto rounded-xl px-3 py-2 flex items-center justify-between"
-            style={{
-              background: "rgba(14, 20, 29, 0.9)",
-              backdropFilter: "blur(12px)",
-              border: "1px solid var(--border)",
-              boxShadow: "0 2px 12px rgba(0,0,0,0.4)",
-            }}
-          >
-            <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${
-                voiceCall.connectionState === "connected" ? "bg-green-500 animate-pulse" :
-                voiceCall.connectionState === "connecting" ? "bg-amber-400 animate-pulse" :
-                "bg-red-500"
-              }`} />
-              <span className="text-xs font-semibold">
-                {voiceCall.connectionState === "connecting" ? "Подключение..." :
-                 voiceCall.connectionState === "connected" ? "В звонке" : "Ошибка"}
-              </span>
               <span className="text-xs text-muted-foreground">
                 {voiceCall.participants.length} в звонке
               </span>
             </div>
-          </div>
-        </div>
-      )}
 
-      {/* Members panel (slide-up) */}
-      {showMembers && (
-        <div
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end"
-          onClick={() => setShowMembers(false)}
-        >
-          <div
-            className="glass-card rounded-b-none sm:rounded-2xl w-full max-w-md mx-auto p-4 max-h-[60vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="font-semibold">Участники ({memberCount}/{room.max_players})</h2>
-              <button onClick={() => setShowMembers(false)} className="text-muted-foreground text-xl">×</button>
-            </div>
-            <div className="space-y-2">
-              {members.map((m) => (
-                <div key={m.user_id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-primary/5">
-                  {m.user.photo_url ? (
-                    <img src={m.user.photo_url} alt="" className="w-9 h-9 rounded-full object-cover" />
-                  ) : (
-                    <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center text-sm font-bold">
-                      {m.user.first_name?.[0] ?? "?"}
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold truncate flex items-center gap-1">
-                      {m.user.username ? `@${m.user.username}` : m.user.first_name}
-                      {m.user_id === room.host_id && (
-                        <Crown className="w-3 h-3 text-amber-400" fill="currentColor" />
-                      )}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {m.user_id === user.id ? "Вы" : m.user_id === room.host_id ? "Хост" : "Участник"}
-                    </p>
+            {/* Participants grid */}
+            <div className="grid grid-cols-2 gap-3">
+              {voiceCall.participants.map((p) => (
+                <div
+                  key={p.userId}
+                  className="glass-card p-4 flex flex-col items-center gap-2"
+                >
+                  <div className="relative">
+                    {p.photoUrl ? (
+                      <img
+                        src={p.photoUrl}
+                        alt=""
+                        className={`w-16 h-16 rounded-2xl object-cover ${
+                          p.connectionState === "connected" ? "ring-2 ring-green-500/50" : "ring-2 ring-amber-400/50"
+                        }`}
+                      />
+                    ) : (
+                      <div className={`w-16 h-16 rounded-2xl bg-primary/20 flex items-center justify-center text-2xl font-bold ${
+                        p.connectionState === "connected" ? "ring-2 ring-green-500/50" : "ring-2 ring-amber-400/50"
+                      }`}>
+                        {p.firstName?.[0] ?? "?"}
+                      </div>
+                    )}
+                    {/* Mute indicator */}
+                    {p.isMuted && (
+                      <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-red-500 flex items-center justify-center border-2 border-[#0e141d]">
+                        <MicOff className="w-3 h-3 text-white" />
+                      </div>
+                    )}
+                    {/* Speaking indicator */}
+                    {p.connectionState === "connected" && !p.isMuted && (
+                      <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-green-500 flex items-center justify-center border-2 border-[#0e141d]">
+                        <Volume2 className="w-3 h-3 text-white" />
+                      </div>
+                    )}
                   </div>
+                  <p className="text-xs font-semibold truncate max-w-full">{p.firstName}</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {p.connectionState === "connecting" ? "подключение..." :
+                     p.connectionState === "connected" ? "онлайн" : "ошибка"}
+                  </p>
                 </div>
               ))}
             </div>
-            {isFull && (
-              <p className="text-center text-xs text-amber-400 mt-3">⚠ Комната заполнена</p>
+
+            {/* Empty participants hint */}
+            {voiceCall.participants.length === 1 && (
+              <div className="glass-card p-4 text-center">
+                <p className="text-xs text-muted-foreground">
+                  Ожидание других участников... Поделись ссылкой на комнату!
+                </p>
+              </div>
             )}
+
+            {/* Room members (not in call) */}
+            {members.length > voiceCall.participants.length && (
+              <div>
+                <div className="section-label mb-2 px-1">В комнате ({members.length})</div>
+                <div className="flex flex-wrap gap-2">
+                  {members
+                    .filter((m) => !voiceCall.participants.some((p) => p.userId === m.user_id))
+                    .map((m) => (
+                      <div key={m.user_id} className="glass-card px-3 py-2 flex items-center gap-2">
+                        {m.user.photo_url ? (
+                          <img src={m.user.photo_url} alt="" className="w-6 h-6 rounded-full object-cover opacity-50" />
+                        ) : (
+                          <div className="w-6 h-6 rounded-full bg-muted-foreground/20 flex items-center justify-center text-[10px] font-bold opacity-50">
+                            {m.user.first_name?.[0] ?? "?"}
+                          </div>
+                        )}
+                        <span className="text-xs text-muted-foreground">{m.user.first_name}</span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ━━━ CALL CONTROLS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      <div className="bg-[#0e141d] border-t border-border">
+        <div className="max-w-md mx-auto flex items-center justify-center gap-3 py-3 px-4 safe-area-inset-bottom">
+          {/* Mute */}
+          <button
+            onClick={() => {
+              haptic.impact("light");
+              voiceCall.toggleMute();
+            }}
+            className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${
+              voiceCall.isMuted
+                ? "bg-red-500/20 text-red-400"
+                : "bg-primary/10 text-primary hover:bg-primary/20"
+            }`}
+          >
+            {voiceCall.isMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+          </button>
+
+          {/* Leave call */}
+          <button
+            onClick={() => {
+              haptic.impact("medium");
+              voiceCall.leaveCall();
+            }}
+            className="w-14 h-14 rounded-full flex items-center justify-center bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"
+          >
+            <PhoneOff className="w-6 h-6" />
+          </button>
+
+          {/* Toggle chat */}
+          <button
+            onClick={() => {
+              haptic.impact("light");
+              setShowChat(!showChat);
+            }}
+            className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${
+              showChat ? "bg-primary/20 text-primary" : "bg-muted/30 text-muted-foreground"
+            }`}
+          >
+            <MessageSquare className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+
+      {/* ━━━ CHAT (collapsible, slides up) ━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      {showChat && (
+        <div className="bg-[#0e141d] border-t border-border max-h-[50vh] flex flex-col">
+          {/* Messages */}
+          <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-2 space-y-2 min-h-[200px]">
+            {messages.length === 0 ? (
+              <p className="text-center text-xs text-muted-foreground py-4">
+                Нет сообщений. Напиши первым!
+              </p>
+            ) : (
+              messages.map((msg) => {
+                const isMe = msg.sender.id === user.id;
+                return (
+                  <div key={msg.id} className={`flex gap-2 ${isMe ? "flex-row-reverse" : ""}`}>
+                    {msg.sender.photo_url ? (
+                      <img src={msg.sender.photo_url} alt="" className="w-6 h-6 rounded-full object-cover shrink-0 mt-0.5" />
+                    ) : (
+                      <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-[9px] font-bold shrink-0 mt-0.5">
+                        {msg.sender.first_name?.[0] ?? "?"}
+                      </div>
+                    )}
+                    <div className={`max-w-[75%] ${isMe ? "items-end" : "items-start"}`}>
+                      {!isMe && (
+                        <p className="text-[10px] text-muted-foreground mb-0.5 px-1">
+                          {msg.sender.username ? `@${msg.sender.username}` : msg.sender.first_name}
+                          {msg.sender.id === room.host_id && (
+                            <Crown className="inline w-2.5 h-2.5 ml-1 text-amber-400" fill="currentColor" />
+                          )}
+                        </p>
+                      )}
+                      <div className={`rounded-2xl px-3 py-1.5 text-sm break-words ${
+                        isMe
+                          ? "bg-primary text-[#0e141d] rounded-br-md"
+                          : "bg-[#1b2838] border border-border rounded-bl-md"
+                      }`}>
+                        {msg.content}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Input */}
+          <div className="p-2 border-t border-border safe-area-inset-bottom">
+            <div className="flex items-center gap-2">
+              <input
+                ref={inputRef}
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                  }
+                }}
+                placeholder="Сообщение..."
+                maxLength={1000}
+                className="flex-1 px-4 py-2 rounded-full bg-[#1b2838] border border-border focus:border-primary outline-none text-sm"
+              />
+              <button
+                onClick={sendMessage}
+                disabled={!input.trim()}
+                className="neon-btn !p-2 !rounded-full disabled:opacity-40"
+              >
+                <Send className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -1,12 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { supabase } from "@/lib/supabase/client";
 
 interface CallParticipant {
   userId: number;
-  audioLevel: number;
+  username: string | null;
+  firstName: string;
+  photoUrl: string | null;
   isMuted: boolean;
+  isSpeaking: boolean;
+  connectionState: "connecting" | "connected" | "failed";
 }
 
 interface SignalMessage {
@@ -21,36 +25,34 @@ interface SignalMessage {
 interface Props {
   roomId: string;
   userId: number;
+  userInfo: { username: string | null; firstName: string; photoUrl: string | null };
 }
 
 /**
- * useVoiceCall — WebRTC mesh voice call for a room.
- *
- * Architecture:
- * - Each participant connects to every other participant via RTCPeerConnection
- * - Signaling goes through Supabase Realtime on call_signals table
- * - Audio is captured via getUserMedia, sent via RTP, played via <audio> elements
- * - Mesh topology works for 2-5 participants
- *
- * STUN servers: Google's free public STUN
+ * useVoiceCall — WebRTC mesh voice call.
+ * Auto-joins on mount (user enters room → immediately in call).
+ * Signaling via Supabase Realtime on call_signals table.
  */
-export function useVoiceCall({ roomId, userId }: Props) {
+export function useVoiceCall({ roomId, userId, userInfo }: Props) {
   const [isInCall, setIsInCall] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [participants, setParticipants] = useState<CallParticipant[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [connectionState, setConnectionState] = useState<"idle" | "connecting" | "connected" | "failed">("idle");
+  const [micPermission, setMicPermission] = useState<"granted" | "denied" | "pending">("pending");
 
   const localStreamRef = useRef<MediaStream | null>(null);
   const peerConnectionsRef = useRef<Map<number, RTCPeerConnection>>(new Map());
   const audioElementsRef = useRef<Map<number, HTMLAudioElement>>(new Map());
   const lastSignalIdRef = useRef<number>(0);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const joinedRef = useRef<boolean>(false);
 
   const ICE_SERVERS: RTCIceServer[] = [
     { urls: "stun:stun.l.google.com:19302" },
     { urls: "stun:stun1.l.google.com:19302" },
     { urls: "stun:stun2.l.google.com:19302" },
+    { urls: "stun:stun3.l.google.com:19302" },
+    { urls: "stun:stun4.l.google.com:19302" },
   ];
 
   const sendSignal = useCallback(
@@ -68,6 +70,16 @@ export function useVoiceCall({ roomId, userId }: Props) {
     },
     [roomId]
   );
+
+  const updateParticipant = useCallback((remoteUserId: number, updates: Partial<CallParticipant>) => {
+    setParticipants((prev) => {
+      const existing = prev.find((p) => p.userId === remoteUserId);
+      if (existing) {
+        return prev.map((p) => (p.userId === remoteUserId ? { ...p, ...updates } : p));
+      }
+      return prev;
+    });
+  }, []);
 
   const createPeerConnection = useCallback(
     (remoteUserId: number): RTCPeerConnection => {
@@ -90,27 +102,28 @@ export function useVoiceCall({ roomId, userId }: Props) {
         if (!audio) {
           audio = new Audio();
           audio.autoplay = true;
+          (audio as HTMLAudioElement & { playsInline?: boolean }).playsInline = true;
           audioElementsRef.current.set(remoteUserId, audio);
         }
         audio.srcObject = event.streams[0];
+        audio.play().catch(() => {
+          // Autoplay blocked — will play on first interaction
+        });
       };
 
       pc.onconnectionstatechange = () => {
-        if (pc.connectionState === "connected") {
-          setConnectionState("connected");
-          setParticipants((prev) => {
-            if (!prev.some((p) => p.userId === remoteUserId)) {
-              return [...prev, { userId: remoteUserId, audioLevel: 0, isMuted: false }];
-            }
-            return prev;
-          });
+        const state = pc.connectionState;
+        if (state === "connected") {
+          updateParticipant(remoteUserId, { connectionState: "connected" });
+        } else if (state === "failed" || state === "disconnected") {
+          updateParticipant(remoteUserId, { connectionState: "failed" });
         }
       };
 
       peerConnectionsRef.current.set(remoteUserId, pc);
       return pc;
     },
-    [sendSignal]
+    [sendSignal, updateParticipant]
   );
 
   const handleSignal = useCallback(
@@ -119,6 +132,23 @@ export function useVoiceCall({ roomId, userId }: Props) {
 
       switch (signal.type) {
         case "join": {
+          // New user joined — create offer to them
+          setParticipants((prev) => {
+            if (!prev.some((p) => p.userId === signal.from_user_id)) {
+              const payload = signal.payload as { username?: string; firstName?: string; photoUrl?: string };
+              return [...prev, {
+                userId: signal.from_user_id,
+                username: payload?.username ?? null,
+                firstName: payload?.firstName ?? "Игрок",
+                photoUrl: payload?.photoUrl ?? null,
+                isMuted: false,
+                isSpeaking: false,
+                connectionState: "connecting",
+              }];
+            }
+            return prev;
+          });
+
           const pc = createPeerConnection(signal.from_user_id);
           const offer = await pc.createOffer();
           await pc.setLocalDescription(offer);
@@ -151,8 +181,8 @@ export function useVoiceCall({ roomId, userId }: Props) {
           if (pc) {
             try {
               await pc.addIceCandidate(signal.payload.candidate as RTCIceCandidateInit);
-            } catch (err) {
-              console.warn("[voice] ICE add error:", err);
+            } catch {
+              // Ignore — might be before remote description set
             }
           }
           break;
@@ -174,14 +204,18 @@ export function useVoiceCall({ roomId, userId }: Props) {
         }
       }
     },
-    [userId, createPeerConnection, sendSignal]
+    [userId, createPeerConnection, sendSignal, updateParticipant]
   );
 
   const joinCall = useCallback(async () => {
+    if (joinedRef.current) return;
+    joinedRef.current = true;
+
     try {
       setError(null);
-      setConnectionState("connecting");
+      setMicPermission("pending");
 
+      // Request microphone
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
@@ -190,7 +224,9 @@ export function useVoiceCall({ roomId, userId }: Props) {
         },
       });
       localStreamRef.current = stream;
+      setMicPermission("granted");
 
+      // Subscribe to signaling
       const channel = supabase
         .channel(`call_signals_${roomId}`)
         .on(
@@ -213,27 +249,45 @@ export function useVoiceCall({ roomId, userId }: Props) {
 
       channelRef.current = channel;
 
+      // Fetch existing signals (catch up)
       const res = await fetch(`/api/rooms/${roomId}/signal`, { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         for (const signal of (data.signals ?? []) as SignalMessage[]) {
           if (signal.id > lastSignalIdRef.current) {
             lastSignalIdRef.current = signal.id;
+            if (signal.from_user_id !== userId) {
+              handleSignal(signal);
+            }
           }
         }
       }
 
-      await sendSignal("join", { user_id: userId });
+      // Announce join
+      await sendSignal("join", {
+        user_id: userId,
+        username: userInfo.username,
+        firstName: userInfo.firstName,
+        photoUrl: userInfo.photoUrl,
+      });
 
       setIsInCall(true);
-      setParticipants([{ userId, audioLevel: 0, isMuted: false }]);
-      setConnectionState("connected");
+      setParticipants([{
+        userId,
+        username: userInfo.username,
+        firstName: "Вы",
+        photoUrl: userInfo.photoUrl,
+        isMuted: false,
+        isSpeaking: false,
+        connectionState: "connected",
+      }]);
     } catch (err) {
       console.error("[voice] joinCall error:", err);
-      setError(err instanceof Error ? err.message : "Failed to access microphone");
-      setConnectionState("failed");
+      setMicPermission("denied");
+      setError(err instanceof Error ? err.message : "Нет доступа к микрофону");
+      joinedRef.current = false;
     }
-  }, [roomId, userId, handleSignal, sendSignal]);
+  }, [roomId, userId, userInfo, handleSignal, sendSignal]);
 
   const leaveCall = useCallback(async () => {
     await sendSignal("leave", {});
@@ -259,7 +313,7 @@ export function useVoiceCall({ roomId, userId }: Props) {
     setIsInCall(false);
     setIsMuted(false);
     setParticipants([]);
-    setConnectionState("idle");
+    joinedRef.current = false;
   }, [sendSignal]);
 
   const toggleMute = useCallback(() => {
@@ -268,24 +322,28 @@ export function useVoiceCall({ roomId, userId }: Props) {
       if (audioTrack) {
         audioTrack.enabled = !audioTrack.enabled;
         setIsMuted(!audioTrack.enabled);
+        updateParticipant(userId, { isMuted: !audioTrack.enabled });
       }
     }
-  }, []);
+  }, [userId, updateParticipant]);
 
+  // Auto-join on mount
   useEffect(() => {
+    joinCall();
     return () => {
-      if (isInCall) {
+      if (joinedRef.current) {
         leaveCall();
       }
     };
-  }, [isInCall, leaveCall]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return {
     isInCall,
     isMuted,
     participants,
     error,
-    connectionState,
+    micPermission,
     joinCall,
     leaveCall,
     toggleMute,
