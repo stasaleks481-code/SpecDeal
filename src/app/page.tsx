@@ -27,16 +27,32 @@ export default function Home() {
       setLoading(true);
       setError(null);
 
-      // Get initData from Telegram WebApp SDK
+      // Wait for Telegram WebApp SDK to be loaded (max 3 seconds).
+      // The script tag is in layout.tsx with strategy="beforeInteractive",
+      // but in some Telegram clients it takes a moment to inject window.Telegram.
       let initData = "";
       if (typeof window !== "undefined") {
-        // Telegram WebApp passes initData via window.Telegram.WebApp.initData
-        const tg = (window as unknown as { Telegram?: { WebApp?: { initData: string } } }).Telegram;
-        if (tg?.WebApp?.initData) {
-          initData = tg.WebApp.initData;
-          // Inform Telegram that the WebApp is ready
-          tg.WebApp.ready();
-          tg.WebApp.expand();
+        // Poll for up to 3s waiting for Telegram SDK
+        for (let i = 0; i < 30; i++) {
+          const tg = (window as unknown as { Telegram?: { WebApp?: { initData?: string } } }).Telegram;
+          if (tg?.WebApp && typeof tg.WebApp.initData === "string") {
+            initData = tg.WebApp.initData;
+            // Notify Telegram that we're ready and want full viewport
+            tg.WebApp.ready();
+            tg.WebApp.expand();
+            break;
+          }
+          await new Promise((r) => setTimeout(r, 100));
+        }
+
+        // If still empty, try one more time after a short wait
+        if (!initData) {
+          const tg = (window as unknown as { Telegram?: { WebApp?: { initData?: string } } }).Telegram;
+          if (tg?.WebApp?.initData) {
+            initData = tg.WebApp.initData;
+            tg.WebApp.ready();
+            tg.WebApp.expand();
+          }
         }
       }
 

@@ -37,14 +37,22 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       photoUrl = validated.user.photo_url ?? null
       languageCode = validated.user.language_code ?? null
     } else {
-      // Dev fallback (no Telegram context)
+      // No initData — try dev fallback OR return friendly error
       if (process.env.NODE_ENV !== 'production') {
         telegramId = 777000777
         firstName = 'DevPlayer'
         username = 'devplayer'
       } else {
+        // In production, this happens when:
+        //   1) The page is opened outside Telegram (e.g. direct browser visit)
+        //   2) Telegram WebApp SDK didn't load in time
+        // For case 2, the client polls for window.Telegram for up to 3s
+        // before calling this endpoint — so if we're here, it's likely case 1.
         return NextResponse.json(
-          { error: 'initData required in production' },
+          {
+            error: 'Открой это приложение через Telegram бота @stakappBot',
+            error_code: 'NO_INIT_DATA',
+          },
           { status: 400 }
         )
       }
