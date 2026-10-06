@@ -2,13 +2,13 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Send, Users, Crown, Phone, Settings, LogOut } from "lucide-react";
+import { ArrowLeft, Send, Users, Crown, Phone, PhoneOff, Mic, MicOff, LogOut } from "lucide-react";
 import { GAMES, CASUAL_TOPICS } from "@/lib/supabase/client";
 import { supabase } from "@/lib/supabase/client";
 import type { UserRow } from "@/lib/supabase/client";
-import { VoiceCallModal } from "@/components/voice/VoiceCallModal";
 import { useTelegramBackButton } from "@/lib/telegram/useBackButton";
 import { haptic } from "@/lib/telegram/haptics";
+import { useVoiceCall } from "@/lib/webrtc/useVoiceCall";
 
 interface RoomData {
   id: string;
@@ -64,9 +64,11 @@ export function RoomView({ user }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
-  const [showVoice, setShowVoice] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // WebRTC voice call
+  const voiceCall = useVoiceCall({ roomId, userId: user.id });
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -299,12 +301,41 @@ export function RoomView({ user }: Props) {
 
           {/* Voice call button */}
           <button
-            onClick={() => setShowVoice(true)}
-            className="p-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-colors"
-            title="Голосовой чат"
+            onClick={() => {
+              haptic.impact("medium");
+              if (voiceCall.isInCall) {
+                voiceCall.leaveCall();
+              } else {
+                voiceCall.joinCall();
+              }
+            }}
+            className={`p-2 rounded-lg transition-colors ${
+              voiceCall.isInCall
+                ? "bg-red-500/20 text-red-400 hover:bg-red-500/30"
+                : "bg-primary/10 hover:bg-primary/20 text-primary"
+            }`}
+            title={voiceCall.isInCall ? "Покинуть звонок" : "Голосовой чат"}
           >
-            <Phone className="w-4 h-4" />
+            {voiceCall.isInCall ? <PhoneOff className="w-4 h-4" /> : <Phone className="w-4 h-4" />}
           </button>
+
+          {/* Mute button — only visible when in call */}
+          {voiceCall.isInCall && (
+            <button
+              onClick={() => {
+                haptic.impact("light");
+                voiceCall.toggleMute();
+              }}
+              className={`p-2 rounded-lg transition-colors ${
+                voiceCall.isMuted
+                  ? "bg-red-500/20 text-red-400"
+                  : "bg-primary/10 text-primary hover:bg-primary/20"
+              }`}
+              title={voiceCall.isMuted ? "Включить микрофон" : "Выключить микрофон"}
+            >
+              {voiceCall.isMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+            </button>
+          )}
 
           {/* Leave button */}
           {!isHost && (
@@ -401,8 +432,41 @@ export function RoomView({ user }: Props) {
         </div>
       </div>
 
-      {/* Voice call modal */}
-      {showVoice && <VoiceCallModal onClose={() => setShowVoice(false)} />}
+      {/* Voice call error toast */}
+      {voiceCall.error && voiceCall.isInCall === false && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl bg-red-500/20 border border-red-500/40 text-red-300 text-xs text-center max-w-xs">
+          {voiceCall.error}
+        </div>
+      )}
+
+      {/* Voice call status bar */}
+      {voiceCall.isInCall && (
+        <div className="fixed top-16 left-0 right-0 z-40 px-4">
+          <div className="max-w-md mx-auto rounded-xl px-3 py-2 flex items-center justify-between"
+            style={{
+              background: "rgba(14, 20, 29, 0.9)",
+              backdropFilter: "blur(12px)",
+              border: "1px solid var(--border)",
+              boxShadow: "0 2px 12px rgba(0,0,0,0.4)",
+            }}
+          >
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${
+                voiceCall.connectionState === "connected" ? "bg-green-500 animate-pulse" :
+                voiceCall.connectionState === "connecting" ? "bg-amber-400 animate-pulse" :
+                "bg-red-500"
+              }`} />
+              <span className="text-xs font-semibold">
+                {voiceCall.connectionState === "connecting" ? "Подключение..." :
+                 voiceCall.connectionState === "connected" ? "В звонке" : "Ошибка"}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {voiceCall.participants.length} в звонке
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Members panel (slide-up) */}
       {showMembers && (
