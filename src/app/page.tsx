@@ -8,6 +8,7 @@ import { RoomsTab } from "@/components/rooms/RoomsTab";
 import { ProfileView } from "@/components/profile/ProfileView";
 import type { UserRow } from "@/lib/supabase/client";
 import { usePresence } from "@/lib/telegram/usePresence";
+import { haptic } from "@/lib/telegram/haptics";
 
 type Tab = "games" | "rooms" | "profile";
 
@@ -229,7 +230,10 @@ function TabButton({
 }) {
   return (
     <button
-      onClick={onClick}
+      onClick={() => {
+        haptic.impact("light");
+        onClick();
+      }}
       className={`relative flex flex-col items-center justify-center gap-1 py-2 rounded-xl transition-colors ${
         active ? "text-primary" : "text-muted-foreground hover:text-foreground"
       }`}

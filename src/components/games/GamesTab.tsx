@@ -5,6 +5,7 @@ import { Plus, ArrowLeft, Users, Search } from "lucide-react";
 import { GAMES, type UserRow, type RoomRow } from "@/lib/supabase/client";
 import { GameRoomList } from "./GameRoomList";
 import { CreateRoomModal } from "./CreateRoomModal";
+import { haptic } from "@/lib/telegram/haptics";
 
 interface Props {
   user: UserRow;
@@ -46,6 +47,7 @@ export function GamesTab({ user }: Props) {
 
   // Reset filters when changing game
   const handleSelectGame = (code: string | null) => {
+    haptic.impact("light");
     setSelectedGame(code);
     setFilterFormat(null);
     setFilterStyle(null);

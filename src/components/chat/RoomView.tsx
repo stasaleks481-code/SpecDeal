@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase/client";
 import type { UserRow } from "@/lib/supabase/client";
 import { VoiceCallModal } from "@/components/voice/VoiceCallModal";
 import { useTelegramBackButton } from "@/lib/telegram/useBackButton";
+import { haptic } from "@/lib/telegram/haptics";
 
 interface RoomData {
   id: string;
@@ -208,10 +209,14 @@ export function RoomView({ user }: Props) {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
+        haptic.error();
         alert(data.error ?? "Failed to send");
         setInput(content); // restore on error
+      } else {
+        haptic.impact("light");
       }
     } catch (err) {
+      haptic.error();
       console.error("[send] error:", err);
       setInput(content);
     }
