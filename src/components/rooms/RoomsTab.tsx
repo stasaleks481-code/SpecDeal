@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Users, MessageCircle, Moon, Mic, Crown } from "lucide-react";
 import type { UserRow, RoomRow } from "@/lib/supabase/client";
 import { CreateRoomModal } from "@/components/games/CreateRoomModal";
+import { useRoomsRealtime } from "@/lib/useRoomsRealtime";
 
 interface Props {
   user: UserRow;
@@ -24,8 +25,8 @@ export function RoomsTab({ user, embedded = false }: Props) {
   const [loading, setLoading] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
 
-  const fetchRooms = useCallback(async () => {
-    setLoading(true);
+  const fetchRooms = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const params = new URLSearchParams({ category: "casual" });
       const res = await fetch(`/api/rooms?${params}`, { credentials: "include" });
@@ -34,13 +35,16 @@ export function RoomsTab({ user, embedded = false }: Props) {
         setRooms(data.rooms ?? []);
       }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     fetchRooms();
   }, [fetchRooms]);
+
+  // Realtime: joins/leaves/closures from other clients refresh the list
+  useRoomsRealtime(true, () => fetchRooms(true));
 
   const isAnonymous = user.account_type === "anonymous";
 
@@ -101,7 +105,7 @@ export function RoomsTab({ user, embedded = false }: Props) {
             )}
           </div>
           <button
-            onClick={fetchRooms}
+            onClick={() => fetchRooms()}
             className="text-[11px] text-muted-foreground hover:text-primary transition-colors"
           >
             Обновить

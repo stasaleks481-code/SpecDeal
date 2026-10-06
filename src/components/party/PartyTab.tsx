@@ -7,6 +7,7 @@ import { Plus, Users, Crown, Mic, Dices, Drama } from "lucide-react";
 import { PARTY_GAMES, partyGame, type UserRow, type RoomRow } from "@/lib/supabase/client";
 import { CreateRoomModal } from "@/components/games/CreateRoomModal";
 import { PartyGameIcon } from "@/components/icons";
+import { useRoomsRealtime } from "@/lib/useRoomsRealtime";
 import { haptic } from "@/lib/telegram/haptics";
 
 interface Props {
@@ -24,8 +25,8 @@ export function PartyTab({ user }: Props) {
   const [showCreate, setShowCreate] = useState(false);
   const [filterGame, setFilterGame] = useState<string | null>(null);
 
-  const fetchRooms = useCallback(async () => {
-    setLoading(true);
+  const fetchRooms = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const params = new URLSearchParams({ category: "party" });
       if (filterGame) params.set("game_type", filterGame);
@@ -35,13 +36,16 @@ export function PartyTab({ user }: Props) {
         setRooms(data.rooms ?? []);
       }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [filterGame]);
 
   useEffect(() => {
     fetchRooms();
   }, [fetchRooms]);
+
+  // Realtime: joins/leaves/closures from other clients refresh the list
+  useRoomsRealtime(true, () => fetchRooms(true));
 
   const isAnonymous = user.account_type === "anonymous";
 

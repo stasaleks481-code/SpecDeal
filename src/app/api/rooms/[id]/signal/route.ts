@@ -80,7 +80,7 @@ export async function POST(
   const body = await req.json().catch(() => ({}))
 
   const type = body.type as string
-  if (!['offer', 'answer', 'ice', 'join', 'leave', 'mute', 'kick'].includes(type)) {
+  if (!['offer', 'answer', 'ice', 'join', 'leave', 'mute', 'kick', 'close'].includes(type)) {
     return NextResponse.json({ error: 'Invalid signal type' }, { status: 400 })
   }
 
@@ -106,7 +106,13 @@ export async function POST(
 
 /**
  * GET /api/rooms/[id]/signal?after=<id>
- * Returns signaling messages for this room (for polling fallback).
+ * Returns signaling messages for this room (Realtime catch-up + polling
+ * fallback).
+ *
+ * Without `after`: returns only signals from the LAST 5 MINUTES —
+ * ancient signals from finished sessions are never replayed (they used
+ * to create ghost peers stuck on "подключение...").
+ * With `after`: returns everything newer than that id (polling path).
  */
 export async function GET(
   req: NextRequest,
@@ -129,6 +135,9 @@ export async function GET(
 
   if (after) {
     query = query.gt('id', parseInt(after, 10))
+  } else {
+    // Fresh-only catch-up: last 5 minutes
+    query = query.gte('created_at', new Date(Date.now() - 5 * 60 * 1000).toISOString())
   }
 
   const { data, error } = await query

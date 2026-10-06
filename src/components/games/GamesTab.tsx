@@ -6,6 +6,7 @@ import { GAMES, FORMAT_LABELS, SKILL_LEVELS, type UserRow, type RoomRow, type Sk
 import { SkillIcon } from "@/components/icons";
 import { GameRoomList } from "./GameRoomList";
 import { CreateRoomModal } from "./CreateRoomModal";
+import { useRoomsRealtime } from "@/lib/useRoomsRealtime";
 import { haptic } from "@/lib/telegram/haptics";
 
 interface Props {
@@ -21,12 +22,12 @@ export function GamesTab({ user }: Props) {
   const [filterStyle, setFilterStyle] = useState<string | null>(null);
   const [filterSkill, setFilterSkill] = useState<SkillLevel | null>(null);
 
-  const fetchRooms = useCallback(async () => {
+  const fetchRooms = useCallback(async (silent = false) => {
     if (!selectedGame) {
       setRooms([]);
       return;
     }
-    setLoading(true);
+    if (!silent) setLoading(true);
     try {
       const params = new URLSearchParams({ category: "game", game: selectedGame });
       if (filterFormat) params.set("format", filterFormat);
@@ -39,13 +40,16 @@ export function GamesTab({ user }: Props) {
         setRooms(data.rooms ?? []);
       }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [selectedGame, filterFormat, filterStyle, filterSkill]);
 
   useEffect(() => {
     fetchRooms();
   }, [fetchRooms]);
+
+  // Realtime: joins/leaves/closures from other clients refresh the list
+  useRoomsRealtime(Boolean(selectedGame), () => fetchRooms(true));
 
   const handleSelectGame = (code: string | null) => {
     haptic.impact("light");

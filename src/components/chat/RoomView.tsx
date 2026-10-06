@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, Send, Crown, Mic, MicOff, PhoneOff, Users, LogOut,
   MessageSquare, Volume2, VolumeX, ShieldAlert, Lock, UserMinus, ChevronDown, X,
-  Dices, PhoneIncoming,
+  Dices, PhoneIncoming, Settings2, Trash2,
 } from "lucide-react";
 import { GAMES, SKILL_LEVELS, partyGame, type SkillLevel } from "@/lib/supabase/client";
 import { supabase } from "@/lib/supabase/client";
@@ -91,6 +91,10 @@ export function RoomView({ user }: Props) {
   const [showChat, setShowChat] = useState(false);
   const [deafened, setDeafened] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showHostMenu, setShowHostMenu] = useState(false);
+  const [kickedLocally, setKickedLocally] = useState(false);
+  /** Auto-rejoin allowed only on the FIRST fetch (mount), not on refetches */
+  const autoJoinRef = useRef(true);
 
   // Profile card popup
   const [profileCard, setProfileCard] = useState<ProfileCardData | null>(null);
@@ -121,23 +125,43 @@ export function RoomView({ user }: Props) {
       const res = await fetch(`/api/rooms/${roomId}`, { credentials: "include" });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
+        // Room deleted / closed while we were inside → error screen
+        // (also the polling fallback path when Realtime misses DELETEs)
+        if (res.status === 404) {
+          setRoom(null);
+          setError("Комната была закрыта или удалена");
+          return;
+        }
         throw new Error(data.error ?? `HTTP ${res.status}`);
       }
       const data = await res.json();
       setRoom(data.room);
-      setMembers(data.members ?? []);
+      const nextMembers: Member[] = data.members ?? [];
+      setMembers(nextMembers);
 
-      const isMember = (data.members ?? []).some((m: Member) => m.user_id === user.id);
-      if (!isMember && data.room.host_id !== user.id && !isAnonymous) {
-        const joinRes = await fetch(`/api/rooms/${roomId}/join`, { method: "POST", credentials: "include" });
-        if (!joinRes.ok) {
-          const jdata = await joinRes.json().catch(() => ({}));
-          throw new Error(jdata.error ?? "Failed to join");
-        }
-        const refetch = await fetch(`/api/rooms/${roomId}`, { credentials: "include" });
-        if (refetch.ok) {
-          const rdata = await refetch.json();
-          setMembers(rdata.members ?? []);
+      const isMember = nextMembers.some((m: Member) => m.user_id === user.id);
+      let selfLeft = false;
+      try {
+        selfLeft = sessionStorage.getItem(`vd_self_left_${roomId}`) === "1";
+      } catch { /* ignore */ }
+
+      if (!isMember && !isAnonymous) {
+        if (autoJoinRef.current || selfLeft) {
+          // First entry, or coming back after our own hidden-tab beacon leave
+          const joinRes = await fetch(`/api/rooms/${roomId}/join`, { method: "POST", credentials: "include" });
+          if (!joinRes.ok) {
+            const jdata = await joinRes.json().catch(() => ({}));
+            throw new Error(jdata.error ?? "Failed to join");
+          }
+          try { sessionStorage.removeItem(`vd_self_left_${roomId}`); } catch { /* ignore */ }
+          const refetch = await fetch(`/api/rooms/${roomId}`, { credentials: "include" });
+          if (refetch.ok) {
+            const rdata = await refetch.json();
+            setMembers(rdata.members ?? []);
+          }
+        } else {
+          // We WERE a member and someone removed us → kicked
+          setKickedLocally(true);
         }
       }
     } catch (err) {
@@ -163,6 +187,12 @@ export function RoomView({ user }: Props) {
     fetchRoom();
     fetchMessages();
   }, [fetchRoom, fetchMessages]);
+
+  // Only the first fetch may auto-join — later refetches must treat a
+  // missing membership as a kick, not a reason to silently re-join
+  useEffect(() => {
+    if (!loading) autoJoinRef.current = false;
+  }, [loading]);
 
   // Realtime: new messages + member changes
   useEffect(() => {
@@ -191,26 +221,95 @@ export function RoomView({ user }: Props) {
         "postgres_changes",
         { event: "*", schema: "public", table: "room_members", filter: `room_id=eq.${roomId}` },
         async () => {
-          const res = await fetch(`/api/rooms/${roomId}`, { credentials: "include" });
-          if (res.ok) {
-            const data = await res.json();
-            setMembers(data.members ?? []);
-          }
+          // Full refetch: updates the member list AND catches room deletion
+          // (404 → "room closed" screen)
+          fetchRoom();
         }
       )
       .subscribe();
 
+    // Polling fallback — room status stays correct even when the Realtime
+    // websocket silently dies inside the Telegram WebView (ghost counts,
+    // remote close/kick all surface within seconds)
+    const pollTimer = setInterval(() => {
+      if (document.visibilityState === "visible") fetchRoom();
+    }, 10_000);
+
     return () => {
       supabase.removeChannel(msgChannel);
       supabase.removeChannel(memberChannel);
+      clearInterval(pollTimer);
     };
-  }, [room, roomId]);
+  }, [room, roomId, fetchRoom]);
 
   useEffect(() => {
     if (showChat && scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, showChat]);
+
+  // ── Ghost-count protection (client side) ────────────────────────
+  // Hidden app + NOT in a call → beacon-leave so the member counter
+  // drops immediately (sendBeacon survives WebView teardown; cookies
+  // are attached automatically, middleware injects x-user-id).
+  // Back to visible → re-sync (fetchRoom auto-rejoins when needed).
+  const inCallRef = useRef(false);
+  useEffect(() => {
+    inCallRef.current = voiceCall.isInCall;
+  }, [voiceCall.isInCall]);
+
+  useEffect(() => {
+    const onHide = () => {
+      if (document.visibilityState === "hidden" && !inCallRef.current) {
+        try {
+          // Mark as a self-leave so the return refetch re-joins instead of
+          // treating the missing membership as a host kick
+          sessionStorage.setItem(`vd_self_left_${roomId}`, "1");
+          navigator.sendBeacon(`/api/rooms/${roomId}/leave`, new Blob([], { type: "text/plain" }));
+        } catch { /* ignore */ }
+      }
+    };
+    const onVisible = () => {
+      if (document.visibilityState === "visible") fetchRoom();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("pagehide", onHide);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("pagehide", onHide);
+    };
+  }, [roomId, fetchRoom]);
+
+  // ── Host management ─────────────────────────────────────────────
+  const endCallForAll = async () => {
+    if (!confirm("Завершить созвон для всех участников?")) return;
+    haptic.impact("heavy");
+    try {
+      await fetch(`/api/rooms/${roomId}/moderate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ action: "end_call" }),
+      });
+      await voiceCall.leaveCall();
+    } catch (err) {
+      console.error("[end_call] error:", err);
+    }
+    setShowHostMenu(false);
+  };
+
+  const deleteRoom = async () => {
+    if (!confirm("Удалить комнату? Она будет закрыта и удалена для ВСЕХ участников.")) return;
+    haptic.impact("heavy");
+    try {
+      const res = await fetch(`/api/rooms/${roomId}`, { method: "DELETE", credentials: "include" });
+      if (!res.ok) console.error("[delete] failed:", res.status);
+    } catch (err) {
+      console.error("[delete] error:", err);
+    }
+    setShowHostMenu(false);
+    router.push("/");
+  };
 
   // Deafen: mute ALL remote audio elements
   useEffect(() => {
@@ -248,6 +347,7 @@ export function RoomView({ user }: Props) {
   const leaveRoom = async () => {
     if (!confirm("Выйти из комнаты?")) return;
     try {
+      try { sessionStorage.setItem(`vd_self_left_${roomId}`, "1"); } catch { /* ignore */ }
       await fetch(`/api/rooms/${roomId}/leave`, { method: "POST", credentials: "include" });
       router.push("/");
     } catch (err) {
@@ -256,7 +356,7 @@ export function RoomView({ user }: Props) {
   };
 
   // Kicked by host — full-screen notice
-  if (voiceCall.kicked) {
+  if (voiceCall.kicked || kickedLocally) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-6">
         <div className="glass-card p-6 max-w-sm w-full text-center">
@@ -265,6 +365,24 @@ export function RoomView({ user }: Props) {
           </div>
           <h2 className="text-lg font-bold text-red-300 mb-1">Вас исключили из комнаты</h2>
           <p className="text-sm text-muted-foreground mb-5">Хост завершил ваше участие в этом лобби</p>
+          <button onClick={() => router.push("/")} className="neon-btn text-sm w-full">
+            На главную
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Host deleted the room while you were inside — full-screen notice
+  if (voiceCall.closedNotice === "room") {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center px-6">
+        <div className="glass-card p-6 max-w-sm w-full text-center">
+          <div className="w-14 h-14 rounded-2xl bg-amber-400/15 flex items-center justify-center mx-auto mb-4">
+            <Trash2 className="w-7 h-7 text-amber-300" />
+          </div>
+          <h2 className="text-lg font-bold mb-1">Комната закрыта</h2>
+          <p className="text-sm text-muted-foreground mb-5">Хост завершил созвон и удалил комнату для всех участников</p>
           <button onClick={() => router.push("/")} className="neon-btn text-sm w-full">
             На главную
           </button>
@@ -286,7 +404,7 @@ export function RoomView({ user }: Props) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-6">
         <div className="glass-card p-6 max-w-sm w-full text-center">
-          <p className="text-sm font-semibold mb-2">Комната не найдена</p>
+          <p className="text-sm font-semibold mb-2">Комната закрыта или не существует</p>
           <p className="text-xs text-muted-foreground mb-4">{error ?? "Unknown error"}</p>
           <button onClick={() => router.push("/")} className="neon-btn text-xs w-full">
             На главную
@@ -372,7 +490,27 @@ export function RoomView({ user }: Props) {
             </div>
           </div>
 
-          {!isHost && (
+          {isHost ? (
+            <>
+              <button
+                onClick={() => {
+                  haptic.impact("light");
+                  setShowHostMenu(true);
+                }}
+                className="p-2 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+                aria-label="Управление комнатой"
+              >
+                <Settings2 className="w-4 h-4" />
+              </button>
+              <button
+                onClick={leaveRoom}
+                className="p-2 rounded-lg hover:bg-red-500/10 text-muted-foreground hover:text-red-400 transition-colors"
+                aria-label="Выйти из комнаты"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </>
+          ) : (
             <button
               onClick={leaveRoom}
               className="p-2 rounded-lg hover:bg-red-500/10 text-muted-foreground hover:text-red-400 transition-colors"
@@ -433,6 +571,11 @@ export function RoomView({ user }: Props) {
                 <span className="text-sm font-semibold">
                   {voiceCall.isInCall ? "Голосовой канал" : "Не в голосе"}
                 </span>
+                {voiceCall.closedNotice === "voice" && (
+                  <span className="text-[11px] font-semibold text-amber-300 bg-amber-400/10 border border-amber-400/30 px-2 py-0.5 rounded-md">
+                    Хост завершил созвон
+                  </span>
+                )}
               </div>
               <span className="text-xs text-muted-foreground">
                 {voiceCall.isInCall ? `${voiceCall.participants.length} в звонке` : `${memberCount} в комнате`}
@@ -804,6 +947,81 @@ export function RoomView({ user }: Props) {
                 </button>
               </div>
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ━━━ HOST MANAGEMENT SHEET ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      <AnimatePresence>
+        {showHostMenu && (
+          <motion.div
+            className="fixed inset-0 z-[70] flex items-end justify-center"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{ background: "rgba(5, 8, 12, 0.7)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)" }}
+            onClick={() => setShowHostMenu(false)}
+          >
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 30, stiffness: 320 }}
+              className="w-full max-w-md bg-[#0e141d] border-t border-border rounded-t-2xl p-4 pb-6 safe-area-inset-bottom"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Settings2 className="w-4 h-4 text-primary" />
+                  <span className="text-sm font-bold">Управление комнатой</span>
+                </div>
+                <button
+                  onClick={() => setShowHostMenu(false)}
+                  className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label="Закрыть"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* End call for everyone */}
+              <button
+                onClick={endCallForAll}
+                className="w-full glass-card p-3.5 flex items-center gap-3 text-left mb-2 hover:border-amber-400/40 transition-colors"
+              >
+                <div className="w-10 h-10 rounded-xl bg-amber-400/15 flex items-center justify-center shrink-0">
+                  <VolumeX className="w-5 h-5 text-amber-300" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold">Завершить созвон</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Все выйдут из голоса — комната останется открытой
+                  </p>
+                </div>
+              </button>
+
+              {/* Delete room */}
+              <button
+                onClick={deleteRoom}
+                className="w-full glass-card p-3.5 flex items-center gap-3 text-left hover:border-red-500/40 transition-colors"
+                style={{ background: "rgba(218, 48, 48, 0.07)" }}
+              >
+                <div className="w-10 h-10 rounded-xl bg-red-500/15 flex items-center justify-center shrink-0">
+                  <Trash2 className="w-5 h-5 text-red-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-red-300">Удалить комнату</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Принудительно закроет и удалит её для всех участников
+                  </p>
+                </div>
+              </button>
+
+              <p className="text-[11px] text-muted-foreground text-center mt-3 flex items-center justify-center gap-1">
+                <UserMinus className="w-3 h-3" />
+                Мут и кик отдельного участника — тап по его карточке
+              </p>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>

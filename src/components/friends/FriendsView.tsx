@@ -229,31 +229,34 @@ export function FriendsView({ user: _user }: Props) {
         )}
       </div>
 
-      {/* Tabs */}
+      {/* Tabs — red circle badges replace the old "(N)" text counters */}
       <div className="flex gap-1 p-1 bg-background/40 rounded-xl border border-border">
         <button
           onClick={() => setActiveTab("friends")}
-          className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${
+          className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 ${
             activeTab === "friends" ? "neon-btn" : "text-muted-foreground"
           }`}
         >
-          Друзья ({friends.length})
+          Друзья
+          {friends.length > 0 && <TabBadge count={friends.length} />}
         </button>
         <button
           onClick={() => setActiveTab("incoming")}
-          className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${
+          className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 ${
             activeTab === "incoming" ? "neon-btn" : "text-muted-foreground"
           }`}
         >
-          Входящие ({incoming.length})
+          Входящие
+          {incoming.length > 0 && <TabBadge count={incoming.length} />}
         </button>
         <button
           onClick={() => setActiveTab("outgoing")}
-          className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${
+          className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 ${
             activeTab === "outgoing" ? "neon-btn" : "text-muted-foreground"
           }`}
         >
-          Отправленные ({outgoing.length})
+          Отправленные
+          {outgoing.length > 0 && <TabBadge count={outgoing.length} />}
         </button>
       </div>
 
@@ -386,6 +389,18 @@ export function FriendsView({ user: _user }: Props) {
         )
       )}
     </div>
+  );
+}
+
+/** Red circle badge — hidden when count is 0 (render-guarded by caller) */
+function TabBadge({ count }: { count: number }) {
+  return (
+    <span
+      className="inline-flex items-center justify-center min-w-[17px] h-[17px] px-1 rounded-full bg-[#DA3030] text-white text-[10px] font-bold leading-none shadow-[0_1px_4px_rgba(218,48,48,0.5)]"
+      aria-label={`${count}`}
+    >
+      {count > 99 ? "99+" : count}
+    </span>
   );
 }
 

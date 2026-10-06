@@ -14,7 +14,15 @@ interface CallParticipant {
   connectionState: "connecting" | "connected" | "failed";
 }
 
-type SignalType = "offer" | "answer" | "ice" | "join" | "leave" | "mute" | "kick";
+type SignalType =
+  | "offer"
+  | "answer"
+  | "ice"
+  | "join"
+  | "leave"
+  | "mute"
+  | "kick"
+  | "close";
 
 interface SignalMessage {
   id: number;
@@ -33,29 +41,55 @@ interface Props {
   userInfo: { username: string | null; firstName: string; photoUrl: string | null };
 }
 
+const CONNECTION_TIMEOUT_MS = 20_000; // offer/answer never completed → failed
+const DISCONNECT_GRACE_MS = 6_000; // transient network blip before "failed"
+const POLL_INTERVAL_MS = 4_000; // signaling polling fallback (Realtime down-proof)
+const AUDIO_RETRY_DELAYS = [250, 1000, 2500];
+
 /**
  * useVoiceCall — WebRTC mesh voice call with Discord-style features.
  *
- * - Auto-joins on mount (voice-first rooms)
- * - Speaking detection via Web Audio AnalyserNode (local + remote)
- * - Host moderation: force-mute / kick via call_signals ('mute' | 'kick')
- * - Signaling via Supabase Realtime on call_signals table
+ * Reliability fixes (the "stuck on Подключение… / no audio" bug):
+ *  1. ICE candidates arriving before the remote description are QUEUED
+ *     per-peer and flushed after setRemoteDescription (they used to be
+ *     silently dropped → connection never completed).
+ *  2. Glare/duplicate protection: a duplicate join/offer never creates a
+ *     second peer connection over a live one.
+ *  3. Signaling polling fallback (4 s) — works even when the Supabase
+ *     Realtime websocket dies inside the Telegram WebView.
+ *  4. Fresh-only catch-up: signals older than 5 minutes are never replayed
+ *     (server-side filter), so ghost participants from previous sessions
+ *     no longer appear stuck on "подключение...".
+ *  5. Connection timeout + disconnect grace: peers can no longer hang in
+ *     "connecting" forever.
+ *  6. Autoplay-safe audio: retried play() + one-time gesture unlock.
+ *  7. Host "close" signal (scope voice|room) ends the call / room for
+ *     every participant instantly.
  */
 export function useVoiceCall({ roomId, userId, isHost, userInfo }: Props) {
   const [isInCall, setIsInCall] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
-  /** Force-muted by the host — user cannot unmute until host mutes someone else/unmutes */
+  /** Force-muted by the host — user cannot unmute until released */
   const [forceMuted, setForceMuted] = useState(false);
   const [kicked, setKicked] = useState(false);
+  /** Host closed the call ('voice') or deleted the room ('room') for everyone */
+  const [closedNotice, setClosedNotice] = useState<"voice" | "room" | null>(null);
   const [participants, setParticipants] = useState<CallParticipant[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [micPermission, setMicPermission] = useState<"granted" | "denied" | "pending">("pending");
 
   const localStreamRef = useRef<MediaStream | null>(null);
   const peerConnectionsRef = useRef<Map<number, RTCPeerConnection>>(new Map());
+  /** ICE candidates that arrived before the remote description was set */
+  const pendingIceRef = useRef<Map<number, RTCIceCandidateInit[]>>(new Map());
+  /** Connection watchdog timers per peer */
+  const connectTimeoutsRef = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
+  const disconnectGraceRef = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
   const audioElementsRef = useRef<Map<number, HTMLAudioElement>>(new Map());
   const lastSignalIdRef = useRef<number>(0);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollBusyRef = useRef(false);
   const joinedRef = useRef<boolean>(false);
   const forceMutedRef = useRef<boolean>(false);
   /** Short-lived TTL signaling token (issued on join, auto-refreshed on 401) */
@@ -123,6 +157,38 @@ export function useVoiceCall({ roomId, userId, isHost, userInfo }: Props) {
     [ensureAudioContext]
   );
 
+  /** Play a remote audio element with retries (Telegram autoplay quirks) */
+  const playRemoteAudio = useCallback((audio: HTMLAudioElement) => {
+    const attempt = (idx: number) => {
+      if (audio.paused) {
+        audio.play().catch(() => {
+          if (idx < AUDIO_RETRY_DELAYS.length) {
+            setTimeout(() => attempt(idx + 1), AUDIO_RETRY_DELAYS[idx]);
+          }
+        });
+      }
+    };
+    attempt(0);
+  }, []);
+
+  // One-time gesture unlock: Telegram/iOS may block autoplay until the
+  // user interacts — replay any paused remote audio on first touch.
+  useEffect(() => {
+    const unlock = () => {
+      for (const [, audio] of audioElementsRef.current) {
+        if (audio.paused) audio.play().catch(() => {});
+      }
+      const ctx = audioCtxRef.current;
+      if (ctx && ctx.state === "suspended") ctx.resume().catch(() => {});
+    };
+    document.addEventListener("touchstart", unlock, { passive: true });
+    document.addEventListener("click", unlock);
+    return () => {
+      document.removeEventListener("touchstart", unlock);
+      document.removeEventListener("click", unlock);
+    };
+  }, []);
+
   /** RMS loop — updates isSpeaking on participants (threshold + smoothing) */
   const startSpeakingLoop = useCallback(() => {
     if (speakingLoopRef.current) return;
@@ -164,21 +230,6 @@ export function useVoiceCall({ roomId, userId, isHost, userInfo }: Props) {
       speakingLoopRef.current = 0;
     }
   }, []);
-
-  // iOS/Safari: AudioContext needs a user gesture — add a one-time listener
-  useEffect(() => {
-    const resume = () => {
-      ensureAudioContext();
-      document.removeEventListener("touchstart", resume);
-      document.removeEventListener("click", resume);
-    };
-    document.addEventListener("touchstart", resume, { passive: true });
-    document.addEventListener("click", resume);
-    return () => {
-      document.removeEventListener("touchstart", resume);
-      document.removeEventListener("click", resume);
-    };
-  }, [ensureAudioContext]);
 
   /** (Re)fetch the TTL voice token for signaling */
   const fetchVoiceToken = useCallback(async (): Promise<string | null> => {
@@ -246,8 +297,29 @@ export function useVoiceCall({ roomId, userId, isHost, userInfo }: Props) {
     }
   }, []);
 
+  const clearPeerTimers = useCallback((remoteUserId: number) => {
+    const ct = connectTimeoutsRef.current.get(remoteUserId);
+    if (ct) {
+      clearTimeout(ct);
+      connectTimeoutsRef.current.delete(remoteUserId);
+    }
+    const dg = disconnectGraceRef.current.get(remoteUserId);
+    if (dg) {
+      clearTimeout(dg);
+      disconnectGraceRef.current.delete(remoteUserId);
+    }
+  }, []);
+
   const createPeerConnection = useCallback(
     (remoteUserId: number): RTCPeerConnection => {
+      // Never stack a second connection over a live one
+      const existing = peerConnectionsRef.current.get(remoteUserId);
+      if (existing) {
+        clearPeerTimers(remoteUserId);
+        try { existing.close(); } catch { /* ignore */ }
+        peerConnectionsRef.current.delete(remoteUserId);
+      }
+
       const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
 
       if (localStreamRef.current) {
@@ -271,9 +343,7 @@ export function useVoiceCall({ roomId, userId, isHost, userInfo }: Props) {
           audioElementsRef.current.set(remoteUserId, audio);
         }
         audio.srcObject = event.streams[0];
-        audio.play().catch(() => {
-          // Autoplay blocked — will play on first interaction
-        });
+        playRemoteAudio(audio);
         // Attach speaking detection to the remote stream
         attachAnalyser(event.streams[0], remoteUserId);
       };
@@ -281,24 +351,62 @@ export function useVoiceCall({ roomId, userId, isHost, userInfo }: Props) {
       pc.onconnectionstatechange = () => {
         const state = pc.connectionState;
         if (state === "connected") {
+          clearPeerTimers(remoteUserId);
           updateParticipant(remoteUserId, { connectionState: "connected" });
-        } else if (state === "failed" || state === "disconnected") {
+        } else if (state === "failed") {
+          clearPeerTimers(remoteUserId);
           updateParticipant(remoteUserId, { connectionState: "failed" });
+        } else if (state === "disconnected") {
+          // Grace period — transient blips recover on their own
+          if (!disconnectGraceRef.current.has(remoteUserId)) {
+            const t = setTimeout(() => {
+              disconnectGraceRef.current.delete(remoteUserId);
+              updateParticipant(remoteUserId, { connectionState: "failed" });
+            }, DISCONNECT_GRACE_MS);
+            disconnectGraceRef.current.set(remoteUserId, t);
+          }
         }
       };
+
+      // Watchdog: an offer/answer handshake that never completes must not
+      // hang on "подключение..." forever.
+      const watchdog = setTimeout(() => {
+        connectTimeoutsRef.current.delete(remoteUserId);
+        if (pc.connectionState !== "connected") {
+          updateParticipant(remoteUserId, { connectionState: "failed" });
+        }
+      }, CONNECTION_TIMEOUT_MS);
+      connectTimeoutsRef.current.set(remoteUserId, watchdog);
 
       peerConnectionsRef.current.set(remoteUserId, pc);
       return pc;
     },
-    [sendSignal, updateParticipant, attachAnalyser]
+    [sendSignal, updateParticipant, attachAnalyser, playRemoteAudio, clearPeerTimers]
   );
 
-  /** Teardown without sending a leave signal (used on kick) */
+  /** Flush ICE candidates queued before the remote description existed */
+  const flushPendingIce = useCallback(async (remoteUserId: number, pc: RTCPeerConnection) => {
+    const queue = pendingIceRef.current.get(remoteUserId);
+    if (!queue || queue.length === 0) return;
+    pendingIceRef.current.delete(remoteUserId);
+    for (const candidate of queue) {
+      try {
+        await pc.addIceCandidate(candidate);
+      } catch { /* ignore stale candidates */ }
+    }
+  }, []);
+
+  /** Teardown without sending a leave signal (used on kick/close) */
   const leaveCallInternal = useCallback(async () => {
     for (const [, pc] of peerConnectionsRef.current) {
-      pc.close();
+      try { pc.close(); } catch { /* ignore */ }
     }
     peerConnectionsRef.current.clear();
+    for (const [uid] of connectTimeoutsRef.current) clearTimeout(connectTimeoutsRef.current.get(uid));
+    connectTimeoutsRef.current.clear();
+    for (const [uid] of disconnectGraceRef.current) clearTimeout(disconnectGraceRef.current.get(uid));
+    disconnectGraceRef.current.clear();
+    pendingIceRef.current.clear();
     audioElementsRef.current.clear();
 
     for (const [uid, entry] of analysersRef.current) {
@@ -317,6 +425,10 @@ export function useVoiceCall({ roomId, userId, isHost, userInfo }: Props) {
       supabase.removeChannel(channelRef.current);
       channelRef.current = null;
     }
+    if (pollTimerRef.current) {
+      clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
 
     stopSpeakingLoop();
     setIsInCall(false);
@@ -326,9 +438,66 @@ export function useVoiceCall({ roomId, userId, isHost, userInfo }: Props) {
     speakingStateRef.current.clear();
   }, [stopSpeakingLoop, userId]);
 
+  // ── Signaling receive (shared by Realtime + polling fallback) ──
+  const handleSignalRef = useRef<(s: SignalMessage) => void>(() => {});
+
+  const startPolling = useCallback(() => {
+    if (pollTimerRef.current) return;
+    pollTimerRef.current = setInterval(async () => {
+      if (pollBusyRef.current) return;
+      pollBusyRef.current = true;
+      try {
+        const res = await fetch(`/api/rooms/${roomId}/signal?after=${lastSignalIdRef.current}`, {
+          credentials: "include",
+          headers: voiceTokenRef.current ? { "x-voice-token": voiceTokenRef.current } : {},
+        });
+        if (res.status === 401) {
+          const ok = await fetchVoiceToken();
+          if (ok) {
+            const retry = await fetch(`/api/rooms/${roomId}/signal?after=${lastSignalIdRef.current}`, {
+              credentials: "include",
+              headers: { "x-voice-token": voiceTokenRef.current! },
+            });
+            if (retry.ok) {
+              const data = await retry.json();
+              for (const s of (data.signals ?? []) as SignalMessage[]) {
+                if (s.id > lastSignalIdRef.current) {
+                  lastSignalIdRef.current = s.id;
+                  handleSignalRef.current(s);
+                }
+              }
+            }
+          }
+          return;
+        }
+        if (!res.ok) return;
+        const data = await res.json();
+        for (const s of (data.signals ?? []) as SignalMessage[]) {
+          if (s.id > lastSignalIdRef.current) {
+            lastSignalIdRef.current = s.id;
+            handleSignalRef.current(s);
+          }
+        }
+      } catch { /* network hiccup — next tick retries */ }
+      finally {
+        pollBusyRef.current = false;
+      }
+    }, POLL_INTERVAL_MS);
+  }, [roomId, fetchVoiceToken]);
+
   const handleSignal = useCallback(
     async (signal: SignalMessage) => {
       if (signal.from_user_id === userId) return;
+
+      // Host ended the call / deleted the room — applies to everyone
+      if (signal.type === "close") {
+        const scope = (signal.payload as { scope?: string } | null)?.scope === "room" ? "room" : "voice";
+        forceMutedRef.current = false;
+        setForceMuted(false);
+        await leaveCallInternal();
+        setClosedNotice(scope);
+        return;
+      }
 
       // Moderation signals are addressed directly to the target.
       // payload.force === false releases a previous force-mute
@@ -372,7 +541,11 @@ export function useVoiceCall({ roomId, userId, isHost, userInfo }: Props) {
 
       switch (signal.type) {
         case "join": {
-          // New user joined — create offer to them
+          // New user joined — we (earlier occupant) create the offer.
+          const alreadyConnecting =
+            peerConnectionsRef.current.get(signal.from_user_id)?.connectionState === "connected" ||
+            peerConnectionsRef.current.get(signal.from_user_id)?.connectionState === "connecting";
+
           setParticipants((prev) => {
             if (!prev.some((p) => p.userId === signal.from_user_id)) {
               const payload = signal.payload as { username?: string; firstName?: string; photoUrl?: string; isHost?: boolean };
@@ -390,6 +563,8 @@ export function useVoiceCall({ roomId, userId, isHost, userInfo }: Props) {
             return prev;
           });
 
+          if (alreadyConnecting) break; // duplicate/replayed join — keep live pc
+
           const pc = createPeerConnection(signal.from_user_id);
           const offer = await pc.createOffer();
           await pc.setLocalDescription(offer);
@@ -399,10 +574,16 @@ export function useVoiceCall({ roomId, userId, isHost, userInfo }: Props) {
 
         case "offer": {
           let pc = peerConnectionsRef.current.get(signal.from_user_id);
+          // Glare guard: if we already offered to this peer (we are the
+          // earlier occupant) or the handshake is mid-flight, keep ours.
+          if (pc && (pc.localDescription?.type === "offer" || pc.signalingState === "have-local-offer")) {
+            break;
+          }
           if (!pc) {
             pc = createPeerConnection(signal.from_user_id);
           }
           await pc.setRemoteDescription(signal.payload.sdp as RTCSessionDescriptionInit);
+          await flushPendingIce(signal.from_user_id, pc);
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
           sendSignal("answer", { sdp: answer }, signal.from_user_id);
@@ -411,8 +592,9 @@ export function useVoiceCall({ roomId, userId, isHost, userInfo }: Props) {
 
         case "answer": {
           const pc = peerConnectionsRef.current.get(signal.from_user_id);
-          if (pc) {
+          if (pc && !pc.remoteDescription) {
             await pc.setRemoteDescription(signal.payload.sdp as RTCSessionDescriptionInit);
+            await flushPendingIce(signal.from_user_id, pc);
           }
           break;
         }
@@ -424,17 +606,23 @@ export function useVoiceCall({ roomId, userId, isHost, userInfo }: Props) {
             break;
           }
           const pc = peerConnectionsRef.current.get(signal.from_user_id);
-          if (pc) {
+          const candidate = signal.payload.candidate as RTCIceCandidateInit | undefined;
+          if (!candidate) break;
+          if (pc && pc.remoteDescription) {
             try {
-              await pc.addIceCandidate(signal.payload.candidate as RTCIceCandidateInit);
-            } catch {
-              // Ignore — might be before remote description set
-            }
+              await pc.addIceCandidate(candidate);
+            } catch { /* stale candidate */ }
+          } else {
+            // Candidate arrived before the SDP — queue it, never drop
+            const queue = pendingIceRef.current.get(signal.from_user_id) ?? [];
+            queue.push(candidate);
+            pendingIceRef.current.set(signal.from_user_id, queue);
           }
           break;
         }
 
         case "leave": {
+          clearPeerTimers(signal.from_user_id);
           const pc = peerConnectionsRef.current.get(signal.from_user_id);
           if (pc) {
             pc.close();
@@ -450,13 +638,19 @@ export function useVoiceCall({ roomId, userId, isHost, userInfo }: Props) {
             try { entry.analyser.disconnect(); } catch { /* ignore */ }
             analysersRef.current.delete(signal.from_user_id);
           }
+          pendingIceRef.current.delete(signal.from_user_id);
           setParticipants((prev) => prev.filter((p) => p.userId !== signal.from_user_id));
           break;
         }
       }
     },
-    [userId, createPeerConnection, sendSignal, updateParticipant, applyMicState, leaveCallInternal]
+    [userId, createPeerConnection, sendSignal, updateParticipant, applyMicState, leaveCallInternal, flushPendingIce, clearPeerTimers]
   );
+
+  // Keep the polling fallback wired to the latest handler
+  useEffect(() => {
+    handleSignalRef.current = (s) => { void handleSignal(s); };
+  }, [handleSignal]);
 
   const joinCall = useCallback(async () => {
     if (joinedRef.current) return;
@@ -464,6 +658,7 @@ export function useVoiceCall({ roomId, userId, isHost, userInfo }: Props) {
 
     try {
       setError(null);
+      setClosedNotice(null);
       setMicPermission("pending");
 
       // Request microphone — ONLY here, on explicit voice join
@@ -487,7 +682,7 @@ export function useVoiceCall({ roomId, userId, isHost, userInfo }: Props) {
       // Local speaking detection
       attachAnalyser(stream, userId);
 
-      // Subscribe to signaling
+      // Subscribe to signaling (Realtime)
       const channel = supabase
         .channel(`call_signals_${roomId}`)
         .on(
@@ -510,12 +705,15 @@ export function useVoiceCall({ roomId, userId, isHost, userInfo }: Props) {
 
       channelRef.current = channel;
 
-      // Fetch existing signals (catch up)
+      // Catch up on RECENT signals only (server filters to the last
+      // 5 minutes — no more ghost peers from ancient sessions)
       const res = await fetch(`/api/rooms/${roomId}/signal`, {
         credentials: "include",
         headers: voiceTokenRef.current ? { "x-voice-token": voiceTokenRef.current } : {},
       });
-      if (res.ok) {
+      if (res.status === 401) {
+        await fetchVoiceToken();
+      } else if (res.ok) {
         const data = await res.json();
         for (const signal of (data.signals ?? []) as SignalMessage[]) {
           if (signal.id > lastSignalIdRef.current) {
@@ -549,17 +747,22 @@ export function useVoiceCall({ roomId, userId, isHost, userInfo }: Props) {
       }]);
 
       startSpeakingLoop();
+
+      // Polling fallback — guarantees signaling delivery even if the
+      // Realtime websocket silently dies inside the WebView
+      startPolling();
     } catch (err) {
       console.error("[voice] joinCall error:", err);
       setMicPermission("denied");
       setError(err instanceof Error ? err.message : "Нет доступа к микрофону");
       joinedRef.current = false;
     }
-  }, [roomId, userId, isHost, userInfo, handleSignal, sendSignal, attachAnalyser, startSpeakingLoop]);
+  }, [roomId, userId, isHost, userInfo, handleSignal, sendSignal, attachAnalyser, startSpeakingLoop, fetchVoiceToken, startPolling]);
 
   const leaveCall = useCallback(async () => {
     await sendSignal("leave", {});
     await leaveCallInternal();
+    setClosedNotice(null);
   }, [sendSignal, leaveCallInternal]);
 
   const toggleMute = useCallback(() => {
@@ -639,6 +842,7 @@ export function useVoiceCall({ roomId, userId, isHost, userInfo }: Props) {
     isMuted,
     forceMuted,
     kicked,
+    closedNotice,
     participants,
     error,
     micPermission,
@@ -652,5 +856,7 @@ export function useVoiceCall({ roomId, userId, isHost, userInfo }: Props) {
       forceMutedRef.current = false;
       setForceMuted(false);
     }, []),
+    /** Clear the "host ended call" inline notice (dismissed by UI) */
+    dismissClosedNotice: useCallback(() => setClosedNotice(null), []),
   };
 }

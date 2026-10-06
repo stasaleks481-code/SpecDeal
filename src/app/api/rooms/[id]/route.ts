@@ -93,7 +93,12 @@ export async function GET(
 
 /**
  * DELETE /api/rooms/[id]
- * Closes the room (host only)
+ * Host-only. Force-closes the room for EVERY participant:
+ *  1. Broadcasts a 'close' signal (scope: room) — all in-call clients
+ *     immediately tear down the call and are shown a "room closed" screen.
+ *  2. Ends any active party game session.
+ *  3. DELETES the room row (cascades members, messages, signals, session)
+ *     — the room disappears from every list.
  */
 export async function DELETE(
   req: NextRequest,
@@ -121,16 +126,34 @@ export async function DELETE(
     return NextResponse.json({ error: 'Only host can close room' }, { status: 403 })
   }
 
-  const { error } = await supabase
-    .from('rooms')
-    .update({ is_active: false, closed_at: new Date().toISOString() })
-    .eq('id', id)
+  // 1. Broadcast "room closed" so in-call participants leave instantly
+  await supabase.from('call_signals').insert({
+    room_id: id,
+    from_user_id: parseInt(userId, 10),
+    to_user_id: null,
+    type: 'close',
+    payload: { scope: 'room', by_host: parseInt(userId, 10) },
+  })
+
+  // 2. End any active party game session
+  await supabase.from('game_sessions').update({ phase: 'finished' }).eq('room_id', id)
+
+  // 3. Delete the room row (cascades room_members / room_messages /
+  //    call_signals / game_sessions). A short delay lets Realtime
+  //    deliver the 'close' signal before the cascade removes it.
+  await new Promise((r) => setTimeout(r, 150))
+  const { error } = await supabase.from('rooms').delete().eq('id', id)
 
   if (error) {
+    // Fallback: at least mark it closed
+    await supabase
+      .from('rooms')
+      .update({ is_active: false, closed_at: new Date().toISOString() })
+      .eq('id', id)
     return NextResponse.json({ error: 'DB error' }, { status: 500 })
   }
 
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ ok: true, deleted: true })
 }
 
 /**

@@ -1,34 +1,83 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 
 /**
- * SplashScreen — VoiceDeck branded loading screen (Steam Neon style).
+ * SplashScreen — the ONE and ONLY loading screen.
  *
- * Shows once per app session (sessionStorage flag): neon waveform logo,
- * staggered wordmark, shimmering progress bar, then a smooth fade+scale
- * exit into the main screen.
+ * Design (per feedback):
+ *  - Flat background identical to the app/mini-app background (#0e141d)
+ *    — no radial vignette, no frame, no glow → fully seamless edges.
+ *  - Kept visuals: animated waveform bars, staggered wordmark, progress.
+ *  - Removed: logo tile border, all box-shadows/glows, blur filters.
+ *
+ * Performance:
+ *  - Bars animate scaleY (GPU transform) instead of height (layout/paint).
+ *  - Progress bar is written directly to the DOM via rAF (zero re-renders).
+ *  - Exit is opacity+scale only (no full-screen blur).
+ *  - Waits for `ready` (auth resolved) before finishing → single seamless
+ *    loading process, no second spinner afterwards.
  */
 
 const LETTERS = "VoiceDeck".split("");
+const BAR_HEIGHTS = [0.55, 0.9, 0.7, 1, 0.65, 0.85, 0.5];
+const MIN_DURATION = 1400; // ms — minimum splash time
+const RAMP_DURATION = 1050; // ms — progress 0 → 85%
 
-export function SplashScreen({ onDone }: { onDone: () => void }) {
-  const [progress, setProgress] = useState(0);
+export function SplashScreen({
+  onDone,
+  ready = true,
+}: {
+  onDone: () => void;
+  /** Auth resolved (user set or error) — splash finishes only after this */
+  ready?: boolean;
+}) {
+  const progressRef = useRef<HTMLDivElement>(null);
+  const doneRef = useRef(false);
+  const readyRef = useRef(ready);
+  useEffect(() => {
+    readyRef.current = ready;
+  }, [ready]);
 
   useEffect(() => {
-    // Fake-smooth progress ~1.8s total
     const start = performance.now();
     let raf = 0;
+    let finishedAt = 0;
+
     const tick = (t: number) => {
-      const p = Math.min(1, (t - start) / 1800);
-      setProgress(p);
-      if (p < 1) {
-        raf = requestAnimationFrame(tick);
+      const elapsed = t - start;
+      let p: number;
+      if (elapsed < RAMP_DURATION) {
+        // ease-out ramp to 85%
+        const x = elapsed / RAMP_DURATION;
+        p = 0.85 * (1 - Math.pow(1 - x, 2));
+      } else if (readyRef.current && elapsed >= MIN_DURATION) {
+        // auth done + minimum time → fill to 100% and finish
+        p = 1;
       } else {
-        setTimeout(onDone, 150);
+        // hold near 85% until ready (tiny breathing motion)
+        p = 0.85 + Math.sin((elapsed - RAMP_DURATION) / 400) * 0.012;
       }
+
+      if (progressRef.current) {
+        progressRef.current.style.transform = `scaleX(${p})`;
+      }
+
+      if (p >= 1) {
+        if (!finishedAt) finishedAt = t;
+        // small hold at 100% then hand over
+        if (t - finishedAt > 220 && !doneRef.current) {
+          doneRef.current = true;
+          onDone();
+          return;
+        }
+        raf = requestAnimationFrame(tick);
+        return;
+      }
+      raf = requestAnimationFrame(tick);
     };
+
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [onDone]);
@@ -36,48 +85,32 @@ export function SplashScreen({ onDone }: { onDone: () => void }) {
   return (
     <motion.div
       className="fixed inset-0 z-[200] flex flex-col items-center justify-center"
-      style={{
-        background:
-          "radial-gradient(ellipse at 50% 35%, #12202e 0%, #0b1119 55%, #070b10 100%)",
-      }}
+      style={{ background: "#0e141d" }}
       initial={{ opacity: 1 }}
-      exit={{ opacity: 0, scale: 1.06, filter: "blur(6px)" }}
-      transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+      exit={{ opacity: 0, scale: 1.04 }}
+      transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
     >
-      {/* Ambient neon glows */}
-      <div
-        className="absolute w-[280px] h-[280px] rounded-full pointer-events-none"
-        style={{
-          top: "22%",
-          left: "50%",
-          transform: "translateX(-50%)",
-          background: "radial-gradient(circle, rgba(102,192,244,0.14) 0%, transparent 65%)",
-          filter: "blur(30px)",
-        }}
-      />
-
-      {/* ── Logo: waveform bars in a rounded hex tile ── */}
+      {/* ── Logo: animated waveform (flat tile, no border / glow) ── */}
       <motion.div
-        initial={{ scale: 0.5, opacity: 0, rotate: -8 }}
-        animate={{ scale: 1, opacity: 1, rotate: 0 }}
-        transition={{ type: "spring", damping: 14, stiffness: 200, delay: 0.1 }}
+        initial={{ scale: 0.6, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ type: "spring", damping: 16, stiffness: 220, delay: 0.08 }}
         className="relative w-24 h-24 rounded-3xl flex items-center justify-center gap-1.5 mb-7"
         style={{
-          background: "linear-gradient(135deg, #1b2838 0%, #0e141d 100%)",
-          border: "1px solid rgba(102, 192, 244, 0.35)",
-          boxShadow:
-            "0 0 34px rgba(102, 192, 244, 0.35), inset 0 0 22px rgba(102, 192, 244, 0.08)",
+          background: "linear-gradient(135deg, #1b2838 0%, #12202e 100%)",
         }}
       >
-        {[0.55, 0.9, 0.7, 1, 0.65, 0.85, 0.5].map((h, i) => (
+        {BAR_HEIGHTS.map((h, i) => (
           <motion.span
             key={i}
             className="w-1.5 rounded-full"
             style={{
+              height: "38%",
               background: "linear-gradient(180deg, #66c0f4, #1a6ea0)",
-              boxShadow: "0 0 8px rgba(102,192,244,0.7)",
+              transformOrigin: "center",
+              willChange: "transform",
             }}
-            animate={{ height: [`${h * 38}%`, `${Math.max(20, (1.15 - h) * 44)}%`, `${h * 38}%`] }}
+            animate={{ scaleY: [h, Math.max(0.35, 1.15 - h), h] }}
             transition={{
               repeat: Infinity,
               duration: 0.9 + (i % 3) * 0.22,
@@ -88,20 +121,15 @@ export function SplashScreen({ onDone }: { onDone: () => void }) {
         ))}
       </motion.div>
 
-      {/* ── Wordmark: letters stagger in with neon flicker ── */}
+      {/* ── Wordmark: staggered letters (opacity+y only — no blur) ── */}
       <div className="flex items-center h-10 mb-2">
         {LETTERS.map((ch, i) => (
           <motion.span
             key={i}
-            initial={{ opacity: 0, y: 14, filter: "blur(6px)" }}
-            animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-            transition={{ delay: 0.35 + i * 0.055, duration: 0.35, ease: "easeOut" }}
-            className="text-3xl font-black tracking-tight"
-            style={{
-              color: "#EAF6FF",
-              textShadow:
-                "0 0 12px rgba(102,192,244,0.75), 0 0 34px rgba(102,192,244,0.35)",
-            }}
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 + i * 0.05, duration: 0.3, ease: "easeOut" }}
+            className="text-3xl font-black tracking-tight text-[#EAF6FF]"
           >
             {ch}
           </motion.span>
@@ -111,24 +139,25 @@ export function SplashScreen({ onDone }: { onDone: () => void }) {
       <motion.p
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ delay: 1.0, duration: 0.4 }}
+        transition={{ delay: 0.85, duration: 0.4 }}
         className="text-[11px] uppercase tracking-[0.3em] text-[#66c0f4]/70 mb-9"
       >
         Voice · Games · Party
       </motion.p>
 
-      {/* ── Progress bar ── */}
+      {/* ── Progress: rAF-driven scaleX (no React re-renders) ── */}
       <div
         className="w-44 h-1 rounded-full overflow-hidden"
         style={{ background: "rgba(255,255,255,0.08)" }}
       >
         <div
-          className="h-full rounded-full"
+          ref={progressRef}
+          className="h-full w-full rounded-full"
           style={{
-            width: `${progress * 100}%`,
             background: "linear-gradient(90deg, #1a6ea0, #66c0f4)",
-            boxShadow: "0 0 10px rgba(102,192,244,0.8)",
-            transition: "width 80ms linear",
+            transform: "scaleX(0)",
+            transformOrigin: "left center",
+            willChange: "transform",
           }}
         />
       </div>

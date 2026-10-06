@@ -60,7 +60,9 @@ function HomePageContent() {
   const [steamNotice, setSteamNotice] = useState<string | null>(null);
   const [splashDone, setSplashDone] = useState(true);
 
-  // Splash screen — once per session on first app open
+  // Splash screen — once per session on first app open.
+  // It is the SINGLE loader: auth runs UNDER it (ready = auth resolved),
+  // so there is never a spinner → splash sequence (double-loader fix).
   useEffect(() => {
     try {
       if (sessionStorage.getItem(SPLASH_KEY) !== "1") {
@@ -171,80 +173,89 @@ function HomePageContent() {
     }).catch(() => {});
   }, []);
 
-  if (loading && !user) {
-    return (
-      <main className="min-h-screen flex flex-col items-center justify-center px-6">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-14 h-14 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
-          <div className="text-center">
-            <p className="text-xl font-bold neon-text tracking-wide">VoiceDeck</p>
-            <p className="text-xs text-muted-foreground mt-1">Подключаемся...</p>
-          </div>
-        </div>
-      </main>
-    );
-  }
-
-  if (error && !user) {
-    return (
-      <main className="min-h-screen flex flex-col items-center justify-center px-6">
-        <div className="glass-card p-6 max-w-sm w-full text-center">
-          <div className="w-14 h-14 rounded-2xl bg-red-500/20 flex items-center justify-center mx-auto mb-4">
-            <AlertTriangle className="w-7 h-7 text-red-400" />
-          </div>
-          <h2 className="text-lg font-bold text-red-300 mb-1">Ошибка входа</h2>
-          <p className="text-sm text-muted-foreground mb-5">{error}</p>
-          <div className="space-y-2">
-            <button onClick={() => authenticate()} className="neon-btn text-sm w-full">
-              Попробовать снова
-            </button>
-            <button
-              onClick={async () => {
-                setError(null);
-                try {
-                  const res = await fetch("/api/auth", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    credentials: "include",
-                    body: JSON.stringify({ anonymous: true }),
-                  });
-                  const data = await res.json();
-                  if (!res.ok || !data.user) throw new Error(data.error ?? "Ошибка");
-                  updateUser(data.user);
-                } catch (err) {
-                  setError(err instanceof Error ? err.message : "Ошибка");
-                }
-              }}
-              className="w-full text-xs text-muted-foreground hover:text-foreground py-2 transition-colors"
-            >
-              Войти анонимно
-            </button>
-          </div>
-        </div>
-      </main>
-    );
-  }
-
-  if (!user) return null;
-
-  const isAnonymous = user.account_type === "anonymous";
+  // ── Single-loader flow ──────────────────────────────────────────
+  // The splash is the ONE loader: it covers auth (ready = auth resolved)
+  // and waits for it, so the old spinner → splash sequence is gone.
+  // AnimatePresence stays mounted → the exit fade always plays.
+  const isAnonymous = user?.account_type === "anonymous";
 
   return (
     <>
-      <AppShell user={user}>
-        <Suspense fallback={
-          <div className="max-w-md mx-auto px-4 py-6">
-            <div className="h-12 rounded-xl bg-white/5 animate-pulse" />
-          </div>
-        }>
-          <HomeHub user={user} />
-        </Suspense>
-      </AppShell>
+      {/* App content — only when a user exists */}
+      {user && (
+        <AppShell user={user}>
+          <Suspense fallback={
+            <div className="max-w-md mx-auto px-4 py-6">
+              <div className="h-12 rounded-xl bg-white/5 animate-pulse" />
+            </div>
+          }>
+            <HomeHub user={user} />
+          </Suspense>
+        </AppShell>
+      )}
 
       {/* ── VoiceDeck splash (first open of the session) ── */}
       <AnimatePresence>
-        {!splashDone && <SplashScreen onDone={() => setSplashDone(true)} />}
+        {!splashDone && (
+          <SplashScreen ready={!loading} onDone={() => setSplashDone(true)} />
+        )}
       </AnimatePresence>
+
+      {/* After the splash: quiet pulse (rare reload edge) or auth error card */}
+      {!user && splashDone && (
+        loading ? (
+          <main className="min-h-screen flex flex-col items-center justify-center">
+            <div className="flex items-center gap-1.5">
+              {[0, 1, 2].map((i) => (
+                <span
+                  key={i}
+                  className="w-1.5 h-1.5 rounded-full bg-primary/70"
+                  style={{
+                    animation: `splashPulse 1s ease-in-out ${i * 0.15}s infinite`,
+                  }}
+                />
+              ))}
+            </div>
+            <style>{`@keyframes splashPulse { 0%, 100% { opacity: 0.25; transform: scale(0.85); } 50% { opacity: 1; transform: scale(1.15); } }`}</style>
+          </main>
+        ) : (
+          <main className="min-h-screen flex flex-col items-center justify-center px-6">
+            <div className="glass-card p-6 max-w-sm w-full text-center">
+              <div className="w-14 h-14 rounded-2xl bg-red-500/20 flex items-center justify-center mx-auto mb-4">
+                <AlertTriangle className="w-7 h-7 text-red-400" />
+              </div>
+              <h2 className="text-lg font-bold text-red-300 mb-1">Ошибка входа</h2>
+              <p className="text-sm text-muted-foreground mb-5">{error}</p>
+              <div className="space-y-2">
+                <button onClick={() => authenticate()} className="neon-btn text-sm w-full">
+                  Попробовать снова
+                </button>
+                <button
+                  onClick={async () => {
+                    setError(null);
+                    try {
+                      const res = await fetch("/api/auth", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        credentials: "include",
+                        body: JSON.stringify({ anonymous: true }),
+                      });
+                      const data = await res.json();
+                      if (!res.ok || !data.user) throw new Error(data.error ?? "Ошибка");
+                      updateUser(data.user);
+                    } catch (err) {
+                      setError(err instanceof Error ? err.message : "Ошибка");
+                    }
+                  }}
+                  className="w-full text-xs text-muted-foreground hover:text-foreground py-2 transition-colors"
+                >
+                  Войти анонимно
+                </button>
+              </div>
+            </div>
+          </main>
+        )
+      )}
 
       {/* Steam OAuth result notice */}
       {steamNotice && !isAnonymous && (
