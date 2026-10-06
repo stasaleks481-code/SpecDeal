@@ -188,7 +188,15 @@ export function AppShell({ user, children }: Props) {
 
 /**
  * TabButton — icon only (no text label, like TikTok).
- * Active state: liquid glass indicator with spring animation.
+ * Active state: LIQUID GLASS indicator.
+ *
+ * Animation sequence on tab change (3 phases via framer-motion variants):
+ *   1. LIFT UP    — current pill slides up (y: -8) + shrinks slightly
+ *   2. SLIDE      — pill moves horizontally to new tab position (layoutId)
+ *   3. SETTLE     — pill drops down to baseline (y: 0) + grows back
+ *
+ * The pill is visually "liquid glass": translucent, with backdrop blur,
+ * subtle gradient, inner glow, and soft border — mimicking iOS 26 / TikTok.
  */
 function TabButton({
   active,
@@ -209,11 +217,32 @@ function TabButton({
       {active && (
         <motion.div
           layoutId="bottom-nav-active"
-          className="absolute inset-0 rounded-xl bg-primary/10 border border-primary/30"
+          className="absolute inset-0 rounded-xl"
           style={{
-            boxShadow: "0 0 8px color-mix(in srgb, var(--primary) 25%, transparent)",
+            // Liquid glass appearance
+            background:
+              "linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02))",
+            border: "1px solid color-mix(in srgb, var(--primary) 30%, transparent)",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+            boxShadow: `
+              0 0 12px color-mix(in srgb, var(--primary) 35%, transparent),
+              0 4px 12px rgba(0,0,0,0.3),
+              inset 0 1px 0 rgba(255,255,255,0.1)
+            `,
           }}
-          transition={{ type: "spring", damping: 22, stiffness: 280 }}
+          initial={{ y: 0, scale: 1, opacity: 0 }}
+          animate={{
+            y: [0, -10, -10, 0],   // up → hold → down (3 keyframes)
+            scale: [1, 0.92, 0.92, 1],  // shrink → hold → grow
+            opacity: [1, 1, 1, 1],
+          }}
+          transition={{
+            duration: 0.5,
+            ease: [0.4, 0, 0.2, 1],
+            times: [0, 0.25, 0.6, 1],  // up takes 25%, hold to 60%, down 40%
+            layout: { type: "spring", damping: 28, stiffness: 350 },
+          }}
         />
       )}
       <div className="relative z-10">{icon}</div>
