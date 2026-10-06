@@ -6,22 +6,27 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, Send, Crown, Mic, MicOff, PhoneOff, Users, LogOut,
   MessageSquare, Volume2, VolumeX, ShieldAlert, Lock, UserMinus, ChevronDown, X,
+  Dices, PhoneIncoming,
 } from "lucide-react";
-import { GAMES } from "@/lib/supabase/client";
+import { GAMES, SKILL_LEVELS, partyGame, type SkillLevel } from "@/lib/supabase/client";
 import { supabase } from "@/lib/supabase/client";
 import type { UserRow } from "@/lib/supabase/client";
 import { useTelegramBackButton } from "@/lib/telegram/useBackButton";
 import { haptic } from "@/lib/telegram/haptics";
 import { useVoiceCall } from "@/lib/webrtc/useVoiceCall";
+import { GamePanel } from "@/components/party/GamePanel";
 
 interface RoomData {
   id: string;
   host_id: number;
-  category: "game" | "casual";
+  category: "game" | "casual" | "party";
   game_name: string | null;
   game_format: string | null;
   play_style: string | null;
   topic_tags: string[];
+  skill_level: SkillLevel | null;
+  game_type: string | null;
+  game_settings: { auto_mute?: boolean } | null;
   title: string;
   max_players: number;
   is_active: boolean;
@@ -91,11 +96,12 @@ export function RoomView({ user }: Props) {
 
   const isAnonymous = user.account_type === "anonymous";
 
-  // Voice call — auto-joins on mount (skip for anonymous: locked)
+  // Voice call — the mic is requested ONLY when the user taps
+  // "Join voice" below (never on open / tab switches)
   const voiceCall = useVoiceCall({
     roomId,
     userId: user.id,
-    isHost: false, // set correctly after room loads (see effect below)
+    isHost: room?.host_id === user.id, // known by the time the user taps Join
     userInfo: {
       username: user.username,
       firstName: user.first_name,
@@ -290,6 +296,10 @@ export function RoomView({ user }: Props) {
   }
 
   const game = room.game_name ? GAMES.find((g) => g.code === room.game_name) : null;
+  const partyDef = room.category === "party" ? partyGame(room.game_type) : null;
+  const skillMeta = room.category === "game" && room.skill_level
+    ? SKILL_LEVELS[room.skill_level as SkillLevel] ?? null
+    : null;
   const isHost = room.host_id === user.id;
   const memberCount = members.length;
   const notInCall = members.filter((m) => !voiceCall.participants.some((p) => p.userId === m.user_id));
@@ -334,12 +344,30 @@ export function RoomView({ user }: Props) {
 
           <div className="flex-1 min-w-0">
             <h1 className="font-semibold text-sm truncate">{room.title}</h1>
-            <button
-              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
-            >
-              <Users className="w-3 h-3" />
-              {memberCount}/{room.max_players}
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+              >
+                <Users className="w-3 h-3" />
+                {memberCount}/{room.max_players}
+              </button>
+              {partyDef && (
+                <span
+                  className="text-[9px] font-bold px-1.5 py-0.5 rounded-md"
+                  style={{ background: `${partyDef.color}1E`, color: partyDef.color, border: `1px solid ${partyDef.color}44` }}
+                >
+                  {partyDef.emoji} {partyDef.name}
+                </span>
+              )}
+              {skillMeta && (
+                <span
+                  className="text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase"
+                  style={{ background: `${skillMeta.color}1E`, color: skillMeta.color, border: `1px solid ${skillMeta.color}44` }}
+                >
+                  {skillMeta.short}
+                </span>
+              )}
+            </div>
           </div>
 
           {!isHost && (
@@ -383,6 +411,17 @@ export function RoomView({ user }: Props) {
           </div>
         ) : (
           <div className="space-y-4 max-w-md mx-auto">
+            {/* ━━━ PARTY GAME PANEL (voice-independent) ━━━ */}
+            {room.category === "party" && (
+              <GamePanel
+                roomId={roomId}
+                room={room}
+                user={user}
+                memberCount={memberCount}
+                inCall={voiceCall.isInCall}
+              />
+            )}
+
             {/* Call status */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -390,14 +429,54 @@ export function RoomView({ user }: Props) {
                   voiceCall.isInCall ? "bg-green-500 animate-pulse" : "bg-amber-400 animate-pulse"
                 }`} />
                 <span className="text-sm font-semibold">
-                  {voiceCall.isInCall ? "Голосовой канал" : "Подключение..."}
+                  {voiceCall.isInCall ? "Голосовой канал" : "Не в голосе"}
                 </span>
               </div>
               <span className="text-xs text-muted-foreground">
-                {voiceCall.participants.length} в звонке
+                {voiceCall.isInCall ? `${voiceCall.participants.length} в звонке` : `${memberCount} в комнате`}
               </span>
             </div>
 
+            {/* ━━━ PRE-JOIN GATE — mic is requested ONLY here ━━━ */}
+            {!voiceCall.isInCall ? (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="glass-card p-6 text-center"
+              >
+                <div
+                  className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
+                  style={{
+                    background: "linear-gradient(135deg, rgba(63,185,80,0.15), rgba(63,185,80,0.05))",
+                    border: "1px solid rgba(63,185,80,0.35)",
+                  }}
+                >
+                  <PhoneIncoming className="w-7 h-7 text-green-400" />
+                </div>
+                <p className="text-sm font-bold mb-1">Голосовой канал</p>
+                <p className="text-xs text-muted-foreground mb-5 max-w-[260px] mx-auto leading-relaxed">
+                  {partyDef
+                    ? `Для «${partyDef.name}» нужен голос. Подключись, когда будешь готов.`
+                    : "Загляни в голос — микрофон запрашивается только при входе в звонок, не при переходах по вкладкам."}
+                </p>
+                <button
+                  onClick={() => {
+                    haptic.impact("medium");
+                    voiceCall.joinCall();
+                  }}
+                  className="neon-btn w-full text-sm py-3 flex items-center justify-center gap-2"
+                >
+                  <Mic className="w-4 h-4" />
+                  Присоединиться к голосу
+                </button>
+                <p className="text-[10px] text-muted-foreground/70 mt-3">
+                  {memberCount > 1
+                    ? `${memberCount - 1} ${memberCount - 1 === 1 ? "участник" : "участника"} уже здесь`
+                    : "Пока ты один — позови друзей ссылкой!"}
+                </p>
+              </motion.div>
+            ) : (
+            <>
             {/* ── Discord-style participants grid ── */}
             <div className="grid grid-cols-2 gap-3">
               {voiceCall.participants.map((p) => {
@@ -529,6 +608,8 @@ export function RoomView({ user }: Props) {
                   ))}
                 </div>
               </div>
+            )}
+            </>
             )}
           </div>
         )}

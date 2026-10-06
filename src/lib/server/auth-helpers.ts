@@ -1,3 +1,4 @@
+import 'server-only'
 import { supabase, type UserRow } from '@/lib/supabase/client'
 
 /**

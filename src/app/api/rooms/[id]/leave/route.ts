@@ -38,27 +38,34 @@ export async function POST(
     .eq('id', id)
     .maybeSingle()
 
-  if (room && room.host_id === tgId && room.is_active) {
-    // Find next member
+  if (room && room.is_active) {
+    // Remaining members (earliest joiner becomes next host candidate)
     const { data: remaining } = await supabase
       .from('room_members')
       .select('user_id')
       .eq('room_id', id)
       .order('joined_at', { ascending: true })
-      .limit(1)
 
     if (remaining && remaining.length > 0) {
-      // Transfer host
-      await supabase
-        .from('rooms')
-        .update({ host_id: remaining[0].user_id })
-        .eq('id', id)
+      // Host left → transfer to the next active member.
+      // If a non-host member left, the host stays as is.
+      if (room.host_id === tgId) {
+        await supabase
+          .from('rooms')
+          .update({ host_id: remaining[0].user_id })
+          .eq('id', id)
+      }
     } else {
-      // No one left — close the room
+      // No one left — close the room (ghost room protection)
       await supabase
         .from('rooms')
         .update({ is_active: false, closed_at: new Date().toISOString() })
         .eq('id', id)
+      // End any active party game session
+      await supabase
+        .from('game_sessions')
+        .update({ phase: 'finished' })
+        .eq('room_id', id)
     }
   }
 

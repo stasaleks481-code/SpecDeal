@@ -1,3 +1,4 @@
+import 'server-only'
 /**
  * Centralized env access — fails fast if anything is missing.
  */

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/client'
 import { getUserAllowedForAction, ANON_ERROR } from '@/lib/server/auth-helpers'
+import { verifyVoiceToken } from '@/lib/server/games'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -13,20 +14,31 @@ export const dynamic = 'force-dynamic'
  * Clients subscribe to this table via Supabase Realtime to receive
  * signaling messages in real-time.
  *
- * Anonymous accounts cannot join voice calls (403).
+ * SECURITY:
+ *  - Requires a short-lived TTL voice token (x-voice-token header) issued
+ *    only to verified room members (see /api/rooms/[id]/voice-token)
+ *  - Requester must be a room member
+ *  - Anonymous accounts cannot join voice calls (403)
  */
-export async function POST(
+
+/** Shared auth+membership+token validation for both handlers */
+async function authorizeSignal(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-): Promise<NextResponse> {
+  roomId: string
+): Promise<{ tgId: number } | { error: NextResponse }> {
   const userId = req.headers.get('x-user-id')
   if (!userId) {
-    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+    return { error: NextResponse.json({ error: 'Not authenticated' }, { status: 401 }) }
   }
-
   const tgId = parseInt(userId, 10)
   if (isNaN(tgId)) {
-    return NextResponse.json({ error: 'Invalid user id' }, { status: 400 })
+    return { error: NextResponse.json({ error: 'Invalid user id' }, { status: 400 }) }
+  }
+
+  // TTL signaling token (bound to user+room, 10 min lifetime)
+  const tokenError = verifyVoiceToken(tgId, roomId, req.headers.get('x-voice-token'))
+  if (tokenError) {
+    return { error: NextResponse.json({ error: tokenError, error_code: 'TOKEN_INVALID' }, { status: 401 }) }
   }
 
   // Anonymous accounts cannot use voice
@@ -38,12 +50,33 @@ export async function POST(
       .eq('id', tgId)
       .maybeSingle<{ account_type?: string }>()
     if (data?.account_type === 'anonymous') {
-      return NextResponse.json({ error: ANON_ERROR, error_code: 'ACCOUNT_REQUIRED' }, { status: 403 })
+      return { error: NextResponse.json({ error: ANON_ERROR, error_code: 'ACCOUNT_REQUIRED' }, { status: 403 }) }
     }
-    return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    return { error: NextResponse.json({ error: 'User not found' }, { status: 404 }) }
   }
 
+  // Requester must be an active member of this room
+  const { data: membership } = await supabase
+    .from('room_members')
+    .select('user_id')
+    .eq('room_id', roomId)
+    .eq('user_id', tgId)
+    .maybeSingle()
+  if (!membership) {
+    return { error: NextResponse.json({ error: 'Ты не участник этой комнаты' }, { status: 403 }) }
+  }
+
+  return { tgId }
+}
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+): Promise<NextResponse> {
   const { id: roomId } = await params
+  const auth = await authorizeSignal(req, roomId)
+  if ('error' in auth) return auth.error
+  const tgId = auth.tgId
+
   const body = await req.json().catch(() => ({}))
 
   const type = body.type as string
@@ -79,13 +112,11 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
-  const userId = req.headers.get('x-user-id')
-  if (!userId) {
-    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
-  }
-
-  const tgId = parseInt(userId, 10)
   const { id: roomId } = await params
+  const auth = await authorizeSignal(req, roomId)
+  if ('error' in auth) return auth.error
+  const tgId = auth.tgId
+
   const url = new URL(req.url)
   const after = url.searchParams.get('after')
 

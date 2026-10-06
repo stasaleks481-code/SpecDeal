@@ -110,7 +110,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       } else {
         return NextResponse.json(
           {
-            error: 'Открой это приложение через Telegram бота @stakappBot',
+            error: 'Открой VoiceDeck через Telegram-бота @stakappBot',
             error_code: 'NO_INIT_DATA',
           },
           { status: 400 }

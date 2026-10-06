@@ -58,6 +58,8 @@ export function useVoiceCall({ roomId, userId, isHost, userInfo }: Props) {
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const joinedRef = useRef<boolean>(false);
   const forceMutedRef = useRef<boolean>(false);
+  /** Short-lived TTL signaling token (issued on join, auto-refreshed on 401) */
+  const voiceTokenRef = useRef<string | null>(null);
 
   // ── Speaking detection (Web Audio) ─────────────────────────────
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -178,20 +180,50 @@ export function useVoiceCall({ roomId, userId, isHost, userInfo }: Props) {
     };
   }, [ensureAudioContext]);
 
+  /** (Re)fetch the TTL voice token for signaling */
+  const fetchVoiceToken = useCallback(async (): Promise<string | null> => {
+    try {
+      const res = await fetch(`/api/rooms/${roomId}/voice-token`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        console.error("[voice] token error:", data.error);
+        return null;
+      }
+      const data = await res.json();
+      voiceTokenRef.current = data.token;
+      return data.token;
+    } catch {
+      return null;
+    }
+  }, [roomId]);
+
   const sendSignal = useCallback(
-    async (type: SignalType, payload: Record<string, unknown> = {}, toUserId?: number) => {
+    async (type: SignalType, payload: Record<string, unknown> = {}, toUserId?: number, retried = false) => {
       try {
-        await fetch(`/api/rooms/${roomId}/signal`, {
+        const res = await fetch(`/api/rooms/${roomId}/signal`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(voiceTokenRef.current ? { "x-voice-token": voiceTokenRef.current } : {}),
+          },
           credentials: "include",
           body: JSON.stringify({ type, payload, to_user_id: toUserId }),
         });
+        // Token expired mid-call — refresh once and retry
+        if (res.status === 401 && !retried) {
+          const ok = await fetchVoiceToken();
+          if (ok) {
+            await sendSignal(type, payload, toUserId, true);
+          }
+        }
       } catch (err) {
         console.error("[voice] sendSignal error:", err);
       }
     },
-    [roomId]
+    [roomId, fetchVoiceToken]
   );
 
   const updateParticipant = useCallback((remoteUserId: number, updates: Partial<CallParticipant>) => {
@@ -298,19 +330,32 @@ export function useVoiceCall({ roomId, userId, isHost, userInfo }: Props) {
     async (signal: SignalMessage) => {
       if (signal.from_user_id === userId) return;
 
-      // Moderation signals are addressed directly to the target
+      // Moderation signals are addressed directly to the target.
+      // payload.force === false releases a previous force-mute
+      // (party-game auto-mute / host unmute)
       if (signal.type === "mute") {
         if (signal.to_user_id === userId) {
-          forceMutedRef.current = true;
-          setForceMuted(true);
-          applyMicState(true);
-          setIsMuted(true);
-          updateParticipant(userId, { isMuted: true });
-          // Confirm state back to the host
-          sendSignal("ice", { muted_confirm: true }, signal.from_user_id).catch(() => {});
+          const force = (signal.payload as { force?: boolean } | null)?.force !== false;
+          if (force) {
+            forceMutedRef.current = true;
+            setForceMuted(true);
+            applyMicState(true);
+            setIsMuted(true);
+            updateParticipant(userId, { isMuted: true });
+            // Confirm state back to the host
+            sendSignal("ice", { muted_confirm: true }, signal.from_user_id).catch(() => {});
+          } else {
+            // Auto-release (e.g. your turn came in a party game)
+            forceMutedRef.current = false;
+            setForceMuted(false);
+            applyMicState(false);
+            setIsMuted(false);
+            updateParticipant(userId, { isMuted: false });
+          }
         } else if (signal.from_user_id !== userId) {
           // Another participant was muted — reflect their badge if known
-          updateParticipant(signal.to_user_id ?? -1, { isMuted: true });
+          const force = (signal.payload as { force?: boolean } | null)?.force !== false;
+          updateParticipant(signal.to_user_id ?? -1, { isMuted: force ? true : false });
         }
         return;
       }
@@ -421,7 +466,8 @@ export function useVoiceCall({ roomId, userId, isHost, userInfo }: Props) {
       setError(null);
       setMicPermission("pending");
 
-      // Request microphone
+      // Request microphone — ONLY here, on explicit voice join
+      // (never on app open / tab switches)
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
@@ -431,6 +477,12 @@ export function useVoiceCall({ roomId, userId, isHost, userInfo }: Props) {
       });
       localStreamRef.current = stream;
       setMicPermission("granted");
+
+      // TTL signaling token BEFORE any signal traffic
+      const token = await fetchVoiceToken();
+      if (!token) {
+        throw new Error("Не удалось авторизовать голосовой канал");
+      }
 
       // Local speaking detection
       attachAnalyser(stream, userId);
@@ -459,7 +511,10 @@ export function useVoiceCall({ roomId, userId, isHost, userInfo }: Props) {
       channelRef.current = channel;
 
       // Fetch existing signals (catch up)
-      const res = await fetch(`/api/rooms/${roomId}/signal`, { credentials: "include" });
+      const res = await fetch(`/api/rooms/${roomId}/signal`, {
+        credentials: "include",
+        headers: voiceTokenRef.current ? { "x-voice-token": voiceTokenRef.current } : {},
+      });
       if (res.ok) {
         const data = await res.json();
         for (const signal of (data.signals ?? []) as SignalMessage[]) {
@@ -487,7 +542,7 @@ export function useVoiceCall({ roomId, userId, isHost, userInfo }: Props) {
         username: userInfo.username,
         firstName: "Вы",
         photoUrl: userInfo.photoUrl,
-        isHost,
+        isHost: isHost ?? false,
         isMuted: false,
         isSpeaking: false,
         connectionState: "connected",
@@ -567,13 +622,11 @@ export function useVoiceCall({ roomId, userId, isHost, userInfo }: Props) {
     [roomId, updateParticipant]
   );
 
-  // Auto-join on mount (deferred so setState is not synchronous in effect)
+  // NOTE: no auto-join — the mic is requested ONLY when the user
+  // explicitly taps "Join voice" in the room (RoomView calls joinCall).
+  // Cleanup on unmount stays automatic.
   useEffect(() => {
-    const t = setTimeout(() => {
-      joinCall();
-    }, 0);
     return () => {
-      clearTimeout(t);
       if (joinedRef.current) {
         leaveCall();
       }
@@ -594,5 +647,10 @@ export function useVoiceCall({ roomId, userId, isHost, userInfo }: Props) {
     toggleMute,
     kickParticipant,
     muteParticipant,
+    /** Release a host/auto force-mute (used by party-game turn engine) */
+    releaseForceMute: useCallback(() => {
+      forceMutedRef.current = false;
+      setForceMuted(false);
+    }, []),
   };
 }

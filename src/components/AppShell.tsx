@@ -71,7 +71,7 @@ export function AppShell({ user, children }: Props) {
 
   // Context label for header
   const contextLabel = (() => {
-    if (pathname === "/") return "LFG Hub";
+    if (pathname === "/") return "Voice Hub";
     if (pathname.startsWith("/chill")) return "Chill Zone";
     if (pathname.startsWith("/friends")) return "Friends";
     if (pathname.startsWith("/dm")) return "Messages";
@@ -79,7 +79,7 @@ export function AppShell({ user, children }: Props) {
     if (pathname.startsWith("/leaderboard")) return "Leaderboard";
     if (pathname.startsWith("/users")) return "Player Profile";
     if (pathname.startsWith("/rooms")) return "Room";
-    return "StakApp";
+    return "VoiceDeck";
   })();
 
   const navigate = useCallback((path: string) => {
@@ -120,10 +120,10 @@ export function AppShell({ user, children }: Props) {
               className="w-9 h-9 rounded-xl flex items-center justify-center"
               style={{ background: "var(--primary)" }}
             >
-              <span className="text-[#0e141d] font-black text-sm">S</span>
+              <span className="text-[#0e141d] font-black text-sm">V</span>
             </div>
             <div className="text-left">
-              <p className="text-base font-bold neon-text leading-tight">StakApp</p>
+              <p className="text-base font-bold neon-text leading-tight">VoiceDeck</p>
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider leading-tight">
                 {contextLabel}
               </p>

@@ -1,24 +1,55 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase, GAMES, CASUAL_TOPICS, type RoomRow, type UserRow } from '@/lib/supabase/client'
+import { supabase, GAMES, CASUAL_TOPICS, PARTY_GAMES, SKILL_LEVELS, type RoomRow, type UserRow, type SkillLevel } from '@/lib/supabase/client'
 import { getUserAllowedForAction, ANON_ERROR } from '@/lib/server/auth-helpers'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 /**
- * GET /api/rooms?category=game|casual&game=cs2&format=5x5&style=chill&topic=talk&q=cs2+lobby
+ * GET /api/rooms?category=game|casual|party&game=cs2&format=5x5&style=chill&skill=mid&game_type=bunker&q=...
  *
- * Returns active rooms filtered by category/game/format/style/topic/search query.
- * Includes member count + host info.
+ * Returns active rooms filtered by category/game/format/style/skill/game_type/search.
+ * Also lazily closes GHOST rooms (no members for > 10 minutes).
  */
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const url = new URL(req.url)
-  const category = url.searchParams.get('category') as 'game' | 'casual' | null
+  const category = url.searchParams.get('category') as 'game' | 'casual' | 'party' | null
   const game = url.searchParams.get('game')
   const format = url.searchParams.get('format')
   const style = url.searchParams.get('style')
-  const topic = url.searchParams.get('topic')
+  const skill = url.searchParams.get('skill')
+  const gameType = url.searchParams.get('game_type')
   const q = url.searchParams.get('q')?.trim()
+
+  // ── Ghost room cleanup (lazy, fires with any list refresh) ──────
+  // Close rooms with zero members older than 10 minutes.
+  void (async () => {
+    try {
+      const { data: stale } = await supabase
+        .from('rooms')
+        .update({ is_active: false, closed_at: new Date().toISOString() })
+        .eq('is_active', true)
+        .is('closed_at', null)
+        .lt('created_at', new Date(Date.now() - 10 * 60 * 1000).toISOString())
+        .select('id')
+      // Only close those that actually have no members left
+      const staleRooms = (stale ?? []) as { id: string }[]
+      for (const r of staleRooms) {
+        const { count } = await supabase
+          .from('room_members')
+          .select('user_id', { count: 'exact', head: true })
+          .eq('room_id', r.id)
+        if (count === 0) {
+          await supabase.from('rooms').update({ is_active: false, closed_at: new Date().toISOString() }).eq('id', r.id)
+        } else {
+          // Had members after all — reopen
+          await supabase.from('rooms').update({ is_active: true, closed_at: null }).eq('id', r.id)
+        }
+      }
+    } catch {
+      // cleanup is best-effort
+    }
+  })()
 
   let query = supabase
     .from('rooms')
@@ -36,7 +67,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (game && category === 'game') query = query.eq('game_name', game)
   if (format) query = query.eq('game_format', format)
   if (style) query = query.eq('play_style', style)
-  if (topic && category === 'casual') query = query.contains('topic_tags', [topic])
+  if (skill && category === 'game') query = query.eq('skill_level', skill)
+  if (gameType && category === 'party') query = query.eq('game_type', gameType)
   if (q) query = query.ilike('title', `%${q}%`)
 
   const { data, error } = await query
@@ -87,9 +119,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const body = await req.json().catch(() => ({}))
 
-  // Validate category
-  const category = body.category as 'game' | 'casual'
-  if (category !== 'game' && category !== 'casual') {
+  // Validate category: game (PC LFG) | casual | party (table games)
+  const category = body.category as 'game' | 'casual' | 'party'
+  if (category !== 'game' && category !== 'casual' && category !== 'party') {
     return NextResponse.json({ error: 'Invalid category' }, { status: 400 })
   }
 
@@ -103,19 +135,29 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // Friendly auto-title based on category and host
     title = category === 'game'
       ? `Лобби ${host.first_name}`
+      : category === 'party'
+      ? `Парти ${host.first_name}`
       : `Комната ${host.first_name}`
   }
 
-  // Validate max_players
+  // Validate max_players — party rooms support bigger tables (2-12)
+  const maxPlayersLimit = category === 'party' ? 12 : 5
+  const maxPlayersMin = category === 'party' ? 3 : 2
   const maxPlayers = parseInt(body.max_players, 10)
-  if (isNaN(maxPlayers) || maxPlayers < 2 || maxPlayers > 5) {
-    return NextResponse.json({ error: 'max_players must be 2-5' }, { status: 400 })
+  if (isNaN(maxPlayers) || maxPlayers < maxPlayersMin || maxPlayers > maxPlayersLimit) {
+    return NextResponse.json(
+      { error: `max_players must be ${maxPlayersMin}-${maxPlayersLimit}` },
+      { status: 400 }
+    )
   }
 
   // Category-specific validation
   let gameName: string | null = null
   let gameFormat: string | null = null
   let playStyle: string | null = null
+  let skillLevel: SkillLevel | null = null
+  let gameType: string | null = null
+  let gameSettings: Record<string, unknown> | null = null
   let topicTags: string[] = []
 
   if (category === 'game') {
@@ -125,6 +167,28 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
     gameFormat = body.game_format ?? '5x5'
     playStyle = body.play_style ?? 'chill'
+    // Skill level (Casual / Mid / Hardcore)
+    const sl = body.skill_level as SkillLevel | undefined
+    if (sl && !(sl in SKILL_LEVELS)) {
+      return NextResponse.json({ error: 'Invalid skill level' }, { status: 400 })
+    }
+    skillLevel = sl ?? null
+  } else if (category === 'party') {
+    // Party game type (spyfall / mafia / bunker / whoami)
+    gameType = body.game_type as string
+    if (!PARTY_GAMES.find((g) => g.code === gameType)) {
+      return NextResponse.json({ error: 'Unknown party game' }, { status: 400 })
+    }
+    const def = PARTY_GAMES.find((g) => g.code === gameType)!
+    if (maxPlayers < def.minPlayers) {
+      return NextResponse.json(
+        { error: `«${def.name}» требует минимум ${def.minPlayers} игроков` },
+        { status: 400 }
+      )
+    }
+    gameSettings = {
+      auto_mute: body.auto_mute !== undefined ? Boolean(body.auto_mute) : true,
+    }
   } else {
     // Topics removed from creation form — keep legacy tags only if supplied
     topicTags = Array.isArray(body.topic_tags)
@@ -134,20 +198,26 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   // Insert room
   // voice_enabled is always true — rooms are voice-first now
+  // game_settings is NOT NULL DEFAULT in DB — omit when unset
+  const insertPayload: Record<string, unknown> = {
+    host_id: tgId,
+    category,
+    game_name: gameName,
+    game_format: gameFormat,
+    play_style: playStyle,
+    skill_level: skillLevel,
+    game_type: gameType,
+    topic_tags: topicTags,
+    title,
+    max_players: maxPlayers,
+    is_active: true,
+    voice_enabled: true,
+  }
+  if (gameSettings) insertPayload.game_settings = gameSettings
+
   const { data: room, error: roomErr } = await supabase
     .from('rooms')
-    .insert({
-      host_id: tgId,
-      category,
-      game_name: gameName,
-      game_format: gameFormat,
-      play_style: playStyle,
-      topic_tags: topicTags,
-      title,
-      max_players: maxPlayers,
-      is_active: true,
-      voice_enabled: true,
-    })
+    .insert(insertPayload)
     .select('*')
     .single<RoomRow>()
 

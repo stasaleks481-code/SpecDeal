@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
+import { SteamBadge, SteamLogo } from "@/components/profile/SteamBadge";
 import { THEME_COLORS, REVIEW_TYPES, type UserRow, type ThemeColor } from "@/lib/supabase/client";
 import { haptic } from "@/lib/telegram/haptics";
 
@@ -143,6 +144,15 @@ export function ProfileView({ user, onUserUpdate }: Props) {
       {/* ── Profile header card ── */}
       <div className="relative overflow-hidden rounded-2xl border border-border bg-[#1b2838]/40">
         <div className="neon-strip" />
+        {/* Steam neon icon + info popup (top-right) */}
+        {(isSteam || user.steam_id) && (
+          <div className="absolute top-3 right-3 z-10">
+            <SteamBadge
+              connected
+              personaName={(user.steam_data as { persona_name?: string } | null)?.persona_name ?? null}
+            />
+          </div>
+        )}
         <div className="p-5">
           <div className="flex items-center gap-4">
             <div className="relative">
@@ -185,7 +195,7 @@ export function ProfileView({ user, onUserUpdate }: Props) {
                     className="text-[10px] px-2 py-0.5 rounded-full font-semibold flex items-center gap-1"
                     style={{ background: "#1b2838", border: "1px solid #66c0f440", color: "#66c0f4" }}
                   >
-                    <Gamepad2 className="w-3 h-3" /> Steam
+                    <SteamLogo className="w-3 h-3" color="#66c0f4" /> Steam
                   </span>
                 )}
                 {isAnonymous && (
@@ -348,7 +358,7 @@ export function ProfileView({ user, onUserUpdate }: Props) {
                   className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
                   style={{ background: "linear-gradient(135deg, #1b2838, #0e141d)", border: "1px solid #66c0f430" }}
                 >
-                  <Gamepad2 className="w-5 h-5 text-[#66c0f4]" />
+                  <SteamLogo className="w-5 h-5" color="#66c0f4" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="font-semibold text-sm flex items-center gap-2">
@@ -405,7 +415,7 @@ export function ProfileView({ user, onUserUpdate }: Props) {
                     className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
                     style={{ background: "linear-gradient(135deg, #1b2838, #0e141d)", border: "1px solid #66c0f430" }}
                   >
-                    <Gamepad2 className="w-5 h-5 text-[#66c0f4]" />
+                    <SteamLogo className="w-5 h-5" color="#66c0f4" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-sm">Steam — основной</h3>
@@ -446,7 +456,7 @@ export function ProfileView({ user, onUserUpdate }: Props) {
                 ) : (
                   <div className="p-3 rounded-xl border border-dashed border-border text-center">
                     <p className="text-xs text-muted-foreground mb-2">
-                      Открой StakApp через Telegram, чтобы привязать TG-профиль автоматически
+                      Открой VoiceDeck через Telegram, чтобы привязать TG-профиль автоматически
                     </p>
                     <a
                       href="https://t.me/stakappBot"
@@ -552,7 +562,7 @@ export function ProfileView({ user, onUserUpdate }: Props) {
           <div className="glass-card p-4">
             <h3 className="font-semibold text-sm mb-1">О приложении</h3>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              StakApp v0.3 — LFG &amp; Voice Hub. Голосовые комнаты, поиск тимейтов и друзья
+              VoiceDeck v1.0 — Voice &amp; Party Hub. Голосовые комнаты, поиск тимейтов и настольные партии
               прямо в Telegram Mini App.
             </p>
           </div>

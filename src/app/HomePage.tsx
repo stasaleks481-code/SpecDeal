@@ -2,33 +2,36 @@
 
 import { useEffect, useState, useCallback, Suspense } from "react";
 import { AlertTriangle } from "lucide-react";
+import { AnimatePresence } from "framer-motion";
 import { AppShell } from "@/components/AppShell";
-import { GamesTab } from "@/components/games/GamesTab";
+import { HomeHub } from "@/components/home/HomeHub";
+import { SplashScreen } from "@/components/SplashScreen";
 import { OnboardingTour, type TourStep } from "@/components/onboarding/OnboardingTour";
 import { useUser } from "@/lib/UserContext";
 import type { UserRow } from "@/lib/supabase/client";
 import { usePresence } from "@/lib/telegram/usePresence";
 
 const TOUR_DONE_KEY = "stakapp_tour_done_v1";
+const SPLASH_KEY = "voicedeck_splash_v1";
 
 /** Interactive onboarding steps — targets use data-tour attributes */
 const TOUR_STEPS: TourStep[] = [
   {
-    targetId: "games-grid",
-    title: "Игры и лобби",
-    description: "Выбирай игру — внутри список активных лобби, где ты можешь присоединиться к тимейтам.",
+    targetId: "section-casual",
+    title: "Три раздела — равноправные",
+    description: "Общение, ПК-Игры и Настольные партии — переключайся одним тапом.",
+    position: "bottom",
+  },
+  {
+    targetId: "section-party",
+    title: "Настольные игры",
+    description: "Шпион, Мафия, Бункер и «Кто я?» — роли и таймеры выдаются автоматически.",
     position: "bottom",
   },
   {
     targetId: "nav-create",
     title: "Создать комнату",
-    description: "Жми плюс, чтобы создать своё лобби: голосовая связь включается автоматически.",
-    position: "top",
-  },
-  {
-    targetId: "nav-chill",
-    title: "Chill-комнаты",
-    description: "Здесь общие голосовые комнаты — зайди поболтать на любую тему.",
+    description: "Жми плюс: голосовое лобби, парти или casual-комната за 5 секунд.",
     position: "top",
   },
   {
@@ -55,6 +58,20 @@ function HomePageContent() {
   const [error, setError] = useState<string | null>(null);
   const [showTour, setShowTour] = useState(false);
   const [steamNotice, setSteamNotice] = useState<string | null>(null);
+  const [splashDone, setSplashDone] = useState(true);
+
+  // Splash screen — once per session on first app open
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem(SPLASH_KEY) !== "1") {
+        sessionStorage.setItem(SPLASH_KEY, "1");
+        setSplashDone(false);
+      }
+    } catch {
+      // sessionStorage unavailable — show splash once per mount anyway
+      setSplashDone(false);
+    }
+  }, []);
 
   const authenticate = useCallback(async () => {
     if (user) return;
@@ -160,7 +177,7 @@ function HomePageContent() {
         <div className="flex flex-col items-center gap-4">
           <div className="w-14 h-14 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
           <div className="text-center">
-            <p className="text-xl font-bold neon-text tracking-wide">StakApp</p>
+            <p className="text-xl font-bold neon-text tracking-wide">VoiceDeck</p>
             <p className="text-xs text-muted-foreground mt-1">Подключаемся...</p>
           </div>
         </div>
@@ -215,8 +232,19 @@ function HomePageContent() {
   return (
     <>
       <AppShell user={user}>
-        <GamesTab user={user} />
+        <Suspense fallback={
+          <div className="max-w-md mx-auto px-4 py-6">
+            <div className="h-12 rounded-xl bg-white/5 animate-pulse" />
+          </div>
+        }>
+          <HomeHub user={user} />
+        </Suspense>
       </AppShell>
+
+      {/* ── VoiceDeck splash (first open of the session) ── */}
+      <AnimatePresence>
+        {!splashDone && <SplashScreen onDone={() => setSplashDone(true)} />}
+      </AnimatePresence>
 
       {/* Steam OAuth result notice */}
       {steamNotice && !isAnonymous && (

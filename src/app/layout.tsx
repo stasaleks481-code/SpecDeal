@@ -15,9 +15,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "StakApp — LFG & Voice Hub",
-  description: "Telegram Mini App для поиска тимейтов и комнат общения",
-  applicationName: "StakApp",
+  title: "VoiceDeck — Voice & Party Hub",
+  description: "Telegram Mini App: голосовые комнаты, поиск тимейтов и настольные партии",
+  applicationName: "VoiceDeck",
 };
 
 export const viewport: Viewport = {

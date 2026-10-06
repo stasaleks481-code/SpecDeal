@@ -6,7 +6,12 @@ export const dynamic = 'force-dynamic'
 
 /**
  * GET /api/rooms/[id]
- * Returns room details + members + host info
+ * Returns room details + members + host info.
+ *
+ * Ghost-room / offline-host protection:
+ *  - Empty room (no members) older than 2 minutes → closed
+ *  - Host offline (> 2 min) and NOT a member anymore → host transfers
+ *    to the earliest remaining member (or the room closes if empty)
  */
 export async function GET(
   req: NextRequest,
@@ -18,7 +23,7 @@ export async function GET(
     .from('rooms')
     .select(`
       *,
-      host:users!rooms_host_id_fkey(id, username, first_name, last_name, photo_url),
+      host:users!rooms_host_id_fkey(id, username, first_name, last_name, photo_url, last_seen_at),
       members:room_members(
         user_id,
         joined_at,
@@ -31,6 +36,43 @@ export async function GET(
 
   if (error || !data) {
     return NextResponse.json({ error: 'Room not found' }, { status: 404 })
+  }
+
+  const members = (data.members ?? []) as { user_id: number; joined_at: string; is_ready: boolean; user: unknown }[]
+  const now = Date.now()
+
+  // ── Host-offline / empty-room maintenance ─────────────────────────
+  if (data.is_active) {
+    const hostIsMember = members.some((m) => m.user_id === data.host_id)
+    const hostSeen = data.host?.last_seen_at ? new Date(data.host.last_seen_at).getTime() : 0
+    const hostOffline = now - hostSeen > 2 * 60 * 1000 // 2 min
+
+    if (members.length === 0) {
+      // Empty room — close it after a short grace period
+      const age = now - new Date(data.created_at).getTime()
+      if (age > 2 * 60 * 1000) {
+        await supabase
+          .from('rooms')
+          .update({ is_active: false, closed_at: new Date().toISOString() })
+          .eq('id', id)
+        data.is_active = false
+      }
+    } else if (!hostIsMember && hostOffline) {
+      // Creator went offline and is no longer in the room → transfer host
+      const next = [...members].sort(
+        (a, b) => new Date(a.joined_at).getTime() - new Date(b.joined_at).getTime()
+      )[0]
+      if (next) {
+        await supabase.from('rooms').update({ host_id: next.user_id }).eq('id', id)
+        data.host_id = next.user_id
+      } else {
+        await supabase
+          .from('rooms')
+          .update({ is_active: false, closed_at: new Date().toISOString() })
+          .eq('id', id)
+        data.is_active = false
+      }
+    }
   }
 
   // Determine game info if game room
@@ -110,7 +152,7 @@ export async function PATCH(
   // Verify host
   const { data: room } = await supabase
     .from('rooms')
-    .select('host_id')
+    .select('host_id, category')
     .eq('id', id)
     .maybeSingle()
 
@@ -120,7 +162,7 @@ export async function PATCH(
 
   const updates: Partial<RoomRow> = {}
   if (body.title) updates.title = String(body.title).slice(0, 50)
-  if (body.max_players) updates.max_players = Math.max(2, Math.min(5, parseInt(body.max_players, 10)))
+  if (body.max_players) updates.max_players = Math.max(2, Math.min((room as { category?: string } | null)?.category === 'party' ? 12 : 5, parseInt(body.max_players, 10)))
 
   const { data, error } = await supabase
     .from('rooms')

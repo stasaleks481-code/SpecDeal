@@ -9,6 +9,8 @@ import { CreateRoomModal } from "@/components/games/CreateRoomModal";
 
 interface Props {
   user: UserRow;
+  /** When true — rendered inside HomeHub (hero card is hidden) */
+  embedded?: boolean;
 }
 
 /**
@@ -16,7 +18,7 @@ interface Props {
  * Redesigned: clean modern cards, no topic filters (topics removed
  * from creation flow), voice-first affordances.
  */
-export function RoomsTab({ user }: Props) {
+export function RoomsTab({ user, embedded = false }: Props) {
   const router = useRouter();
   const [rooms, setRooms] = useState<RoomRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -44,7 +46,8 @@ export function RoomsTab({ user }: Props) {
 
   return (
     <div className="max-w-md mx-auto px-4 py-4 pb-6 space-y-5">
-      {/* Hero */}
+      {/* Hero (hidden when embedded in the HomeHub) */}
+      {!embedded && (
       <div className="relative overflow-hidden rounded-2xl border border-border bg-[#1b2838]/40">
         <div className="neon-strip" />
         <div className="p-4 flex items-center gap-3">
@@ -64,6 +67,7 @@ export function RoomsTab({ user }: Props) {
           </div>
         </div>
       </div>
+      )}
 
       {/* Create CTA — big, friendly */}
       <button

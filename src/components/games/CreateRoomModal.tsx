@@ -2,24 +2,35 @@
 
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Users, Search, MessageCircle, Gamepad2 } from "lucide-react";
-import { GAMES, searchGames, FORMAT_LABELS, type UserRow, type GameDef } from "@/lib/supabase/client";
+import { X, Users, Search, MessageCircle, Gamepad2, Dices, Mic, MicOff } from "lucide-react";
+import {
+  GAMES, searchGames, FORMAT_LABELS, PARTY_GAMES, SKILL_LEVELS,
+  type UserRow, type GameDef, type SkillLevel, type RoomCategory,
+} from "@/lib/supabase/client";
+import { Switch } from "@/components/ui/switch";
 
 interface Props {
   user: UserRow;
-  defaultCategory: "game" | "casual";
+  defaultCategory: RoomCategory;
   defaultGame: string | null;
   onClose: () => void;
   onCreated: (roomId: string) => void;
 }
 
+const CATEGORY_TABS: { id: RoomCategory; label: string; icon: React.ReactNode }[] = [
+  { id: "game", label: "Игра", icon: <Gamepad2 className="w-4 h-4" /> },
+  { id: "casual", label: "Общение", icon: <MessageCircle className="w-4 h-4" /> },
+  { id: "party", label: "Настольная", icon: <Dices className="w-4 h-4" /> },
+];
+
 /**
- * CreateRoomModal — redesigned creation flow.
+ * CreateRoomModal — unified creation flow for all three sections.
  *
- * Game rooms: searchable game picker with autocomplete (no full list dump),
- *   format + style chips, optional title.
- * Casual rooms: clean minimal form — NO topic selection, optional title
- *   (auto-generated server-side when empty).
+ * Game rooms: searchable game picker, format + style chips, SKILL LEVEL
+ *   plate (Casual / Mid / Hardcore), optional title.
+ * Casual rooms: clean minimal form — NO topic selection, optional title.
+ * Party rooms: table game picker (Spyfall / Mafia / Bunker / Who am I),
+ *   auto-mute toggle, players 3-12, optional title.
  */
 export function CreateRoomModal({
   user: _user,
@@ -28,11 +39,14 @@ export function CreateRoomModal({
   onClose,
   onCreated,
 }: Props) {
-  const [category, setCategory] = useState<"game" | "casual">(defaultCategory);
+  const [category, setCategory] = useState<RoomCategory>(defaultCategory);
   const [game, setGame] = useState<string>(defaultGame ?? "cs2");
   const [gameQuery, setGameQuery] = useState("");
   const [format, setFormat] = useState<string>("5x5");
   const [style, setStyle] = useState<string>("chill");
+  const [skill, setSkill] = useState<SkillLevel | null>(null);
+  const [partyGameCode, setPartyGameCode] = useState<string>("bunker");
+  const [autoMute, setAutoMute] = useState<boolean>(true);
   const [title, setTitle] = useState("");
   const [maxPlayers, setMaxPlayers] = useState(5);
   const [submitting, setSubmitting] = useState(false);
@@ -41,6 +55,7 @@ export function CreateRoomModal({
   // Autocomplete: filtered games by query
   const filteredGames = useMemo(() => searchGames(gameQuery), [gameQuery]);
   const selectedGame: GameDef | undefined = GAMES.find((g) => g.code === game);
+  const selectedPartyGame = PARTY_GAMES.find((g) => g.code === partyGameCode);
 
   const pickGame = (code: string) => {
     setGame(code);
@@ -49,6 +64,15 @@ export function CreateRoomModal({
     const g = GAMES.find((x) => x.code === code);
     if (g && !g.formats.includes(format)) {
       setFormat(g.formats[0]);
+    }
+  };
+
+  const switchCategory = (c: RoomCategory) => {
+    setCategory(c);
+    if (c === "party") {
+      setMaxPlayers(6);
+    } else {
+      setMaxPlayers((prev) => Math.min(prev, 5));
     }
   };
 
@@ -65,6 +89,9 @@ export function CreateRoomModal({
           game_name: category === "game" ? game : null,
           game_format: category === "game" ? format : null,
           play_style: category === "game" ? style : null,
+          skill_level: category === "game" ? skill : null,
+          game_type: category === "party" ? partyGameCode : null,
+          auto_mute: category === "party" ? autoMute : undefined,
           topic_tags: [],
           title: title.trim(), // optional — server generates a default
           max_players: maxPlayers,
@@ -83,6 +110,9 @@ export function CreateRoomModal({
       setSubmitting(false);
     }
   };
+
+  const playersMin = category === "party" ? (selectedPartyGame?.minPlayers ?? 3) : 2;
+  const playersMax = category === "party" ? 12 : 5;
 
   return (
     <motion.div
@@ -109,29 +139,23 @@ export function CreateRoomModal({
           </button>
         </div>
 
-        {/* Category toggle */}
-        <div className="flex gap-2 mb-5 p-1 bg-background/40 rounded-xl border border-border">
-          <button
-            onClick={() => setCategory("game")}
-            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-1.5 ${
-              category === "game" ? "neon-btn" : "text-muted-foreground"
-            }`}
-          >
-            <Gamepad2 className="w-4 h-4" />
-            Игра
-          </button>
-          <button
-            onClick={() => setCategory("casual")}
-            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-1.5 ${
-              category === "casual" ? "neon-btn" : "text-muted-foreground"
-            }`}
-          >
-            <MessageCircle className="w-4 h-4" />
-            Общение
-          </button>
+        {/* Category toggle — 3 sections */}
+        <div className="grid grid-cols-3 gap-1 mb-5 p-1 bg-background/40 rounded-xl border border-border">
+          {CATEGORY_TABS.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => switchCategory(t.id)}
+              className={`py-2 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
+                category === t.id ? "neon-btn" : "text-muted-foreground"
+              }`}
+            >
+              {t.icon}
+              {t.label}
+            </button>
+          ))}
         </div>
 
-        {/* ── GAME ROOM ── */}
+        {/* ── GAME ROOM (PC LFG) ── */}
         {category === "game" && (
           <div className="space-y-4 mb-4">
             {/* Selected game preview */}
@@ -181,7 +205,7 @@ export function CreateRoomModal({
                   </div>
 
                   {/* Autocomplete results */}
-                  <div className="max-h-[260px] overflow-y-auto space-y-1.5 pr-1">
+                  <div className="max-h-[240px] overflow-y-auto space-y-1.5 pr-1">
                     {filteredGames.length === 0 ? (
                       <p className="text-xs text-muted-foreground text-center py-6">
                         Ничего не найдено по «{gameQuery}»
@@ -233,7 +257,7 @@ export function CreateRoomModal({
                   </div>
 
                   {/* Style */}
-                  <div>
+                  <div className="mb-4">
                     <div className="section-label mb-2">Стиль</div>
                     <div className="flex flex-wrap gap-2">
                       {[
@@ -252,6 +276,35 @@ export function CreateRoomModal({
                           </button>
                         );
                       })}
+                    </div>
+                  </div>
+
+                  {/* Skill level plate — Casual / Mid / Hardcore */}
+                  <div>
+                    <div className="section-label mb-2">Уровень игры</div>
+                    <div className="flex flex-wrap gap-2">
+                      {(Object.entries(SKILL_LEVELS) as [SkillLevel, { label: string; short: string; color: string; emoji: string; desc: string }][]).map(
+                        ([code, meta]) => {
+                          const active = skill === code;
+                          return (
+                            <button
+                              key={code}
+                              onClick={() => setSkill(active ? null : code)}
+                              className="px-3 py-2 rounded-xl border text-left transition-all flex-1 min-w-[96px]"
+                              style={{
+                                background: active ? `${meta.color}18` : "rgba(255,255,255,0.02)",
+                                borderColor: active ? meta.color : "rgba(255,255,255,0.1)",
+                                boxShadow: active ? `0 0 12px ${meta.color}40` : "none",
+                              }}
+                            >
+                              <p className="text-xs font-bold" style={{ color: active ? meta.color : undefined }}>
+                                {meta.emoji} {meta.short}
+                              </p>
+                              <p className="text-[9px] text-muted-foreground mt-0.5 leading-tight">{meta.label}</p>
+                            </button>
+                          );
+                        }
+                      )}
                     </div>
                   </div>
                 </motion.div>
@@ -280,13 +333,68 @@ export function CreateRoomModal({
               </div>
             </div>
             <p className="text-[11px] text-muted-foreground leading-relaxed">
-              Комната появится в разделе «Chill». Любой участник сможет зайти в голос —
+              Комната появится в разделе «Общение». Любой участник сможет зайти в голос —
               чат доступен как дополнительная панель.
             </p>
           </motion.div>
         )}
 
-        {/* Title — optional in both categories */}
+        {/* ── PARTY ROOM — table games ── */}
+        {category === "party" && (
+          <motion.div
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-4 space-y-4"
+          >
+            <div className="section-label">Выбери игру</div>
+            <div className="grid grid-cols-2 gap-2">
+              {PARTY_GAMES.map((g) => {
+                const active = partyGameCode === g.code;
+                return (
+                  <button
+                    key={g.code}
+                    onClick={() => setPartyGameCode(g.code)}
+                    className="p-3 rounded-xl border text-left transition-all"
+                    style={{
+                      background: active ? `${g.color}14` : "rgba(255,255,255,0.02)",
+                      borderColor: active ? g.color : "rgba(255,255,255,0.1)",
+                      boxShadow: active ? `0 0 14px ${g.color}35` : "none",
+                    }}
+                  >
+                    <p className="text-lg leading-none mb-1.5">{g.emoji}</p>
+                    <p className="text-xs font-bold" style={{ color: active ? g.color : undefined }}>
+                      {g.name}
+                    </p>
+                    <p className="text-[9px] text-muted-foreground mt-0.5 leading-tight line-clamp-2">
+                      {g.desc}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Auto-mute toggle (bunker / whoami turn games) */}
+            {(selectedPartyGame?.turnSeconds ?? 0) > 0 && (
+              <div className="flex items-center gap-3 p-3.5 rounded-xl border border-border" style={{ background: "rgba(255,255,255,0.03)" }}>
+                <div
+                  className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                  style={{ background: autoMute ? "rgba(63,185,80,0.15)" : "rgba(255,255,255,0.05)" }}
+                >
+                  {autoMute ? <MicOff className="w-4 h-4 text-green-400" /> : <Mic className="w-4 h-4 text-muted-foreground" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold">Авто-мут вне хода</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">
+                    Микрофоны глушатся автоматически, когда говорит текущий игрок ({selectedPartyGame?.turnSeconds} сек на ход)
+                  </p>
+                </div>
+                <Switch checked={autoMute} onCheckedChange={setAutoMute} />
+              </div>
+            )}
+          </motion.div>
+        )}
+
+        {/* Title — optional in all categories */}
         <div className="mb-4">
           <div className="section-label mb-2">
             Название комнаты <span className="normal-case text-muted-foreground/70 font-medium">(необязательно)</span>
@@ -295,7 +403,11 @@ export function CreateRoomModal({
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder={category === "game" ? "Например: Ищем пятых на ранкед" : "Например: Ночные разговоры"}
+            placeholder={
+              category === "game" ? "Например: Ищем пятых на ранкед"
+              : category === "party" ? `Например: ${selectedPartyGame?.name ?? "Партия"} на ночь`
+              : "Например: Ночные разговоры"
+            }
             maxLength={50}
             className="w-full px-3 py-2.5 rounded-xl bg-background/40 border border-border focus:border-primary outline-none text-sm transition-colors placeholder:text-muted-foreground/60"
           />
@@ -312,22 +424,20 @@ export function CreateRoomModal({
           </div>
           <input
             type="range"
-            min={2}
-            max={5}
-            value={maxPlayers}
+            min={playersMin}
+            max={playersMax}
+            value={Math.max(maxPlayers, playersMin)}
             onChange={(e) => setMaxPlayers(parseInt(e.target.value, 10))}
             className="w-full"
             style={{ accentColor: "var(--primary)" }}
           />
           <div className="flex justify-between mt-1 px-1">
-            {[2, 3, 4, 5].map((n) => (
-              <span
-                key={n}
-                className={`text-xs font-bold transition-colors ${n === maxPlayers ? "text-primary" : "text-muted-foreground/50"}`}
-              >
-                {n}
-              </span>
-            ))}
+            <span className={`text-xs font-bold ${maxPlayers === playersMin ? "text-primary" : "text-muted-foreground/50"}`}>
+              {playersMin}
+            </span>
+            <span className={`text-xs font-bold ${maxPlayers === playersMax ? "text-primary" : "text-muted-foreground/50"}`}>
+              {playersMax}
+            </span>
           </div>
         </div>
 
@@ -345,7 +455,13 @@ export function CreateRoomModal({
           disabled={submitting || (category === "game" && !selectedGame)}
           className="neon-btn w-full"
         >
-          {submitting ? "Создаём..." : category === "game" ? "Создать лобби" : "Создать комнату"}
+          {submitting
+            ? "Создаём..."
+            : category === "game"
+            ? "Создать лобби"
+            : category === "party"
+            ? `Собрать партию${selectedPartyGame ? ` · ${selectedPartyGame.emoji}` : ""}`
+            : "Создать комнату"}
         </motion.button>
       </motion.div>
     </motion.div>

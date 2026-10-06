@@ -35,7 +35,7 @@ export function AccountGate({ user, hasTelegramContext, onUpgraded, onDismiss }:
 
       if (!initData) {
         setError(
-          "Вход через Telegram доступен внутри Mini App. Открой StakApp через бота @stakappBot"
+          "Вход через Telegram доступен внутри Mini App. Открой VoiceDeck через бота @stakappBot"
         );
         setLoading(null);
         return;

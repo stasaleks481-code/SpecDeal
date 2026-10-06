@@ -3,7 +3,7 @@
 import { Users, Lock, Crown, ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { RoomRow, UserRow } from "@/lib/supabase/client";
-import { GAMES } from "@/lib/supabase/client";
+import { GAMES, SKILL_LEVELS, type SkillLevel } from "@/lib/supabase/client";
 
 interface HostInfo {
   id: number;
@@ -81,7 +81,7 @@ export function GameRoomList({ rooms, currentUser }: Props) {
                     <Lock className="w-3 h-3 text-muted-foreground shrink-0" />
                   )}
                 </div>
-                <div className="flex items-center gap-1.5 mt-1 text-xs text-muted-foreground">
+                <div className="flex items-center gap-1.5 mt-1 text-xs text-muted-foreground flex-wrap">
                   <span className="font-bold" style={{ color: game?.color ?? "var(--primary)" }}>
                     {game?.name ?? room.game_name}
                   </span>
@@ -96,6 +96,18 @@ export function GameRoomList({ rooms, currentUser }: Props) {
                       <span className="text-muted-foreground/40">·</span>
                       <span className="capitalize">{room.play_style}</span>
                     </>
+                  )}
+                  {room.skill_level && SKILL_LEVELS[room.skill_level as SkillLevel] && (
+                    <span
+                      className="text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wide"
+                      style={{
+                        background: `${SKILL_LEVELS[room.skill_level as SkillLevel].color}1E`,
+                        color: SKILL_LEVELS[room.skill_level as SkillLevel].color,
+                        border: `1px solid ${SKILL_LEVELS[room.skill_level as SkillLevel].color}44`,
+                      }}
+                    >
+                      {SKILL_LEVELS[room.skill_level as SkillLevel].short}
+                    </span>
                   )}
                 </div>
               </div>

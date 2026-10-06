@@ -72,14 +72,23 @@ export interface UserRow {
   updated_at: string
 }
 
+export type RoomCategory = 'game' | 'casual' | 'party'
+export type SkillLevel = 'casual' | 'mid' | 'hardcore'
+
 export interface RoomRow {
   id: string
   host_id: number
-  category: 'game' | 'casual'
+  category: RoomCategory
   game_name: string | null
   game_format: string | null
   play_style: string | null
   topic_tags: string[]
+  /** PC LFG only: 'casual' | 'mid' | 'hardcore' */
+  skill_level: SkillLevel | null
+  /** Party rooms: 'spyfall' | 'mafia' | 'bunker' | 'whoami' */
+  game_type: string | null
+  /** Party rooms: { auto_mute: boolean } */
+  game_settings: { auto_mute?: boolean } | null
   title: string
   description: string | null
   max_players: number
@@ -88,6 +97,18 @@ export interface RoomRow {
   voice_enabled: boolean
   created_at: string
   closed_at: string | null
+}
+
+/** Server-authoritative party game session (sanitized per-user by the API) */
+export interface GameSessionRow {
+  id: string
+  room_id: string
+  game_type: string
+  phase: 'playing' | 'finished'
+  state: Record<string, unknown>
+  created_by: number | null
+  created_at: string
+  updated_at: string
 }
 
 export interface RoomMemberRow {
@@ -418,6 +439,81 @@ export function searchGames(query: string): GameDef[] {
       g.fullName.toLowerCase().includes(q) ||
       (g.ru ?? []).some((a) => a.includes(q))
   )
+}
+
+// ─── Party games (Table Games section) ──────────────────────────────
+
+export interface PartyGameDef {
+  code: 'spyfall' | 'mafia' | 'bunker' | 'whoami'
+  name: string
+  emoji: string
+  desc: string
+  color: string
+  gradient: string
+  minPlayers: number
+  /** Turn timer in seconds (0 = no timer) */
+  turnSeconds: number
+}
+
+export const PARTY_GAMES: PartyGameDef[] = [
+  {
+    code: 'spyfall',
+    name: 'Шпион',
+    emoji: '🕵️',
+    desc: 'Все на одной локации. Один — Шпион. Задавай вопросы и вычисли его!',
+    color: '#8B5CF6',
+    gradient: 'linear-gradient(135deg, #8B5CF6 0%, #4C1D95 100%)',
+    minPlayers: 3,
+    turnSeconds: 0,
+  },
+  {
+    code: 'mafia',
+    name: 'Мафия',
+    emoji: '🎭',
+    desc: 'Город засыпает. Мафия просыпается. Найди мафию до того, как она найдёт тебя.',
+    color: '#DC2626',
+    gradient: 'linear-gradient(135deg, #DC2626 0%, #7F1D1D 100%)',
+    minPlayers: 4,
+    turnSeconds: 0,
+  },
+  {
+    code: 'bunker',
+    name: 'Бункер',
+    emoji: '🏛️',
+    desc: 'Катастрофа. Бункер вмещает не всех. Убеди, что выжить должен именно ты.',
+    color: '#D97706',
+    gradient: 'linear-gradient(135deg, #D97706 0%, #78350F 100%)',
+    minPlayers: 3,
+    turnSeconds: 30,
+  },
+  {
+    code: 'whoami',
+    name: 'Кто я?',
+    emoji: '❓',
+    desc: 'Слово на лбу видно всем, кроме тебя. Задавай вопросы и угадай, кто ты.',
+    color: '#0EA5E9',
+    gradient: 'linear-gradient(135deg, #0EA5E9 0%, #0C4A6E 100%)',
+    minPlayers: 3,
+    turnSeconds: 60,
+  },
+]
+
+export function partyGame(code: string | null | undefined): PartyGameDef | null {
+  if (!code) return null
+  return PARTY_GAMES.find((g) => g.code === code) ?? null
+}
+
+// ─── Skill levels (PC LFG) ──────────────────────────────────────────
+
+export const SKILL_LEVELS = {
+  casual:   { label: 'Casual / For Fun', short: 'Casual',   color: '#4EE1A0', emoji: '🌿', desc: 'Играем ради фанa, без напряжения' },
+  mid:      { label: 'Mid / Ranked',     short: 'Mid',      color: '#F7A600', emoji: '⚔️', desc: 'Обычный уровень, ранкед-матчи' },
+  hardcore: { label: 'Hardcore / Pro',   short: 'Hardcore', color: '#FF4655', emoji: '🔥', desc: 'Только серьёзная игра, про-уровень' },
+} as const
+
+export function skillLevel(code: string | null | undefined) {
+  if (!code) return null
+  return (SKILL_LEVELS as Record<string, unknown>)[code] ?? null
 }
 
 // Format labels (RU)

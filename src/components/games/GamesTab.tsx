@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Plus, ArrowLeft, Users, Search } from "lucide-react";
-import { GAMES, FORMAT_LABELS, type UserRow, type RoomRow } from "@/lib/supabase/client";
+import { GAMES, FORMAT_LABELS, SKILL_LEVELS, type UserRow, type RoomRow, type SkillLevel } from "@/lib/supabase/client";
 import { GameRoomList } from "./GameRoomList";
 import { CreateRoomModal } from "./CreateRoomModal";
 import { haptic } from "@/lib/telegram/haptics";
@@ -18,6 +18,7 @@ export function GamesTab({ user }: Props) {
   const [showCreate, setShowCreate] = useState(false);
   const [filterFormat, setFilterFormat] = useState<string | null>(null);
   const [filterStyle, setFilterStyle] = useState<string | null>(null);
+  const [filterSkill, setFilterSkill] = useState<SkillLevel | null>(null);
 
   const fetchRooms = useCallback(async () => {
     if (!selectedGame) {
@@ -29,6 +30,7 @@ export function GamesTab({ user }: Props) {
       const params = new URLSearchParams({ category: "game", game: selectedGame });
       if (filterFormat) params.set("format", filterFormat);
       if (filterStyle) params.set("style", filterStyle);
+      if (filterSkill) params.set("skill", filterSkill);
 
       const res = await fetch(`/api/rooms?${params}`, { credentials: "include" });
       if (res.ok) {
@@ -38,7 +40,7 @@ export function GamesTab({ user }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [selectedGame, filterFormat, filterStyle]);
+  }, [selectedGame, filterFormat, filterStyle, filterSkill]);
 
   useEffect(() => {
     fetchRooms();
@@ -49,6 +51,7 @@ export function GamesTab({ user }: Props) {
     setSelectedGame(code);
     setFilterFormat(null);
     setFilterStyle(null);
+    setFilterSkill(null);
   };
 
   const selectedGameData = GAMES.find((g) => g.code === selectedGame);
@@ -146,6 +149,31 @@ export function GamesTab({ user }: Props) {
                 </button>
               );
             })}
+          </div>
+        </div>
+
+        {/* Skill level filter — Casual / Mid / Hardcore */}
+        <div>
+          <div className="section-label mb-2 px-1">Уровень игры</div>
+          <div className="flex flex-wrap gap-2">
+            {(Object.entries(SKILL_LEVELS) as [SkillLevel, { label: string; short: string; color: string; emoji: string }][]).map(
+              ([code, meta]) => {
+                const active = filterSkill === code;
+                return (
+                  <button
+                    key={code}
+                    onClick={() => {
+                      haptic.impact("light");
+                      setFilterSkill(active ? null : code);
+                    }}
+                    className={`chip ${active ? "chip--active" : ""}`}
+                    style={active ? { background: meta.color, borderColor: meta.color, color: "#0e141d" } : {}}
+                  >
+                    {meta.emoji} {meta.short}
+                  </button>
+                );
+              }
+            )}
           </div>
         </div>
 
