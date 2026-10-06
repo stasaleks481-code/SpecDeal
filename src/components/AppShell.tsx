@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo, memo, type ReactNode } from "react";
+import { useState, useCallback, useRef, useEffect, memo, type ReactNode } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import { Gamepad2, MessageCircle, Plus, Users, Crown } from "lucide-react";
@@ -13,15 +13,6 @@ interface Props {
   children: ReactNode;
 }
 
-/**
- * App shell — wraps every page with:
- *  - Top header (StakApp logo + context label + avatar)
- *  - Floating TikTok-style bottom nav (always visible, on every route)
- *  - Create room modal (opened from + button)
- *
- * Active tab is derived from the current pathname, so navigating between
- * pages keeps the nav in sync.
- */
 export function AppShell({ user, children }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -39,6 +30,22 @@ export function AppShell({ user, children }: Props) {
     if (pathname.startsWith("/rooms")) return "chill";
     return null;
   })();
+
+  // Track when the active tab changes → triggers "detach" animation
+  const [isMoving, setIsMoving] = useState(false);
+  const prevTabRef = useRef<string | null>(null);
+
+  // When activeTab changes, set isMoving=true for 400ms → pill "detaches"
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (prevTabRef.current !== null && prevTabRef.current !== activeTab) {
+      setIsMoving(true);
+      const timer = setTimeout(() => setIsMoving(false), 400);
+      prevTabRef.current = activeTab;
+      return () => clearTimeout(timer);
+    }
+    prevTabRef.current = activeTab;
+  }, [activeTab]);
 
   // Context label for header
   const contextLabel = (() => {
@@ -127,12 +134,14 @@ export function AppShell({ user, children }: Props) {
               active={activeTab === "games"}
               onClick={() => navigate("/")}
               icon={<Gamepad2 className="w-5 h-5" />}
+              isMoving={isMoving}
             />
 
             <TabButton
               active={activeTab === "friends"}
               onClick={() => navigate("/friends")}
               icon={<Users className="w-5 h-5" />}
+              isMoving={isMoving}
             />
 
             {/* Central + button with neon glow */}
@@ -160,12 +169,14 @@ export function AppShell({ user, children }: Props) {
               active={activeTab === "chill"}
               onClick={() => navigate("/chill")}
               icon={<MessageCircle className="w-5 h-5" />}
+              isMoving={isMoving}
             />
 
             <TabButton
               active={activeTab === "profile"}
               onClick={() => navigate("/profile")}
               icon={<Crown className="w-5 h-5" />}
+              isMoving={isMoving}
             />
           </div>
         </nav>
@@ -190,17 +201,28 @@ export function AppShell({ user, children }: Props) {
 
 /**
  * TabButton — icon only, like TikTok.
- * Active state: subtle gray oval that SLIDES between tabs via layoutId.
- * No popup, no scale, no y-offset — just clean horizontal slide.
+ *
+ * Active state: a FLOATING GLASS PILL that sits ON TOP of the icon.
+ * Visual: slightly transparent bg, thin glowing border, drop shadow →
+ *   looks like a separate piece of glass floating above the nav bar.
+ *
+ * Animation on tab change (isMoving=true):
+ *   1. Pill DETACHES — scale up to 1.1 (grows slightly, looks "lifted off")
+ *   2. SLIDES — layoutId spring physics moves it to new tab position
+ *   3. SETTLES — scale back to 1 (drops into place)
+ *
+ * The isMoving flag is set by AppShell for 400ms when activeTab changes.
  */
 const TabButton = memo(function TabButton({
   active,
   onClick,
   icon,
+  isMoving,
 }: {
   active: boolean;
   onClick: () => void;
   icon: ReactNode;
+  isMoving: boolean;
 }) {
   return (
     <button
@@ -214,9 +236,20 @@ const TabButton = memo(function TabButton({
           layoutId="bottom-nav-active"
           className="absolute inset-0 rounded-full"
           style={{
-            background: "rgba(255, 255, 255, 0.1)",
+            // Glass appearance — floating, slightly transparent
+            background: "rgba(255, 255, 255, 0.08)",
+            border: "1px solid rgba(255, 255, 255, 0.15)",
+            boxShadow: isMoving
+              ? "0 6px 20px rgba(0, 0, 0, 0.5), 0 0 12px rgba(255, 255, 255, 0.1)"
+              : "0 2px 8px rgba(0, 0, 0, 0.3)",
           }}
-          transition={{ type: "spring", damping: 30, stiffness: 400 }}
+          animate={{
+            scale: isMoving ? 1.1 : 1,
+          }}
+          transition={{
+            layout: { type: "spring", damping: 22, stiffness: 280 },
+            scale: { duration: 0.15, ease: "easeOut" },
+          }}
         />
       )}
       <div className="relative z-10">{icon}</div>
