@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { X } from "lucide-react";
+import { X, Users } from "lucide-react";
 import { GAMES, CASUAL_TOPICS, type UserRow } from "@/lib/supabase/client";
 
 interface Props {
@@ -14,7 +14,7 @@ interface Props {
 }
 
 export function CreateRoomModal({
-  user,
+  user: _user,
   defaultCategory,
   defaultGame,
   onClose,
@@ -67,34 +67,37 @@ export function CreateRoomModal({
     }
   };
 
+  const selectedGame = GAMES.find((g) => g.code === game);
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-3"
       onClick={onClose}
     >
       <motion.div
-        initial={{ y: 50, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        exit={{ y: 50, opacity: 0 }}
-        className="glass-card p-5 w-full max-w-md max-h-[85vh] overflow-y-auto"
+        initial={{ y: 60, opacity: 0, scale: 0.98 }}
+        animate={{ y: 0, opacity: 1, scale: 1 }}
+        exit={{ y: 60, opacity: 0, scale: 0.98 }}
+        transition={{ type: "spring", damping: 25, stiffness: 300 }}
+        className="glass-card p-5 w-full max-w-md max-h-[88vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold neon-text">Создать комнату</h2>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-bold neon-text">Создать комнату</h2>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors p-1">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Category toggle */}
-        <div className="flex gap-2 mb-4">
+        <div className="flex gap-2 mb-5 p-1 bg-background/40 rounded-xl border border-border">
           <button
             onClick={() => setCategory("game")}
             className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${
-              category === "game" ? "neon-btn" : "glass-card"
+              category === "game" ? "neon-btn" : "text-muted-foreground hover:text-foreground"
             }`}
           >
             🎮 Игра
@@ -102,7 +105,7 @@ export function CreateRoomModal({
           <button
             onClick={() => setCategory("casual")}
             className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${
-              category === "casual" ? "neon-btn" : "glass-card"
+              category === "casual" ? "neon-btn" : "text-muted-foreground hover:text-foreground"
             }`}
           >
             💬 Общение
@@ -110,62 +113,79 @@ export function CreateRoomModal({
         </div>
 
         {/* Game-specific */}
-        {category === "game" && (
+        {category === "game" && selectedGame && (
           <div className="space-y-4 mb-4">
             <div>
-              <label className="text-xs uppercase tracking-wider text-muted-foreground">Игра</label>
-              <div className="grid grid-cols-4 gap-2 mt-2">
-                {GAMES.map((g) => (
-                  <button
-                    key={g.code}
-                    onClick={() => setGame(g.code)}
-                    className={`aspect-square rounded-lg flex flex-col items-center justify-center text-2xl transition-all ${
-                      game === g.code
-                        ? "bg-primary/20 border-2 border-primary"
-                        : "glass-card"
-                    }`}
-                  >
-                    {g.emoji}
-                  </button>
-                ))}
+              <div className="section-label mb-2">Игра</div>
+              <div className="grid grid-cols-4 gap-2">
+                {GAMES.map((g) => {
+                  const isSelected = game === g.code;
+                  return (
+                    <button
+                      key={g.code}
+                      onClick={() => setGame(g.code)}
+                      className={`aspect-square rounded-xl flex flex-col items-center justify-center gap-1 transition-all relative overflow-hidden ${
+                        isSelected ? "scale-105" : ""
+                      }`}
+                      style={{
+                        background: isSelected ? g.gradient : "rgba(255,255,255,0.03)",
+                        border: isSelected ? `2px solid ${g.color}` : "1px solid var(--border)",
+                        boxShadow: isSelected ? `0 0 16px ${g.color}50` : "none",
+                      }}
+                    >
+                      <span className="text-xl drop-shadow-lg">{g.emoji}</span>
+                      <span
+                        className="text-[9px] font-bold uppercase tracking-wider"
+                        style={{ color: isSelected ? "#fff" : g.color }}
+                      >
+                        {g.name}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
             <div>
-              <label className="text-xs uppercase tracking-wider text-muted-foreground">Формат</label>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {["2x2", "3x3", "5x5", "duo", "full"].map((f) => (
-                  <button
-                    key={f}
-                    onClick={() => setFormat(f)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${
-                      format === f ? "neon-btn" : "glass-card"
-                    }`}
-                  >
-                    {f === "duo" ? "Дуо" : f === "full" ? "Полный" : f}
-                  </button>
-                ))}
+              <div className="section-label mb-2">Формат</div>
+              <div className="flex flex-wrap gap-2">
+                {["2x2", "3x3", "5x5", "duo", "full"].map((f) => {
+                  const isAvailable = selectedGame.formats.includes(f as never);
+                  const active = format === f;
+                  return (
+                    <button
+                      key={f}
+                      disabled={!isAvailable}
+                      onClick={() => setFormat(f)}
+                      className={`chip ${active ? "chip--active" : ""} ${!isAvailable ? "opacity-30 cursor-not-allowed" : ""}`}
+                      style={active ? { background: selectedGame.color, borderColor: selectedGame.color } : {}}
+                    >
+                      {f === "duo" ? "Дуо" : f === "full" ? "Полный" : f}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
             <div>
-              <label className="text-xs uppercase tracking-wider text-muted-foreground">Стиль</label>
-              <div className="flex flex-wrap gap-2 mt-2">
+              <div className="section-label mb-2">Стиль игры</div>
+              <div className="flex flex-wrap gap-2">
                 {[
-                  { code: "ranked", label: "Ранкед" },
-                  { code: "chill", label: "Чилл" },
-                  { code: "fun", label: "Фан" },
-                ].map((s) => (
-                  <button
-                    key={s.code}
-                    onClick={() => setStyle(s.code)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${
-                      style === s.code ? "neon-btn" : "glass-card"
-                    }`}
-                  >
-                    {s.label}
-                  </button>
-                ))}
+                  { code: "ranked", label: "Ранкед", emoji: "🏆" },
+                  { code: "chill", label: "Чилл", emoji: "😎" },
+                  { code: "fun", label: "Фан", emoji: "🎮" },
+                ].map((s) => {
+                  const active = style === s.code;
+                  return (
+                    <button
+                      key={s.code}
+                      onClick={() => setStyle(s.code)}
+                      className={`chip ${active ? "chip--active" : ""}`}
+                    >
+                      {s.emoji} {s.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -174,57 +194,73 @@ export function CreateRoomModal({
         {/* Casual topics */}
         {category === "casual" && (
           <div className="mb-4">
-            <label className="text-xs uppercase tracking-wider text-muted-foreground">Тема</label>
-            <div className="flex flex-wrap gap-2 mt-2">
-              {CASUAL_TOPICS.map((t) => (
-                <button
-                  key={t.code}
-                  onClick={() => toggleTopic(t.code)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 ${
-                    selectedTopics.includes(t.code) ? "neon-btn" : "glass-card"
-                  }`}
-                >
-                  <span>{t.emoji}</span>
-                  <span>{t.label}</span>
-                </button>
-              ))}
+            <div className="section-label mb-2">Темы</div>
+            <div className="flex flex-wrap gap-2">
+              {CASUAL_TOPICS.map((t) => {
+                const active = selectedTopics.includes(t.code);
+                return (
+                  <button
+                    key={t.code}
+                    onClick={() => toggleTopic(t.code)}
+                    className={`topic-pill ${active ? "topic-pill--active" : ""}`}
+                  >
+                    <span>{t.emoji}</span>
+                    <span>{t.label}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
 
         {/* Title */}
         <div className="mb-4">
-          <label className="text-xs uppercase tracking-wider text-muted-foreground">Название</label>
+          <div className="section-label mb-2">Название комнаты</div>
           <input
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Например: Ищем 5ых на CS2"
             maxLength={50}
-            className="w-full mt-2 px-3 py-2 rounded-lg bg-input/30 border border-border focus:border-primary outline-none text-sm"
+            className="w-full px-3 py-2.5 rounded-xl bg-background/40 border border-border focus:border-primary outline-none text-sm transition-colors"
           />
         </div>
 
         {/* Max players */}
         <div className="mb-5">
-          <label className="text-xs uppercase tracking-wider text-muted-foreground">
-            Макс. игроков: {maxPlayers}
-          </label>
+          <div className="flex items-center justify-between mb-2">
+            <div className="section-label">Игроков</div>
+            <div className="flex items-center gap-1.5 text-sm font-bold text-primary">
+              <Users className="w-3.5 h-3.5" />
+              {maxPlayers}
+            </div>
+          </div>
           <input
             type="range"
             min={2}
             max={5}
             value={maxPlayers}
             onChange={(e) => setMaxPlayers(parseInt(e.target.value, 10))}
-            className="w-full mt-2 accent-primary"
+            className="w-full accent-primary"
+            style={{ accentColor: "var(--primary)" }}
           />
+          <div className="flex justify-between mt-1 px-1">
+            {[2, 3, 4, 5].map((n) => (
+              <span
+                key={n}
+                className={`text-xs font-bold transition-colors ${n === maxPlayers ? "text-primary" : "text-muted-foreground/50"}`}
+              >
+                {n}
+              </span>
+            ))}
+          </div>
         </div>
 
         {/* Submit */}
         <button
           onClick={handleSubmit}
-          disabled={submitting}
-          className="neon-btn w-full disabled:opacity-50"
+          disabled={submitting || !title.trim()}
+          className="neon-btn w-full"
         >
           {submitting ? "Создаём..." : "Создать комнату"}
         </button>

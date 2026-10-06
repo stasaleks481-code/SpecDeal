@@ -119,14 +119,86 @@ export const THEME_COLORS = {
 export type ThemeColor = keyof typeof THEME_COLORS
 
 export const GAMES = [
-  { code: 'cs2',          name: 'CS2',            emoji: '🔫', color: '#f5a623', formats: ['2x2', '3x3', '5x5', 'duo'] },
-  { code: 'dota2',        name: 'Dota 2',         emoji: '🛡️', color: '#c0392b', formats: ['3x3', '5x5', 'duo'] },
-  { code: 'roblox',       name: 'Roblox',         emoji: '🟦', color: '#3498db', formats: ['duo', '3x3', '5x5'] },
-  { code: 'valorant',     name: 'Valorant',       emoji: '🎯', color: '#ff4655', formats: ['2x2', '5x5', 'duo'] },
-  { code: 'apex',         name: 'Apex Legends',   emoji: '⚔️', color: '#da3030', formats: ['duo', '3x3'] },
-  { code: 'rust',         name: 'Rust',           emoji: '🔨', color: '#c16850', formats: ['3x3', '5x5'] },
-  { code: 'human_fall_flat', name: 'Human Fall Flat', emoji: '🤸', color: '#9b59b6', formats: ['duo', '3x3', '5x5'] },
-  { code: 'minecraft',    name: 'Minecraft',      emoji: '⛏️', color: '#3fb950', formats: ['duo', '3x3', '5x5'] },
+  {
+    code: 'cs2',
+    name: 'CS2',
+    fullName: 'Counter-Strike 2',
+    emoji: '🔫',
+    color: '#F7A600',       // CS yellow-orange
+    gradient: 'linear-gradient(135deg, #F7A600 0%, #D4880A 100%)',
+    textShadow: '0 0 12px rgba(247, 166, 0, 0.5)',
+    formats: ['2x2', '3x3', '5x5', 'duo'],
+  },
+  {
+    code: 'dota2',
+    name: 'Dota 2',
+    fullName: 'Dota 2',
+    emoji: '🛡',
+    color: '#C0392B',       // Dota red
+    gradient: 'linear-gradient(135deg, #C0392B 0%, #7B241C 100%)',
+    textShadow: '0 0 12px rgba(192, 57, 43, 0.5)',
+    formats: ['3x3', '5x5', 'duo'],
+  },
+  {
+    code: 'valorant',
+    name: 'VALORANT',
+    fullName: 'Valorant',
+    emoji: '🎯',
+    color: '#FF4655',       // Valorant red-pink
+    gradient: 'linear-gradient(135deg, #FF4655 0%, #BD3944 100%)',
+    textShadow: '0 0 12px rgba(255, 70, 85, 0.5)',
+    formats: ['2x2', '5x5', 'duo'],
+  },
+  {
+    code: 'apex',
+    name: 'APEX',
+    fullName: 'Apex Legends',
+    emoji: '⚔',
+    color: '#DA3030',
+    gradient: 'linear-gradient(135deg, #DA3030 0%, #8C1F1F 100%)',
+    textShadow: '0 0 12px rgba(218, 48, 48, 0.5)',
+    formats: ['duo', '3x3'],
+  },
+  {
+    code: 'roblox',
+    name: 'Roblox',
+    fullName: 'Roblox',
+    emoji: '🟦',
+    color: '#00A2FF',       // Roblox blue
+    gradient: 'linear-gradient(135deg, #00A2FF 0%, #006EC7 100%)',
+    textShadow: '0 0 12px rgba(0, 162, 255, 0.5)',
+    formats: ['duo', '3x3', '5x5'],
+  },
+  {
+    code: 'rust',
+    name: 'Rust',
+    fullName: 'Rust',
+    emoji: '🔨',
+    color: '#C16850',       // Rust orange-brown
+    gradient: 'linear-gradient(135deg, #C16850 0%, #83452F 100%)',
+    textShadow: '0 0 12px rgba(193, 104, 80, 0.5)',
+    formats: ['3x3', '5x5'],
+  },
+  {
+    code: 'human_fall_flat',
+    name: 'Human Fall Flat',
+    fullName: 'Human Fall Flat',
+    emoji: '🤸',
+    color: '#9B59B6',
+    gradient: 'linear-gradient(135deg, #9B59B6 0%, #6C3483 100%)',
+    textShadow: '0 0 12px rgba(155, 89, 182, 0.5)',
+    formats: ['duo', '3x3', '5x5'],
+  },
+  {
+    code: 'minecraft',
+    name: 'Minecraft',
+    fullName: 'Minecraft',
+    emoji: '⛏',
+    color: '#3FB950',       // Minecraft green
+    gradient: 'linear-gradient(135deg, #3FB950 0%, #2A7F38 100%)',
+    textShadow: '0 0 12px rgba(63, 185, 80, 0.5)',
+    formats: ['duo', '3x3', '5x5'],
+  },
 ] as const
 
 export const CASUAL_TOPICS = [
