@@ -118,14 +118,19 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       user = created
     }
 
-    return NextResponse.json({ user }, {
-      headers: {
-        'Set-Cookie': [
-          `tg_uid=${telegramId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000`,
-          `theme_color=${user.theme_color}; Path=/; SameSite=Lax; Max-Age=31536000`,
-        ].join(', '),
-      },
+    const response = NextResponse.json({ user })
+    response.cookies.set('tg_uid', String(telegramId), {
+      path: '/',
+      httpOnly: true,
+      sameSite: 'lax',
+      maxAge: 2592000, // 30 days
     })
+    response.cookies.set('theme_color', user.theme_color, {
+      path: '/',
+      sameSite: 'lax',
+      maxAge: 31536000, // 1 year
+    })
+    return response
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     console.error('[auth] error:', msg)
