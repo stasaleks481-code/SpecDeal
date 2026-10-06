@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { MessageCircle, Gamepad2, Dices } from "lucide-react";
@@ -26,6 +26,43 @@ export function HomeHub({ user }: { user: UserRow }) {
     initial === "pc" || initial === "party" || initial === "casual" ? initial : "casual"
   );
 
+  // ── Sticky offset = real header height (measured, not a hardcoded guess).
+  // A wrong offset made the tab bar hover below the header with a gap,
+  // letting content show through and overlap room cards.
+  const [headerH, setHeaderH] = useState(64);
+  useEffect(() => {
+    const header = document.querySelector<HTMLElement>("main > header");
+    if (!header) return;
+    const update = () => setHeaderH(header.offsetHeight);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(header);
+    return () => ro.disconnect();
+  }, []);
+
+  // ── Smart-hide: tuck the bar under the header while scrolling down so it
+  // never covers the list; reveal instantly on scroll up for switching.
+  const [barHidden, setBarHidden] = useState(false);
+  useEffect(() => {
+    let lastY = window.scrollY;
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        const y = window.scrollY;
+        const delta = y - lastY;
+        if (y <= 96) setBarHidden(false);
+        else if (delta > 8) setBarHidden(true);
+        else if (delta < -8) setBarHidden(false);
+        lastY = y;
+        ticking = false;
+      });
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   const tabs: { id: HomeSection; label: string; icon: React.ReactNode; color: string }[] = [
     { id: "casual", label: "Общение", icon: <MessageCircle className="w-4 h-4" />, color: "var(--primary)" },
     { id: "pc", label: "ПК-Игры", icon: <Gamepad2 className="w-4 h-4" />, color: "#F7A600" },
@@ -34,8 +71,18 @@ export function HomeHub({ user }: { user: UserRow }) {
 
   return (
     <div>
-      {/* ── Segmented control — 3 equal sections ── */}
-      <div className="sticky top-[57px] z-10 bg-[#0e141d]/95 backdrop-blur-md border-b border-border">
+      {/* ── Segmented control — 3 equal sections.
+          Sticks FLUSH under the header (top = measured header height);
+          slides under it while scrolling down (smart-hide). ── */}
+      <div
+        className="sticky z-10 border-b border-border bg-[#0e141d]"
+        style={{
+          top: headerH,
+          transform: barHidden ? "translateY(-120%)" : "translateY(0)",
+          transition: "transform 220ms cubic-bezier(0.4, 0, 0.2, 1)",
+          willChange: "transform",
+        }}
+      >
         <div className="max-w-md mx-auto px-4 py-2.5">
           <div
             className="grid grid-cols-3 gap-1 p-1 rounded-xl border border-border"
@@ -51,6 +98,8 @@ export function HomeHub({ user }: { user: UserRow }) {
                     haptic.impact("light");
                     setSection(t.id);
                     router.replace(`/?section=${t.id}`, { scroll: false });
+                    // Fresh section starts from the top (also re-reveals the bar)
+                    window.scrollTo(0, 0);
                   }}
                   className={`relative flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition-colors ${
                     active ? "text-[#0e141d]" : "text-muted-foreground hover:text-foreground"

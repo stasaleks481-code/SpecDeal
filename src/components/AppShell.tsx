@@ -226,8 +226,9 @@ export function AppShell({ user, children }: Props) {
         )}
       </AnimatePresence>
 
-      {/* Page content */}
-      <div className="flex-1 overflow-y-auto pb-28">
+      {/* Page content — window is the single scroll container (nested
+          overflow containers break position:sticky coordinates) */}
+      <div className="flex-1 pb-28">
         {children}
       </div>
 
