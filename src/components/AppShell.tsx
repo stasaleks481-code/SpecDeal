@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, type ReactNode } from "react";
+import { useState, useCallback, useMemo, memo, type ReactNode } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import { Gamepad2, MessageCircle, Plus, Users, Crown } from "lucide-react";
@@ -51,12 +51,12 @@ export function AppShell({ user, children }: Props) {
     return "StakApp";
   })();
 
-  const navigate = (path: string) => {
+  const navigate = useCallback((path: string) => {
     haptic.impact("light");
     if (path !== pathname) {
       router.push(path);
     }
-  };
+  }, [pathname, router]);
 
   return (
     <main className="min-h-screen flex flex-col">
@@ -188,17 +188,16 @@ export function AppShell({ user, children }: Props) {
 
 /**
  * TabButton — icon only (no text label, like TikTok).
- * Active state: LIQUID GLASS indicator.
+ * When active: renders the liquid glass pill via layoutId.
+ * The pill appears at the new active position from below (y: +12),
+ * rises up to settle (y: 0), then on next tab change it disappears.
  *
- * Animation sequence on tab change (3 phases via framer-motion variants):
- *   1. LIFT UP    — current pill slides up (y: -8) + shrinks slightly
- *   2. SLIDE      — pill moves horizontally to new tab position (layoutId)
- *   3. SETTLE     — pill drops down to baseline (y: 0) + grows back
- *
- * The pill is visually "liquid glass": translucent, with backdrop blur,
- * subtle gradient, inner glow, and soft border — mimicking iOS 26 / TikTok.
+ * Because all tabs share the same layoutId="bottom-nav-active",
+ * Framer Motion automatically animates the pill from old → new position.
+ * The 'initial' prop with y:12 makes it APPEAR from below like a popup,
+ * not slide from the previous tab.
  */
-function TabButton({
+const TabButton = memo(function TabButton({
   active,
   onClick,
   icon,
@@ -219,7 +218,6 @@ function TabButton({
           layoutId="bottom-nav-active"
           className="absolute inset-0 rounded-xl"
           style={{
-            // Liquid glass appearance
             background:
               "linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02))",
             border: "1px solid color-mix(in srgb, var(--primary) 30%, transparent)",
@@ -231,21 +229,16 @@ function TabButton({
               inset 0 1px 0 rgba(255,255,255,0.1)
             `,
           }}
-          initial={{ y: 0, scale: 1, opacity: 0 }}
-          animate={{
-            y: [0, -10, -10, 0],   // up → hold → down (3 keyframes)
-            scale: [1, 0.92, 0.92, 1],  // shrink → hold → grow
-            opacity: [1, 1, 1, 1],
-          }}
+          initial={{ y: 14, opacity: 0, scale: 0.85 }}
+          animate={{ y: 0, opacity: 1, scale: 1 }}
+          exit={{ y: 14, opacity: 0, scale: 0.85 }}
           transition={{
-            duration: 0.5,
-            ease: [0.4, 0, 0.2, 1],
-            times: [0, 0.25, 0.6, 1],  // up takes 25%, hold to 60%, down 40%
-            layout: { type: "spring", damping: 28, stiffness: 350 },
+            layout: { type: "spring", damping: 24, stiffness: 320 },
+            default: { duration: 0.28, ease: [0.4, 0, 0.2, 1] },
           }}
         />
       )}
       <div className="relative z-10">{icon}</div>
     </button>
   );
-}
+});
