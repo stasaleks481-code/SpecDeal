@@ -59,10 +59,13 @@ export function GameRoomList({ rooms, currentUser }: Props) {
                   />
                 ) : (
                   <div
-                    className="w-full h-full flex items-center justify-center text-2xl"
-                    style={{ background: game?.gradient ?? "rgba(102, 192, 244, 0.15)" }}
+                    className="w-full h-full flex items-center justify-center text-sm font-bold"
+                    style={{
+                      background: game?.gradient ?? "rgba(102, 192, 244, 0.15)",
+                      color: game?.color ?? "var(--primary)",
+                    }}
                   >
-                    {game?.emoji ?? "🎮"}
+                    {game?.name?.[0] ?? "?"}
                   </div>
                 )}
               </div>

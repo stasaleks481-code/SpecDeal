@@ -12,7 +12,6 @@ interface Props {
 }
 
 export function GamesTab({ user }: Props) {
-  // selectedGame: null = grid view; "cs2" = sub-view with rooms for that game
   const [selectedGame, setSelectedGame] = useState<string | null>(null);
   const [rooms, setRooms] = useState<RoomRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -45,7 +44,6 @@ export function GamesTab({ user }: Props) {
     fetchRooms();
   }, [fetchRooms]);
 
-  // Reset filters when changing game
   const handleSelectGame = (code: string | null) => {
     haptic.impact("light");
     setSelectedGame(code);
@@ -58,8 +56,7 @@ export function GamesTab({ user }: Props) {
   // ━━━ Sub-view: rooms for selected game ━━━━━━━━━━━━━━━━━━━━━━━━━━━
   if (selectedGame && selectedGameData) {
     return (
-      <div className="max-w-md mx-auto px-4 py-4 pb-6 space-y-4 slide-in">
-        {/* Back button + game title */}
+      <div className="max-w-md mx-auto px-4 py-4 pb-6 space-y-4 fade-in">
         <button
           onClick={() => handleSelectGame(null)}
           className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
@@ -68,7 +65,7 @@ export function GamesTab({ user }: Props) {
           Все игры
         </button>
 
-        {/* Game banner hero — big with neon strip */}
+        {/* Game banner hero */}
         <div className="relative overflow-hidden rounded-2xl border border-border">
           <div className="aspect-[3/1] relative">
             {selectedGameData.banner ? (
@@ -78,15 +75,12 @@ export function GamesTab({ user }: Props) {
                 className="w-full h-full object-cover"
               />
             ) : (
-              <div
-                className="w-full h-full"
-                style={{ background: selectedGameData.gradient }}
-              />
+              <div className="w-full h-full" style={{ background: selectedGameData.gradient }} />
             )}
             <div
               className="absolute inset-0"
               style={{
-                background: `linear-gradient(180deg, transparent 0%, rgba(14, 20, 29, 0.4) 50%, rgba(14, 20, 29, 0.95) 100%)`,
+                background: "linear-gradient(180deg, transparent 0%, rgba(14, 20, 29, 0.4) 50%, rgba(14, 20, 29, 0.95) 100%)",
               }}
             />
             <div className="absolute bottom-0 left-0 right-0 p-4">
@@ -100,7 +94,6 @@ export function GamesTab({ user }: Props) {
                 {selectedGameData.formats.join(" · ")}
               </p>
             </div>
-            {/* Neon strip at bottom */}
             <div
               className="absolute bottom-0 left-0 right-0 h-[2px]"
               style={{
@@ -135,12 +128,12 @@ export function GamesTab({ user }: Props) {
 
         {/* Style filter */}
         <div>
-          <div className="section-label mb-2 px-1">Стиль игры</div>
+          <div className="section-label mb-2 px-1">Стиль</div>
           <div className="flex flex-wrap gap-2">
             {[
-              { code: "ranked", label: "Ранкед", emoji: "🏆" },
-              { code: "chill", label: "Чилл", emoji: "😎" },
-              { code: "fun", label: "Фан", emoji: "🎮" },
+              { code: "ranked", label: "Ранкед" },
+              { code: "chill", label: "Чилл" },
+              { code: "fun", label: "Фан" },
             ].map((s) => {
               const active = filterStyle === s.code;
               return (
@@ -149,7 +142,7 @@ export function GamesTab({ user }: Props) {
                   onClick={() => setFilterStyle(active ? null : s.code)}
                   className={`chip ${active ? "chip--active" : ""}`}
                 >
-                  {s.emoji} {s.label}
+                  {s.label}
                 </button>
               );
             })}
@@ -197,7 +190,6 @@ export function GamesTab({ user }: Props) {
           )}
         </div>
 
-        {/* Create room modal — preselects the current game */}
         {showCreate && (
           <CreateRoomModal
             user={user}
@@ -206,7 +198,6 @@ export function GamesTab({ user }: Props) {
             onClose={() => setShowCreate(false)}
             onCreated={(roomId) => {
               setShowCreate(false);
-              // Navigate to the new room
               window.location.href = `/rooms/${roomId}`;
             }}
           />
@@ -226,7 +217,7 @@ export function GamesTab({ user }: Props) {
             className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
             style={{ background: "var(--primary)" }}
           >
-            <span className="text-lg">🎮</span>
+            <Search className="w-5 h-5 text-[#0e141d]" />
           </div>
           <div className="flex-1 min-w-0">
             <h1 className="text-base font-bold neon-text leading-tight">
@@ -255,7 +246,6 @@ export function GamesTab({ user }: Props) {
                 "--game-gradient": g.gradient,
               }}
             >
-              {/* Background: Steam banner OR gradient fallback */}
               {g.banner ? (
                 <img
                   src={g.banner}
@@ -266,10 +256,8 @@ export function GamesTab({ user }: Props) {
               ) : null}
               <div className="game-tile__overlay" />
 
-              {/* Content */}
               <div className="game-tile__content">
                 <div className="flex items-start justify-between">
-                  <span className="text-2xl drop-shadow-lg">{g.emoji}</span>
                   <span
                     className="w-2 h-2 rounded-full"
                     style={{ background: g.color, boxShadow: `0 0 6px ${g.color}` }}

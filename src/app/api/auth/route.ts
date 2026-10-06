@@ -120,7 +120,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json({ user }, {
       headers: {
-        'Set-Cookie': `tg_uid=${telegramId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000`,
+        'Set-Cookie': [
+          `tg_uid=${telegramId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000`,
+          `theme_color=${user.theme_color}; Path=/; SameSite=Lax; Max-Age=31536000`,
+        ].join(', '),
       },
     })
   } catch (err) {

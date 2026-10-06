@@ -6,8 +6,12 @@ export const dynamic = 'force-dynamic'
 
 /**
  * PATCH /api/users/me
- * Headers: X-User-Id: <telegram_id>
- * Body: { theme_color?: 'cyan'|'pink'|'green'|'amber', ... }
+ * Headers: X-User-Id (set by middleware from tg_uid cookie)
+ * Body: { theme_color?: 'cyan'|'pink'|'green'|'amber', username?, photo_url? }
+ *
+ * Updates the current user's profile. Returns the updated user row.
+ * Also sets a `theme_color` cookie so the theme persists on next page load
+ * (cookie-based, not just localStorage — survives across sessions).
  */
 export async function PATCH(req: NextRequest): Promise<NextResponse> {
   const userId = req.headers.get('x-user-id')
@@ -46,5 +50,14 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'DB update failed' }, { status: 500 })
   }
 
-  return NextResponse.json({ user: data })
+  // Set theme cookie so it persists across page reloads (1 year expiry)
+  const response = NextResponse.json({ user: data })
+  if (data.theme_color) {
+    response.cookies.set('theme_color', data.theme_color, {
+      path: '/',
+      maxAge: 31536000, // 1 year
+      sameSite: 'lax',
+    })
+  }
+  return response
 }

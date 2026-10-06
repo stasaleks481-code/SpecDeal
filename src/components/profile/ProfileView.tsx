@@ -21,8 +21,10 @@ export function ProfileView({ user, onUserUpdate }: Props) {
   const setTheme = async (color: keyof typeof THEME_COLORS) => {
     setThemeError(null);
     try {
-      // Apply immediately for instant visual feedback (optimistic update)
+      // Optimistic update — apply immediately
       document.documentElement.setAttribute("data-accent", color);
+      // Also set cookie directly for instant persistence
+      document.cookie = `theme_color=${color}; path=/; max-age=31536000; samesite=lax`;
 
       const res = await fetch("/api/users/me", {
         method: "PATCH",
@@ -43,7 +45,6 @@ export function ProfileView({ user, onUserUpdate }: Props) {
     } catch (err) {
       console.error("[setTheme] error:", err);
       setThemeError(err instanceof Error ? err.message : "Failed");
-      // Revert to previous theme on error
       document.documentElement.setAttribute("data-accent", user.theme_color);
     }
   };
@@ -52,11 +53,10 @@ export function ProfileView({ user, onUserUpdate }: Props) {
     setLinking(true);
     setTimeout(() => {
       setLinking(false);
-      alert("Steam интеграция скоро будет доступна 🚀");
+      alert("Steam интеграция скоро будет доступна");
     }, 1500);
   };
 
-  // Trust logic — neutral when user has no reviews yet
   const hasReviews = user.reviews_count > 0;
   const trustLevel = !hasReviews
     ? "Нейтрально"
@@ -66,7 +66,7 @@ export function ProfileView({ user, onUserUpdate }: Props) {
     ? "Средний"
     : "Низкий";
   const trustColor = !hasReviews
-    ? "#66c0f4"  // Steam blue — neutral
+    ? "#66c0f4"
     : user.trust_score >= 50
     ? "#3FB950"
     : user.trust_score >= 20
@@ -75,23 +75,18 @@ export function ProfileView({ user, onUserUpdate }: Props) {
 
   return (
     <div className="max-w-md mx-auto px-4 py-4 pb-6 space-y-4">
-      {/* Hero profile card */}
+      {/* Profile header */}
       <div className="relative overflow-hidden rounded-2xl border border-border bg-[#1b2838]/40">
-        {/* Neon strip at top */}
         <div className="neon-strip" />
-
         <div className="p-5">
           <div className="flex items-center gap-4">
-            {/* Avatar */}
             <div className="relative">
               {user.photo_url ? (
                 <img
                   src={user.photo_url}
                   alt={user.first_name}
                   className="w-20 h-20 rounded-2xl object-cover border-2"
-                  style={{
-                    borderColor: "var(--primary)",
-                  }}
+                  style={{ borderColor: "var(--primary)" }}
                 />
               ) : (
                 <div className="w-20 h-20 rounded-2xl bg-primary/20 flex items-center justify-center text-3xl font-bold neon-text border-2 border-primary">
@@ -100,16 +95,12 @@ export function ProfileView({ user, onUserUpdate }: Props) {
               )}
               <div
                 className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full border-2 flex items-center justify-center"
-                style={{
-                  background: trustColor,
-                  borderColor: "#0e141d",
-                }}
+                style={{ background: trustColor, borderColor: "#0e141d" }}
               >
                 <ShieldCheck className="w-3.5 h-3.5 text-[#0e141d]" />
               </div>
             </div>
 
-            {/* Name + handle */}
             <div className="flex-1 min-w-0">
               <h1 className="text-xl font-bold truncate leading-tight">
                 {user.first_name} {user.last_name}
@@ -120,11 +111,7 @@ export function ProfileView({ user, onUserUpdate }: Props) {
               <div className="flex items-center gap-1.5 mt-2">
                 <span
                   className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
-                  style={{
-                    background: `${trustColor}20`,
-                    color: trustColor,
-                    border: `1px solid ${trustColor}40`,
-                  }}
+                  style={{ background: `${trustColor}20`, color: trustColor, border: `1px solid ${trustColor}40` }}
                 >
                   {trustLevel} доверие
                 </span>
@@ -140,7 +127,6 @@ export function ProfileView({ user, onUserUpdate }: Props) {
             </div>
           </div>
 
-          {/* Badges row */}
           {user.badges.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mt-4">
               {user.badges.includes("verified") && (
@@ -164,7 +150,7 @@ export function ProfileView({ user, onUserUpdate }: Props) {
                   className="text-[10px] px-2 py-1 rounded-full flex items-center gap-1 font-semibold"
                   style={{ background: "#00A2FF20", color: "#00A2FF", border: "1px solid #00A2FF40" }}
                 >
-                  ✓ Адекват
+                  Адекват
                 </span>
               )}
             </div>
@@ -172,7 +158,7 @@ export function ProfileView({ user, onUserUpdate }: Props) {
         </div>
       </div>
 
-      {/* Stats row */}
+      {/* Stats */}
       <div className="grid grid-cols-3 gap-2">
         <div className="stat-block">
           <div className="stat-block__value">{user.matches_count}</div>
@@ -188,9 +174,8 @@ export function ProfileView({ user, onUserUpdate }: Props) {
         </div>
       </div>
 
-      {/* Action list — clean rows with neon divider */}
+      {/* Action list */}
       <div className="glass-card overflow-hidden">
-        {/* Steam binding */}
         <button
           onClick={linkSteam}
           disabled={linking}
@@ -218,7 +203,6 @@ export function ProfileView({ user, onUserUpdate }: Props) {
           <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
         </button>
 
-        {/* Reviews */}
         <button className="w-full p-4 flex items-center gap-3 hover:bg-primary/5 transition-colors text-left border-b border-border">
           <div className="w-11 h-11 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
             <Star className="w-5 h-5 text-primary" fill="currentColor" />
@@ -234,7 +218,6 @@ export function ProfileView({ user, onUserUpdate }: Props) {
           <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
         </button>
 
-        {/* Friends */}
         <button
           onClick={() => router.push("/friends")}
           className="w-full p-4 flex items-center gap-3 hover:bg-primary/5 transition-colors text-left border-b border-border"
@@ -249,7 +232,6 @@ export function ProfileView({ user, onUserUpdate }: Props) {
           <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
         </button>
 
-        {/* Match history */}
         <button className="w-full p-4 flex items-center gap-3 hover:bg-primary/5 transition-colors text-left border-b border-border">
           <div className="w-11 h-11 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
             <TrendingUp className="w-5 h-5 text-primary" />
@@ -263,7 +245,6 @@ export function ProfileView({ user, onUserUpdate }: Props) {
           <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
         </button>
 
-        {/* Leaderboard */}
         <button
           onClick={() => router.push("/leaderboard")}
           className="w-full p-4 flex items-center gap-3 hover:bg-primary/5 transition-colors text-left"
@@ -285,7 +266,7 @@ export function ProfileView({ user, onUserUpdate }: Props) {
           <Sparkles className="w-4 h-4 text-primary" />
           <h3 className="font-semibold text-sm">Тема оформления</h3>
         </div>
-        <p className="text-xs text-muted-foreground mb-3">Выбери цвет акцента — изменится вся подсветка</p>
+        <p className="text-xs text-muted-foreground mb-3">Выбери цвет акцента</p>
 
         <div className="grid grid-cols-4 gap-2">
           {(Object.keys(THEME_COLORS) as Array<keyof typeof THEME_COLORS>).map((c) => {
@@ -317,14 +298,14 @@ export function ProfileView({ user, onUserUpdate }: Props) {
         </div>
 
         {themeError && (
-          <p className="text-xs text-red-400 mt-2 text-center">⚠ {themeError}</p>
+          <p className="text-xs text-red-400 mt-2 text-center">{themeError}</p>
         )}
       </div>
 
       {/* Footer */}
       <div className="text-center pt-2">
         <p className="text-[10px] text-muted-foreground/50">
-          StakApp v0.2 • сделано с ❤ для геймеров
+          StakApp v0.2
         </p>
       </div>
     </div>

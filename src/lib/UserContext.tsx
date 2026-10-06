@@ -46,6 +46,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
     let parsed: UserRow | null = null;
 
     if (typeof window !== "undefined") {
+      // Also read theme_color from cookie (set by /api/auth and /api/users/me)
+      // so theme is applied even on first paint of a sub-page (before localStorage)
       try {
         const cached = localStorage.getItem(USER_CACHE_KEY);
         if (cached) {
@@ -53,6 +55,14 @@ export function UserProvider({ children }: { children: ReactNode }) {
         }
       } catch {
         // ignore parse errors
+      }
+
+      // If no cached user but we have theme_color cookie, apply it
+      if (!parsed) {
+        const themeMatch = document.cookie.match(/(?:^|;\s*)theme_color=([^;]+)/);
+        if (themeMatch?.[1]) {
+          document.documentElement.setAttribute("data-accent", themeMatch[1]);
+        }
       }
     }
 

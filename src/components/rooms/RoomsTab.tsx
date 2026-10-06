@@ -70,8 +70,7 @@ export function RoomsTab({ user }: Props) {
                 onClick={() => setFilterTopic(active ? null : t.code)}
                 className={`topic-pill ${active ? "topic-pill--active" : ""}`}
               >
-                <span>{t.emoji}</span>
-                <span>{t.label}</span>
+                {t.label}
               </button>
             );
           })}
@@ -170,7 +169,7 @@ export function RoomsTab({ user }: Props) {
                                 color: "#c39bd3",
                               }}
                             >
-                              {topic?.emoji} {topic?.label}
+                              {topic?.label}
                             </span>
                           );
                         })}

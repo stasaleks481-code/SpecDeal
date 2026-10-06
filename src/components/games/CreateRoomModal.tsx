@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { motion } from "framer-motion";
 import { X, Users } from "lucide-react";
 import { GAMES, CASUAL_TOPICS, type UserRow } from "@/lib/supabase/client";
 
@@ -70,18 +69,11 @@ export function CreateRoomModal({
   const selectedGame = GAMES.find((g) => g.code === game);
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+    <div
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-3"
       onClick={onClose}
     >
-      <motion.div
-        initial={{ y: 60, opacity: 0, scale: 0.98 }}
-        animate={{ y: 0, opacity: 1, scale: 1 }}
-        exit={{ y: 60, opacity: 0, scale: 0.98 }}
-        transition={{ type: "spring", damping: 25, stiffness: 300 }}
+      <div
         className="glass-card p-5 w-full max-w-md max-h-[88vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
@@ -97,49 +89,55 @@ export function CreateRoomModal({
           <button
             onClick={() => setCategory("game")}
             className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${
-              category === "game" ? "neon-btn" : "text-muted-foreground hover:text-foreground"
+              category === "game" ? "neon-btn" : "text-muted-foreground"
             }`}
           >
-            🎮 Игра
+            Игра
           </button>
           <button
             onClick={() => setCategory("casual")}
             className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${
-              category === "casual" ? "neon-btn" : "text-muted-foreground hover:text-foreground"
+              category === "casual" ? "neon-btn" : "text-muted-foreground"
             }`}
           >
-            💬 Общение
+            Общение
           </button>
         </div>
 
-        {/* Game-specific */}
+        {/* Game selection */}
         {category === "game" && selectedGame && (
           <div className="space-y-4 mb-4">
             <div>
               <div className="section-label mb-2">Игра</div>
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 {GAMES.map((g) => {
                   const isSelected = game === g.code;
                   return (
                     <button
                       key={g.code}
                       onClick={() => setGame(g.code)}
-                      className={`aspect-square rounded-xl flex flex-col items-center justify-center gap-1 transition-all relative overflow-hidden ${
-                        isSelected ? "scale-105" : ""
+                      className={`relative aspect-[3/4] rounded-lg overflow-hidden transition-all ${
+                        isSelected ? "ring-2" : ""
                       }`}
                       style={{
-                        background: isSelected ? g.gradient : "rgba(255,255,255,0.03)",
-                        border: isSelected ? `2px solid ${g.color}` : "1px solid var(--border)",
-                        boxShadow: isSelected ? `0 0 16px ${g.color}50` : "none",
+                        // @ts-expect-error custom CSS var
+                        "--tw-ring-color": g.color,
                       }}
                     >
-                      <span className="text-xl drop-shadow-lg">{g.emoji}</span>
-                      <span
-                        className="text-[9px] font-bold uppercase tracking-wider"
-                        style={{ color: isSelected ? "#fff" : g.color }}
-                      >
-                        {g.name}
-                      </span>
+                      {g.banner ? (
+                        <img src={g.banner} alt={g.name} loading="lazy" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full" style={{ background: g.gradient }} />
+                      )}
+                      <div
+                        className="absolute inset-0"
+                        style={{
+                          background: "linear-gradient(180deg, transparent 50%, rgba(14,20,29,0.9) 100%)",
+                        }}
+                      />
+                      <div className="absolute bottom-1 left-1 right-1">
+                        <p className="text-[10px] font-bold text-white truncate">{g.name}</p>
+                      </div>
                     </button>
                   );
                 })}
@@ -168,12 +166,12 @@ export function CreateRoomModal({
             </div>
 
             <div>
-              <div className="section-label mb-2">Стиль игры</div>
+              <div className="section-label mb-2">Стиль</div>
               <div className="flex flex-wrap gap-2">
                 {[
-                  { code: "ranked", label: "Ранкед", emoji: "🏆" },
-                  { code: "chill", label: "Чилл", emoji: "😎" },
-                  { code: "fun", label: "Фан", emoji: "🎮" },
+                  { code: "ranked", label: "Ранкед" },
+                  { code: "chill", label: "Чилл" },
+                  { code: "fun", label: "Фан" },
                 ].map((s) => {
                   const active = style === s.code;
                   return (
@@ -182,7 +180,7 @@ export function CreateRoomModal({
                       onClick={() => setStyle(s.code)}
                       className={`chip ${active ? "chip--active" : ""}`}
                     >
-                      {s.emoji} {s.label}
+                      {s.label}
                     </button>
                   );
                 })}
@@ -204,8 +202,7 @@ export function CreateRoomModal({
                     onClick={() => toggleTopic(t.code)}
                     className={`topic-pill ${active ? "topic-pill--active" : ""}`}
                   >
-                    <span>{t.emoji}</span>
-                    <span>{t.label}</span>
+                    {t.label}
                   </button>
                 );
               })}
@@ -241,7 +238,7 @@ export function CreateRoomModal({
             max={5}
             value={maxPlayers}
             onChange={(e) => setMaxPlayers(parseInt(e.target.value, 10))}
-            className="w-full accent-primary"
+            className="w-full"
             style={{ accentColor: "var(--primary)" }}
           />
           <div className="flex justify-between mt-1 px-1">
@@ -264,7 +261,7 @@ export function CreateRoomModal({
         >
           {submitting ? "Создаём..." : "Создать комнату"}
         </button>
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   );
 }

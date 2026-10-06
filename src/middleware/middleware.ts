@@ -15,10 +15,12 @@ export function middleware(req: NextRequest): NextResponse {
   }
 
   const tgUid = req.cookies.get('tg_uid')?.value
+  const themeColor = req.cookies.get('theme_color')?.value
 
-  if (tgUid) {
+  if (tgUid || themeColor) {
     const requestHeaders = new Headers(req.headers)
-    requestHeaders.set('x-user-id', tgUid)
+    if (tgUid) requestHeaders.set('x-user-id', tgUid)
+    if (themeColor) requestHeaders.set('x-theme-color', themeColor)
     return NextResponse.next({
       request: { headers: requestHeaders },
     })
