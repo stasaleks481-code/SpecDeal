@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Gamepad2, Star, Users, ChevronRight,
-  ShieldCheck, Sparkles, TrendingUp, Moon,
+  ShieldCheck, Sparkles, TrendingUp,
 } from "lucide-react";
 import { THEME_COLORS, type UserRow } from "@/lib/supabase/client";
 
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export function ProfileView({ user, onUserUpdate }: Props) {
+  const router = useRouter();
   const [linking, setLinking] = useState(false);
   const [themeError, setThemeError] = useState<string | null>(null);
 
@@ -233,13 +235,16 @@ export function ProfileView({ user, onUserUpdate }: Props) {
         </button>
 
         {/* Friends */}
-        <button className="w-full p-4 flex items-center gap-3 hover:bg-primary/5 transition-colors text-left border-b border-border">
+        <button
+          onClick={() => router.push("/friends")}
+          className="w-full p-4 flex items-center gap-3 hover:bg-primary/5 transition-colors text-left border-b border-border"
+        >
           <div className="w-11 h-11 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
             <Users className="w-5 h-5 text-primary" />
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold text-sm">Друзья</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">Скоро: добавляй в друзья и пиши в ЛС</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Список, заявки, личные сообщения</p>
           </div>
           <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
         </button>

@@ -202,9 +202,10 @@ export function GamesTab({ user }: Props) {
             defaultCategory="game"
             defaultGame={selectedGame}
             onClose={() => setShowCreate(false)}
-            onCreated={() => {
+            onCreated={(roomId) => {
               setShowCreate(false);
-              fetchRooms();
+              // Navigate to the new room
+              window.location.href = `/rooms/${roomId}`;
             }}
           />
         )}

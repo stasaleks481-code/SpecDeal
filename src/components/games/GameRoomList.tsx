@@ -5,8 +5,21 @@ import { useRouter } from "next/navigation";
 import type { RoomRow, UserRow } from "@/lib/supabase/client";
 import { GAMES } from "@/lib/supabase/client";
 
+interface HostInfo {
+  id: number;
+  username: string | null;
+  first_name: string;
+  last_name: string | null;
+  photo_url: string | null;
+}
+
+interface RoomWithMeta extends RoomRow {
+  host?: HostInfo;
+  member_count?: number;
+}
+
 interface Props {
-  rooms: RoomRow[];
+  rooms: RoomWithMeta[];
   currentUser: UserRow;
   onJoined: () => void;
 }
@@ -14,18 +27,8 @@ interface Props {
 export function GameRoomList({ rooms, currentUser }: Props) {
   const router = useRouter();
 
-  const joinRoom = async (roomId: string) => {
-    try {
-      const res = await fetch(`/api/rooms/${roomId}/join`, { method: "POST" });
-      if (res.ok) {
-        router.push(`/rooms/${roomId}`);
-      } else {
-        const data = await res.json().catch(() => ({}));
-        alert(data.error ?? "Failed to join");
-      }
-    } catch {
-      alert("Network error");
-    }
+  const openRoom = (roomId: string) => {
+    router.push(`/rooms/${roomId}`);
   };
 
   return (
@@ -33,14 +36,19 @@ export function GameRoomList({ rooms, currentUser }: Props) {
       {rooms.map((room) => {
         const game = GAMES.find((g) => g.code === room.game_name);
         const isHost = room.host_id === currentUser.id;
+        const memberCount = room.member_count ?? 0;
+        const isFull = memberCount >= room.max_players;
+        const host = room.host;
+
         return (
-          <div
+          <button
             key={room.id}
-            className="room-card"
+            onClick={() => openRoom(room.id)}
+            className="room-card w-full text-left"
             style={{ borderLeft: `3px solid ${game?.color ?? "var(--primary)"}` }}
           >
             <div className="flex items-center gap-3">
-              {/* Game logo block — use Steam banner if available */}
+              {/* Game icon */}
               <div className="relative w-12 h-12 rounded-xl overflow-hidden shrink-0">
                 {game?.banner ? (
                   <img
@@ -48,7 +56,6 @@ export function GameRoomList({ rooms, currentUser }: Props) {
                     alt={game.name}
                     loading="lazy"
                     className="w-full h-full object-cover"
-                    style={{ filter: "brightness(0.85)" }}
                   />
                 ) : (
                   <div
@@ -72,10 +79,7 @@ export function GameRoomList({ rooms, currentUser }: Props) {
                   )}
                 </div>
                 <div className="flex items-center gap-1.5 mt-1 text-xs text-muted-foreground">
-                  <span
-                    className="font-bold"
-                    style={{ color: game?.color ?? "var(--primary)" }}
-                  >
+                  <span className="font-bold" style={{ color: game?.color ?? "var(--primary)" }}>
                     {game?.name ?? room.game_name}
                   </span>
                   {room.game_format && (
@@ -93,16 +97,28 @@ export function GameRoomList({ rooms, currentUser }: Props) {
                 </div>
               </div>
 
-              {/* Action */}
-              <button
-                onClick={() => (isHost ? router.push(`/rooms/${room.id}`) : joinRoom(room.id))}
-                className="neon-btn text-xs py-2 px-3 flex items-center gap-1 shrink-0"
-              >
-                <Users className="w-3.5 h-3.5" />
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
+              {/* Host avatar + member count */}
+              <div className="flex flex-col items-end gap-1 shrink-0">
+                <div className="flex items-center gap-1">
+                  {host?.photo_url ? (
+                    <img src={host.photo_url} alt="" className="w-5 h-5 rounded-full object-cover border border-border" />
+                  ) : (
+                    <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center text-[9px] font-bold">
+                      {host?.first_name?.[0] ?? "?"}
+                    </div>
+                  )}
+                </div>
+                <div className={`flex items-center gap-0.5 text-xs font-bold ${
+                  isFull ? "text-red-400" : "text-muted-foreground"
+                }`}>
+                  <Users className="w-3 h-3" />
+                  {memberCount}/{room.max_players}
+                </div>
+              </div>
+
+              <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
             </div>
-          </div>
+          </button>
         );
       })}
     </div>

@@ -5,9 +5,10 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 /**
- * GET /api/rooms?category=game|casual&game=cs2&format=5x5&style=chill&topic=talk
+ * GET /api/rooms?category=game|casual&game=cs2&format=5x5&style=chill&topic=talk&q=cs2+lobby
  *
- * Returns active rooms filtered by category/game/format/style/topic.
+ * Returns active rooms filtered by category/game/format/style/topic/search query.
+ * Includes member count + host info.
  */
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const url = new URL(req.url)
@@ -16,12 +17,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const format = url.searchParams.get('format')
   const style = url.searchParams.get('style')
   const topic = url.searchParams.get('topic')
+  const q = url.searchParams.get('q')?.trim()
 
   let query = supabase
     .from('rooms')
     .select(`
       *,
-      members:room_members(count)
+      host:users!rooms_host_id_fkey(id, username, first_name, last_name, photo_url),
+      members:room_members(user_id)
     `)
     .eq('is_active', true)
     .is('closed_at', null)
@@ -33,6 +36,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (format) query = query.eq('game_format', format)
   if (style) query = query.eq('play_style', style)
   if (topic && category === 'casual') query = query.contains('topic_tags', [topic])
+  if (q) query = query.ilike('title', `%${q}%`)
 
   const { data, error } = await query
 
@@ -41,17 +45,21 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'DB error' }, { status: 500 })
   }
 
-  return NextResponse.json({
-    rooms: (data ?? []) as (RoomRow & { members: { count: number }[] })[],
-  })
+  // Transform: flatten member count
+  const rooms = (data ?? []).map((r: RoomRow & { members?: { user_id: number }[]; host?: Record<string, unknown> }) => ({
+    ...r,
+    member_count: r.members?.length ?? 0,
+    members: undefined, // strip the array, just keep count
+  }))
+
+  return NextResponse.json({ rooms })
 }
 
 /**
  * POST /api/rooms
  * Body: { category, game_name?, game_format?, play_style?, topic_tags?, title, max_players }
  *
- * Creates a new room. Host is identified by telegram_id passed in X-User-Id header
- * (set by /api/auth flow).
+ * Creates a new room. Host is auto-added as first member.
  */
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const userId = req.headers.get('x-user-id')
@@ -99,7 +107,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     playStyle = body.play_style ?? 'chill'
   } else {
     topicTags = Array.isArray(body.topic_tags) ? body.topic_tags : ['talk']
-    // Filter to known topic codes
     topicTags = topicTags.filter((t) => CASUAL_TOPICS.find((c) => c.code === t))
     if (topicTags.length === 0) topicTags = ['talk']
   }

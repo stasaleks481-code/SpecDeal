@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Plus, Users, MessageCircle, Moon } from "lucide-react";
 import { CASUAL_TOPICS, type UserRow, type RoomRow } from "@/lib/supabase/client";
 import { CreateRoomModal } from "@/components/games/CreateRoomModal";
@@ -142,41 +143,58 @@ export function RoomsTab({ user }: Props) {
           </div>
         ) : (
           <div className="space-y-2.5">
-            {rooms.map((room) => (
-              <div
-                key={room.id}
-                className="room-card"
-                style={{ borderLeft: "3px solid var(--primary)" }}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-sm truncate">{room.title}</h3>
-                    <div className="flex flex-wrap gap-1 mt-1.5">
-                      {room.topic_tags.slice(0, 3).map((tag) => {
-                        const topic = CASUAL_TOPICS.find((t) => t.code === tag);
-                        return (
-                          <span
-                            key={tag}
-                            className="chip"
-                            style={{
-                              background: "rgba(155, 89, 182, 0.15)",
-                              borderColor: "rgba(155, 89, 182, 0.3)",
-                              color: "#c39bd3",
-                            }}
-                          >
-                            {topic?.emoji} {topic?.label}
-                          </span>
-                        );
-                      })}
+            {rooms.map((room) => {
+              const memberCount = (room as RoomRow & { member_count?: number }).member_count ?? 0;
+              const isFull = memberCount >= room.max_players;
+              const host = (room as RoomRow & { host?: { photo_url?: string; first_name?: string } }).host;
+              return (
+                <button
+                  key={room.id}
+                  onClick={() => router.push(`/rooms/${room.id}`)}
+                  className="room-card w-full text-left"
+                  style={{ borderLeft: "3px solid var(--primary)" }}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-sm truncate">{room.title}</h3>
+                      <div className="flex flex-wrap gap-1 mt-1.5">
+                        {room.topic_tags.slice(0, 3).map((tag) => {
+                          const topic = CASUAL_TOPICS.find((t) => t.code === tag);
+                          return (
+                            <span
+                              key={tag}
+                              className="chip"
+                              style={{
+                                background: "rgba(155, 89, 182, 0.15)",
+                                borderColor: "rgba(155, 89, 182, 0.3)",
+                                color: "#c39bd3",
+                              }}
+                            >
+                              {topic?.emoji} {topic?.label}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div className="text-right ml-2 shrink-0 flex items-center gap-1.5">
+                      {host?.photo_url ? (
+                        <img src={host.photo_url} alt="" className="w-5 h-5 rounded-full object-cover border border-border" />
+                      ) : (
+                        <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center text-[9px] font-bold">
+                          {host?.first_name?.[0] ?? "?"}
+                        </div>
+                      )}
+                      <div className={`flex items-center gap-0.5 text-xs font-bold ${
+                        isFull ? "text-red-400" : "text-muted-foreground"
+                      }`}>
+                        <Users className="w-3 h-3" />
+                        {memberCount}/{room.max_players}
+                      </div>
                     </div>
                   </div>
-                  <div className="text-right ml-2 shrink-0 flex items-center gap-1 text-xs">
-                    <Users className="w-3 h-3 text-muted-foreground" />
-                    <span className="font-bold">{room.max_players}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
+                </button>
+              );
+            })}
           </div>
         )}
       </div>
@@ -187,9 +205,9 @@ export function RoomsTab({ user }: Props) {
           defaultCategory="casual"
           defaultGame={null}
           onClose={() => setShowCreate(false)}
-          onCreated={() => {
+          onCreated={(roomId) => {
             setShowCreate(false);
-            fetchRooms();
+            window.location.href = `/rooms/${roomId}`;
           }}
         />
       )}
