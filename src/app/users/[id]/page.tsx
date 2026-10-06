@@ -10,11 +10,7 @@ export default function UserProfilePage() {
   const [shouldRedirect, setShouldRedirect] = useState(false);
 
   useEffect(() => {
-    fetch("/api/auth", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ initData: "" }),
-    })
+    fetch("/api/me", { credentials: "include" })
       .then(async (res) => {
         if (!res.ok) throw new Error("Not authenticated");
         const data = await res.json();

@@ -220,7 +220,7 @@ export function CreateRoomModal({
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Например: Ищем 5ых на CS2"
+            placeholder="Например: Ищем пятых на ранкед"
             maxLength={50}
             className="w-full px-3 py-2.5 rounded-xl bg-background/40 border border-border focus:border-primary outline-none text-sm transition-colors"
           />
