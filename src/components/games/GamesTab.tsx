@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Plus, ArrowLeft, Users, Search } from "lucide-react";
-import { GAMES, type UserRow, type RoomRow } from "@/lib/supabase/client";
+import { GAMES, FORMAT_LABELS, type UserRow, type RoomRow } from "@/lib/supabase/client";
 import { GameRoomList } from "./GameRoomList";
 import { CreateRoomModal } from "./CreateRoomModal";
 import { haptic } from "@/lib/telegram/haptics";
@@ -91,7 +91,7 @@ export function GamesTab({ user }: Props) {
                 {selectedGameData.fullName}
               </h1>
               <p className="text-xs text-white/70 mt-1 uppercase tracking-wider">
-                {selectedGameData.formats.join(" · ")}
+                {selectedGameData.formats.map((f) => FORMAT_LABELS[f] ?? f).join(" · ")}
               </p>
             </div>
             <div
@@ -119,7 +119,7 @@ export function GamesTab({ user }: Props) {
                   className={`chip ${active ? "chip--active" : ""} ${!isAvailable ? "opacity-30 cursor-not-allowed" : ""}`}
                   style={active ? { background: selectedGameData.color, borderColor: selectedGameData.color } : {}}
                 >
-                  {f === "duo" ? "Дуо" : f === "full" ? "Полный" : f}
+                  {FORMAT_LABELS[f] ?? f}
                 </button>
               );
             })}
@@ -231,7 +231,7 @@ export function GamesTab({ user }: Props) {
       </div>
 
       {/* Games grid */}
-      <div>
+      <div data-tour="games-grid">
         <div className="section-label mb-3 px-1">Выбери игру</div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -266,7 +266,7 @@ export function GamesTab({ user }: Props) {
                 <div>
                   <div className="game-tile__title text-base">{g.name}</div>
                   <div className="text-[10px] font-medium text-white/70 mt-1 uppercase tracking-wider">
-                    {g.formats.join(" · ")}
+                    {g.formats.map((f) => FORMAT_LABELS[f] ?? f).slice(0, 3).join(" · ")}
                   </div>
                 </div>
               </div>

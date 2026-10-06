@@ -69,7 +69,7 @@
   --ring: #00f0ff;
 }
 
-/* Theme variants — applied via data-accent="pink|green|amber" on <html> */
+/* Theme variants — applied via data-accent="pink|green|amber|steam" on <html> */
 [data-accent="pink"] {
   --primary: #ff3ec9;
   --primary-foreground: #0e141d;
@@ -100,6 +100,27 @@
   --border: rgba(255, 182, 39, 0.18);
 }
 
+/* Steam Classic — dark graphite/graphite blue base, Steam blue neon accent */
+[data-accent="steam"] {
+  --background: #171a21;            /* Steam client graphite */
+  --foreground: #c7d5e0;
+  --card: rgba(27, 34, 44, 0.72);
+  --card-foreground: #c7d5e0;
+  --popover: #1b222c;
+  --popover-foreground: #c7d5e0;
+  --primary: #66c0f4;               /* Steam blue — neon glow preserved */
+  --primary-foreground: #171a21;
+  --secondary: rgba(30, 36, 46, 0.8);
+  --secondary-foreground: #c7d5e0;
+  --muted: rgba(30, 36, 46, 0.6);
+  --muted-foreground: #8fbcdb;
+  --accent: rgba(102, 192, 244, 0.14);
+  --accent-foreground: #66c0f4;
+  --border: rgba(102, 192, 244, 0.16);
+  --input: rgba(102, 192, 244, 0.1);
+  --ring: #66c0f4;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -111,8 +132,13 @@
     min-height: 100vh;
     /* Use simple linear gradient instead of multiple radial-gradients —
        radial-gradients cause repaints on scroll on low-end devices */
-    background-image: linear-gradient(180deg, #0e141d 0%, #131923 100%);
+    background-image: linear-gradient(180deg, var(--background) 0%, #131923 100%);
     background-attachment: fixed;
+  }
+
+  /* Steam theme body gradient override (graphite tones) */
+  [data-accent="steam"] body {
+    background-image: linear-gradient(180deg, #171a21 0%, #1b222c 100%);
   }
 
   body {

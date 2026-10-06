@@ -2,11 +2,15 @@
 
 import { useState, useCallback, useRef, useEffect, memo, type ReactNode } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Gamepad2, MessageCircle, Plus, Users, Crown } from "lucide-react";
 import { CreateRoomModal } from "@/components/games/CreateRoomModal";
+import { AccountGate } from "@/components/auth/AccountGate";
 import type { UserRow } from "@/lib/supabase/client";
 import { haptic } from "@/lib/telegram/haptics";
+import { useUser } from "@/lib/UserContext";
+
+const GATE_DISMISS_KEY = "stakapp_gate_dismissed";
 
 interface Props {
   user: UserRow;
@@ -16,7 +20,26 @@ interface Props {
 export function AppShell({ user, children }: Props) {
   const router = useRouter();
   const pathname = usePathname();
+  const { updateUser } = useUser();
   const [showCreate, setShowCreate] = useState(false);
+  const [gateOpen, setGateOpen] = useState(false);
+
+  const isAnonymous = user.account_type === "anonymous";
+
+  // Show the account gate for anonymous users on first render of any page
+  // (unless dismissed for this browser)
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (user.account_type === "anonymous") {
+      let dismissed = false;
+      try {
+        dismissed = localStorage.getItem(GATE_DISMISS_KEY) === "1";
+      } catch { /* ignore */ }
+      setGateOpen(!dismissed);
+    } else {
+      setGateOpen(false);
+    }
+  }, [user.account_type]);
 
   // Derive active tab from pathname
   const activeTab: "games" | "friends" | "chill" | "profile" | null = (() => {
@@ -36,7 +59,6 @@ export function AppShell({ user, children }: Props) {
   const prevTabRef = useRef<string | null>(null);
 
   // When activeTab changes, set isMoving=true for 400ms → pill "detaches"
-  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (prevTabRef.current !== null && prevTabRef.current !== activeTab) {
       setIsMoving(true);
@@ -66,6 +88,23 @@ export function AppShell({ user, children }: Props) {
       router.push(path);
     }
   }, [pathname, router]);
+
+  const handleCreateTap = useCallback(() => {
+    haptic.impact("medium");
+    if (user.account_type === "anonymous") {
+      // Reopen the gate — locked feature
+      setGateOpen(true);
+      return;
+    }
+    setShowCreate(true);
+  }, [user.account_type]);
+
+  const dismissGate = useCallback(() => {
+    setGateOpen(false);
+    try {
+      localStorage.setItem(GATE_DISMISS_KEY, "1");
+    } catch { /* ignore */ }
+  }, []);
 
   return (
     <main className="min-h-screen flex flex-col">
@@ -131,6 +170,7 @@ export function AppShell({ user, children }: Props) {
             }}
           >
             <TabButton
+              tourId="nav-games"
               active={activeTab === "games"}
               onClick={() => navigate("/")}
               icon={<Gamepad2 className="w-5 h-5" />}
@@ -138,6 +178,7 @@ export function AppShell({ user, children }: Props) {
             />
 
             <TabButton
+              tourId="nav-friends"
               active={activeTab === "friends"}
               onClick={() => navigate("/friends")}
               icon={<Users className="w-5 h-5" />}
@@ -146,13 +187,11 @@ export function AppShell({ user, children }: Props) {
 
             {/* Central + button with neon glow */}
             <button
-              onClick={() => {
-                haptic.impact("medium");
-                setShowCreate(true);
-              }}
+              onClick={handleCreateTap}
               className="relative flex items-center justify-center shrink-0"
               style={{ width: 48, height: 48 }}
               aria-label="Создать комнату"
+              data-tour="nav-create"
             >
               <div
                 className="absolute inset-0 rounded-xl"
@@ -166,6 +205,7 @@ export function AppShell({ user, children }: Props) {
             </button>
 
             <TabButton
+              tourId="nav-chill"
               active={activeTab === "chill"}
               onClick={() => navigate("/chill")}
               icon={<MessageCircle className="w-5 h-5" />}
@@ -173,6 +213,7 @@ export function AppShell({ user, children }: Props) {
             />
 
             <TabButton
+              tourId="nav-profile"
               active={activeTab === "profile"}
               onClick={() => navigate("/profile")}
               icon={<Crown className="w-5 h-5" />}
@@ -182,19 +223,38 @@ export function AppShell({ user, children }: Props) {
         </nav>
       </div>
 
-      {/* Create room modal — global, accessible from any page */}
-      {showCreate && (
-        <CreateRoomModal
-          user={user}
-          defaultCategory="game"
-          defaultGame={null}
-          onClose={() => setShowCreate(false)}
-          onCreated={(roomId) => {
-            setShowCreate(false);
-            router.push(`/rooms/${roomId}`);
-          }}
-        />
-      )}
+      {/* Create room modal — global, accessible from any page (verified users only) */}
+      <AnimatePresence>
+        {showCreate && (
+          <CreateRoomModal
+            user={user}
+            defaultCategory="game"
+            defaultGame={null}
+            onClose={() => setShowCreate(false)}
+            onCreated={(roomId) => {
+              setShowCreate(false);
+              router.push(`/rooms/${roomId}`);
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Anonymous account gate (all pages) */}
+      <AnimatePresence>
+        {isAnonymous && gateOpen && (
+          <AccountGate
+            user={user}
+            hasTelegramContext={false}
+            onUpgraded={(u) => {
+              updateUser(u);
+              try {
+                localStorage.removeItem(GATE_DISMISS_KEY);
+              } catch { /* ignore */ }
+            }}
+            onDismiss={dismissGate}
+          />
+        )}
+      </AnimatePresence>
     </main>
   );
 }
@@ -203,30 +263,28 @@ export function AppShell({ user, children }: Props) {
  * TabButton — icon only, like TikTok.
  *
  * Active state: a FLOATING GLASS PILL that sits ON TOP of the icon.
- * Visual: slightly transparent bg, thin glowing border, drop shadow →
- *   looks like a separate piece of glass floating above the nav bar.
- *
  * Animation on tab change (isMoving=true):
- *   1. Pill DETACHES — scale up to 1.1 (grows slightly, looks "lifted off")
+ *   1. Pill DETACHES — scale up to 1.2
  *   2. SLIDES — layoutId spring physics moves it to new tab position
- *   3. SETTLES — scale back to 1 (drops into place)
- *
- * The isMoving flag is set by AppShell for 400ms when activeTab changes.
+ *   3. SETTLES — scale back to 1
  */
 const TabButton = memo(function TabButton({
   active,
   onClick,
   icon,
   isMoving,
+  tourId,
 }: {
   active: boolean;
   onClick: () => void;
   icon: ReactNode;
   isMoving: boolean;
+  tourId: string;
 }) {
   return (
     <button
       onClick={onClick}
+      data-tour={tourId}
       className={`relative flex items-center justify-center w-12 h-12 rounded-full transition-colors duration-150 ${
         active ? "text-white" : "text-muted-foreground"
       }`}

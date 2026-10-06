@@ -10,14 +10,17 @@ interface CallParticipant {
   photoUrl: string | null;
   isMuted: boolean;
   isSpeaking: boolean;
+  isHost: boolean;
   connectionState: "connecting" | "connected" | "failed";
 }
+
+type SignalType = "offer" | "answer" | "ice" | "join" | "leave" | "mute" | "kick";
 
 interface SignalMessage {
   id: number;
   from_user_id: number;
   to_user_id: number | null;
-  type: "offer" | "answer" | "ice" | "join" | "leave";
+  type: SignalType;
   payload: Record<string, unknown>;
   created_at: string;
 }
@@ -25,17 +28,25 @@ interface SignalMessage {
 interface Props {
   roomId: string;
   userId: number;
+  /** Announced in the join signal so others render the crown */
+  isHost?: boolean;
   userInfo: { username: string | null; firstName: string; photoUrl: string | null };
 }
 
 /**
- * useVoiceCall — WebRTC mesh voice call.
- * Auto-joins on mount (user enters room → immediately in call).
- * Signaling via Supabase Realtime on call_signals table.
+ * useVoiceCall — WebRTC mesh voice call with Discord-style features.
+ *
+ * - Auto-joins on mount (voice-first rooms)
+ * - Speaking detection via Web Audio AnalyserNode (local + remote)
+ * - Host moderation: force-mute / kick via call_signals ('mute' | 'kick')
+ * - Signaling via Supabase Realtime on call_signals table
  */
-export function useVoiceCall({ roomId, userId, userInfo }: Props) {
+export function useVoiceCall({ roomId, userId, isHost, userInfo }: Props) {
   const [isInCall, setIsInCall] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  /** Force-muted by the host — user cannot unmute until host mutes someone else/unmutes */
+  const [forceMuted, setForceMuted] = useState(false);
+  const [kicked, setKicked] = useState(false);
   const [participants, setParticipants] = useState<CallParticipant[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [micPermission, setMicPermission] = useState<"granted" | "denied" | "pending">("pending");
@@ -46,6 +57,14 @@ export function useVoiceCall({ roomId, userId, userInfo }: Props) {
   const lastSignalIdRef = useRef<number>(0);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const joinedRef = useRef<boolean>(false);
+  const forceMutedRef = useRef<boolean>(false);
+
+  // ── Speaking detection (Web Audio) ─────────────────────────────
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const analysersRef = useRef<Map<number, { analyser: AnalyserNode; data: Uint8Array; lastLevel: number }>>(new Map());
+  const speakingLoopRef = useRef<number>(0);
+  /** Speaking state emitted externally — throttled updates */
+  const speakingStateRef = useRef<Map<number, boolean>>(new Map());
 
   const ICE_SERVERS: RTCIceServer[] = [
     { urls: "stun:stun.l.google.com:19302" },
@@ -55,8 +74,112 @@ export function useVoiceCall({ roomId, userId, userInfo }: Props) {
     { urls: "stun:stun4.l.google.com:19302" },
   ];
 
+  /** Ensure an AudioContext exists (resume on iOS after user gesture) */
+  const ensureAudioContext = useCallback((): AudioContext | null => {
+    try {
+      if (!audioCtxRef.current) {
+        const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+        if (!Ctx) return null;
+        audioCtxRef.current = new Ctx();
+      }
+      if (audioCtxRef.current.state === "suspended") {
+        audioCtxRef.current.resume().catch(() => {});
+      }
+      return audioCtxRef.current;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  /** Attach an analyser to a MediaStream for speaking detection */
+  const attachAnalyser = useCallback(
+    (stream: MediaStream, uid: number) => {
+      const ctx = ensureAudioContext();
+      if (!ctx) return;
+      try {
+        // Clean up previous analyser for this user
+        const prev = analysersRef.current.get(uid);
+        if (prev) {
+          try { prev.analyser.disconnect(); } catch { /* ignore */ }
+          analysersRef.current.delete(uid);
+        }
+        const source = ctx.createMediaStreamSource(stream);
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 512;
+        analyser.smoothingTimeConstant = 0.6;
+        source.connect(analyser);
+        // NOTE: do NOT connect analyser to destination (echo)
+        analysersRef.current.set(uid, {
+          analyser,
+          data: new Uint8Array(analyser.frequencyBinCount),
+          lastLevel: 0,
+        });
+      } catch (err) {
+        console.error("[voice] attachAnalyser error:", err);
+      }
+    },
+    [ensureAudioContext]
+  );
+
+  /** RMS loop — updates isSpeaking on participants (threshold + smoothing) */
+  const startSpeakingLoop = useCallback(() => {
+    if (speakingLoopRef.current) return;
+    const tick = () => {
+      const changed: number[] = [];
+      for (const [uid, entry] of analysersRef.current) {
+        entry.analyser.getByteTimeDomainData(entry.data);
+        let sum = 0;
+        for (let i = 0; i < entry.data.length; i++) {
+          const v = (entry.data[i] - 128) / 128;
+          sum += v * v;
+        }
+        const rms = Math.sqrt(sum / entry.data.length);
+        // Smoothed level (attack fast, release slow)
+        const smoothed = rms > entry.lastLevel ? rms : entry.lastLevel * 0.85 + rms * 0.15;
+        entry.lastLevel = smoothed;
+        const speaking = smoothed > 0.045;
+        const prevSpeaking = speakingStateRef.current.get(uid) ?? false;
+        if (speaking !== prevSpeaking) {
+          speakingStateRef.current.set(uid, speaking);
+          changed.push(uid);
+        }
+      }
+      if (changed.length > 0) {
+        setParticipants((prev) =>
+          prev.map((p) =>
+            changed.includes(p.userId) ? { ...p, isSpeaking: speakingStateRef.current.get(p.userId) ?? false } : p
+          )
+        );
+      }
+      speakingLoopRef.current = requestAnimationFrame(tick);
+    };
+    speakingLoopRef.current = requestAnimationFrame(tick);
+  }, []);
+
+  const stopSpeakingLoop = useCallback(() => {
+    if (speakingLoopRef.current) {
+      cancelAnimationFrame(speakingLoopRef.current);
+      speakingLoopRef.current = 0;
+    }
+  }, []);
+
+  // iOS/Safari: AudioContext needs a user gesture — add a one-time listener
+  useEffect(() => {
+    const resume = () => {
+      ensureAudioContext();
+      document.removeEventListener("touchstart", resume);
+      document.removeEventListener("click", resume);
+    };
+    document.addEventListener("touchstart", resume, { passive: true });
+    document.addEventListener("click", resume);
+    return () => {
+      document.removeEventListener("touchstart", resume);
+      document.removeEventListener("click", resume);
+    };
+  }, [ensureAudioContext]);
+
   const sendSignal = useCallback(
-    async (type: SignalMessage["type"], payload: Record<string, unknown> = {}, toUserId?: number) => {
+    async (type: SignalType, payload: Record<string, unknown> = {}, toUserId?: number) => {
       try {
         await fetch(`/api/rooms/${roomId}/signal`, {
           method: "POST",
@@ -79,6 +202,16 @@ export function useVoiceCall({ roomId, userId, userInfo }: Props) {
       }
       return prev;
     });
+  }, []);
+
+  /** Apply mute state to the local mic track (respecting forceMuted) */
+  const applyMicState = useCallback((muted: boolean) => {
+    const stream = localStreamRef.current;
+    if (!stream) return;
+    const track = stream.getAudioTracks()[0];
+    if (track) {
+      track.enabled = !muted;
+    }
   }, []);
 
   const createPeerConnection = useCallback(
@@ -109,6 +242,8 @@ export function useVoiceCall({ roomId, userId, userInfo }: Props) {
         audio.play().catch(() => {
           // Autoplay blocked — will play on first interaction
         });
+        // Attach speaking detection to the remote stream
+        attachAnalyser(event.streams[0], remoteUserId);
       };
 
       pc.onconnectionstatechange = () => {
@@ -123,24 +258,85 @@ export function useVoiceCall({ roomId, userId, userInfo }: Props) {
       peerConnectionsRef.current.set(remoteUserId, pc);
       return pc;
     },
-    [sendSignal, updateParticipant]
+    [sendSignal, updateParticipant, attachAnalyser]
   );
+
+  /** Teardown without sending a leave signal (used on kick) */
+  const leaveCallInternal = useCallback(async () => {
+    for (const [, pc] of peerConnectionsRef.current) {
+      pc.close();
+    }
+    peerConnectionsRef.current.clear();
+    audioElementsRef.current.clear();
+
+    for (const [uid, entry] of analysersRef.current) {
+      try { entry.analyser.disconnect(); } catch { /* ignore */ }
+      if (uid !== userId) analysersRef.current.delete(uid);
+    }
+
+    if (localStreamRef.current) {
+      for (const track of localStreamRef.current.getTracks()) {
+        track.stop();
+      }
+      localStreamRef.current = null;
+    }
+
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
+
+    stopSpeakingLoop();
+    setIsInCall(false);
+    setIsMuted(false);
+    setParticipants([]);
+    joinedRef.current = false;
+    speakingStateRef.current.clear();
+  }, [stopSpeakingLoop, userId]);
 
   const handleSignal = useCallback(
     async (signal: SignalMessage) => {
       if (signal.from_user_id === userId) return;
+
+      // Moderation signals are addressed directly to the target
+      if (signal.type === "mute") {
+        if (signal.to_user_id === userId) {
+          forceMutedRef.current = true;
+          setForceMuted(true);
+          applyMicState(true);
+          setIsMuted(true);
+          updateParticipant(userId, { isMuted: true });
+          // Confirm state back to the host
+          sendSignal("ice", { muted_confirm: true }, signal.from_user_id).catch(() => {});
+        } else if (signal.from_user_id !== userId) {
+          // Another participant was muted — reflect their badge if known
+          updateParticipant(signal.to_user_id ?? -1, { isMuted: true });
+        }
+        return;
+      }
+
+      if (signal.type === "kick") {
+        if (signal.to_user_id === userId) {
+          setKicked(true);
+          forceMutedRef.current = false;
+          setForceMuted(false);
+          await leaveCallInternal();
+        }
+        return;
+      }
 
       switch (signal.type) {
         case "join": {
           // New user joined — create offer to them
           setParticipants((prev) => {
             if (!prev.some((p) => p.userId === signal.from_user_id)) {
-              const payload = signal.payload as { username?: string; firstName?: string; photoUrl?: string };
+              const payload = signal.payload as { username?: string; firstName?: string; photoUrl?: string; isHost?: boolean };
               return [...prev, {
                 userId: signal.from_user_id,
                 username: payload?.username ?? null,
                 firstName: payload?.firstName ?? "Игрок",
                 photoUrl: payload?.photoUrl ?? null,
+                isHost: payload?.isHost ?? false,
                 isMuted: false,
                 isSpeaking: false,
                 connectionState: "connecting",
@@ -177,6 +373,11 @@ export function useVoiceCall({ roomId, userId, userInfo }: Props) {
         }
 
         case "ice": {
+          // Reused as a generic channel: muted_confirm badge update
+          if (signal.payload?.muted_confirm) {
+            updateParticipant(signal.from_user_id, { isMuted: true });
+            break;
+          }
           const pc = peerConnectionsRef.current.get(signal.from_user_id);
           if (pc) {
             try {
@@ -199,12 +400,17 @@ export function useVoiceCall({ roomId, userId, userInfo }: Props) {
             audio.srcObject = null;
             audioElementsRef.current.delete(signal.from_user_id);
           }
+          const entry = analysersRef.current.get(signal.from_user_id);
+          if (entry) {
+            try { entry.analyser.disconnect(); } catch { /* ignore */ }
+            analysersRef.current.delete(signal.from_user_id);
+          }
           setParticipants((prev) => prev.filter((p) => p.userId !== signal.from_user_id));
           break;
         }
       }
     },
-    [userId, createPeerConnection, sendSignal, updateParticipant]
+    [userId, createPeerConnection, sendSignal, updateParticipant, applyMicState, leaveCallInternal]
   );
 
   const joinCall = useCallback(async () => {
@@ -225,6 +431,9 @@ export function useVoiceCall({ roomId, userId, userInfo }: Props) {
       });
       localStreamRef.current = stream;
       setMicPermission("granted");
+
+      // Local speaking detection
+      attachAnalyser(stream, userId);
 
       // Subscribe to signaling
       const channel = supabase
@@ -269,6 +478,7 @@ export function useVoiceCall({ roomId, userId, userInfo }: Props) {
         username: userInfo.username,
         firstName: userInfo.firstName,
         photoUrl: userInfo.photoUrl,
+        isHost,
       });
 
       setIsInCall(true);
@@ -277,48 +487,32 @@ export function useVoiceCall({ roomId, userId, userInfo }: Props) {
         username: userInfo.username,
         firstName: "Вы",
         photoUrl: userInfo.photoUrl,
+        isHost,
         isMuted: false,
         isSpeaking: false,
         connectionState: "connected",
       }]);
+
+      startSpeakingLoop();
     } catch (err) {
       console.error("[voice] joinCall error:", err);
       setMicPermission("denied");
       setError(err instanceof Error ? err.message : "Нет доступа к микрофону");
       joinedRef.current = false;
     }
-  }, [roomId, userId, userInfo, handleSignal, sendSignal]);
+  }, [roomId, userId, isHost, userInfo, handleSignal, sendSignal, attachAnalyser, startSpeakingLoop]);
 
   const leaveCall = useCallback(async () => {
     await sendSignal("leave", {});
-
-    for (const [, pc] of peerConnectionsRef.current) {
-      pc.close();
-    }
-    peerConnectionsRef.current.clear();
-    audioElementsRef.current.clear();
-
-    if (localStreamRef.current) {
-      for (const track of localStreamRef.current.getTracks()) {
-        track.stop();
-      }
-      localStreamRef.current = null;
-    }
-
-    if (channelRef.current) {
-      supabase.removeChannel(channelRef.current);
-      channelRef.current = null;
-    }
-
-    setIsInCall(false);
-    setIsMuted(false);
-    setParticipants([]);
-    joinedRef.current = false;
-  }, [sendSignal]);
+    await leaveCallInternal();
+  }, [sendSignal, leaveCallInternal]);
 
   const toggleMute = useCallback(() => {
-    if (localStreamRef.current) {
-      const audioTrack = localStreamRef.current.getAudioTracks()[0];
+    // Force-muted by host — cannot unmute
+    if (forceMutedRef.current) return;
+    const stream = localStreamRef.current;
+    if (stream) {
+      const audioTrack = stream.getAudioTracks()[0];
       if (audioTrack) {
         audioTrack.enabled = !audioTrack.enabled;
         setIsMuted(!audioTrack.enabled);
@@ -327,25 +521,78 @@ export function useVoiceCall({ roomId, userId, userInfo }: Props) {
     }
   }, [userId, updateParticipant]);
 
-  // Auto-join on mount
+  // ── Host moderation ────────────────────────────────────────────
+
+  /** Kick a participant (server enforces host-only): removes from room + force-leaves their call */
+  const kickParticipant = useCallback(
+    async (targetId: number) => {
+      try {
+        await fetch(`/api/rooms/${roomId}/moderate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ action: "kick", target_id: targetId }),
+        });
+        // Optimistic local cleanup
+        handleSignal({
+          id: Date.now(),
+          from_user_id: targetId,
+          to_user_id: null,
+          type: "leave",
+          payload: {},
+          created_at: new Date().toISOString(),
+        });
+      } catch (err) {
+        console.error("[voice] kick error:", err);
+      }
+    },
+    [roomId, handleSignal]
+  );
+
+  /** Force-mute a participant (server enforces host-only) */
+  const muteParticipant = useCallback(
+    async (targetId: number) => {
+      try {
+        await fetch(`/api/rooms/${roomId}/moderate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ action: "mute", target_id: targetId }),
+        });
+        updateParticipant(targetId, { isMuted: true });
+      } catch (err) {
+        console.error("[voice] mute error:", err);
+      }
+    },
+    [roomId, updateParticipant]
+  );
+
+  // Auto-join on mount (deferred so setState is not synchronous in effect)
   useEffect(() => {
-    joinCall();
+    const t = setTimeout(() => {
+      joinCall();
+    }, 0);
     return () => {
+      clearTimeout(t);
       if (joinedRef.current) {
         leaveCall();
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   return {
     isInCall,
     isMuted,
+    forceMuted,
+    kicked,
     participants,
     error,
     micPermission,
     joinCall,
     leaveCall,
     toggleMute,
+    kickParticipant,
+    muteParticipant,
   };
 }

@@ -33,6 +33,16 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 
 // ─── Type definitions ────────────────────────────────────────────────
 
+export type AccountType = 'anonymous' | 'telegram' | 'steam'
+
+export interface TelegramLinkData {
+  id: number
+  username: string | null
+  first_name: string
+  last_name: string | null
+  photo_url: string | null
+}
+
 export interface UserRow {
   id: number
   username: string | null
@@ -43,10 +53,18 @@ export interface UserRow {
   steam_id: string | null
   steam_data: Record<string, unknown> | null
   steam_linked_at: string | null
+  /** 'anonymous' — limited profile; 'telegram' — TG primary; 'steam' — Steam primary */
+  account_type: AccountType
+  /** Steam-primary users: snapshot of the linked Telegram profile */
+  tg_link_data: TelegramLinkData | null
+  /** Steam-primary users: show the linked TG profile to other users? */
+  show_tg_profile: boolean
+  /** Onboarding tour completed */
+  onboarding_done: boolean
   trust_score: number
   reviews_count: number
   matches_count: number
-  theme_color: 'cyan' | 'pink' | 'green' | 'amber'
+  theme_color: ThemeColor
   is_online: boolean
   last_seen_at: string
   badges: string[]
@@ -108,17 +126,30 @@ export interface ReviewRow {
 }
 
 // ─── Static game data ───────────────────────────────────────────────
+// banner sources:
+//  - Steam games: official library_600x900 art from Steam CDN
+//  - Non-Steam games (valorant, fortnite): self-hosted in /public/games
 
-export const THEME_COLORS = {
-  cyan:  { primary: '#00f0ff', glow: 'rgba(0, 240, 255, 0.4)',  name: 'Neon Cyan' },
-  pink:  { primary: '#ff3ec9', glow: 'rgba(255, 62, 201, 0.4)', name: 'Neon Pink' },
-  green: { primary: '#39ff14', glow: 'rgba(57, 255, 20, 0.4)',  name: 'Cyber Green' },
-  amber: { primary: '#ffb627', glow: 'rgba(255, 182, 39, 0.4)', name: 'Amber Glow' },
-} as const
+export interface GameDef {
+  code: string
+  name: string
+  fullName: string
+  color: string
+  gradient: string
+  formats: string[]
+  steamAppId: number | null
+  banner: string | null
+  /** Cooperative PvE game (affects format labels) */
+  coop?: boolean
+  /** Russian aliases for search autocomplete */
+  ru?: string[]
+}
 
-export type ThemeColor = keyof typeof THEME_COLORS
+const steamBanner = (appId: number) =>
+  `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/library_600x900_2x.jpg`
 
-export const GAMES = [
+export const GAMES: GameDef[] = [
+  // ── Competitive shooters / MOBA ──
   {
     code: 'cs2',
     name: 'CS2',
@@ -127,7 +158,8 @@ export const GAMES = [
     gradient: 'linear-gradient(135deg, #F7A600 0%, #D4880A 100%)',
     formats: ['2x2', '3x3', '5x5', 'duo'],
     steamAppId: 730,
-    banner: 'https://cdn.cloudflare.steamstatic.com/steam/apps/730/library_600x900_2x.jpg',
+    banner: steamBanner(730),
+    ru: ['кс', 'кс2', 'контра', 'стрелялка'],
   },
   {
     code: 'dota2',
@@ -137,7 +169,8 @@ export const GAMES = [
     gradient: 'linear-gradient(135deg, #C0392B 0%, #7B241C 100%)',
     formats: ['3x3', '5x5', 'duo'],
     steamAppId: 570,
-    banner: 'https://cdn.cloudflare.steamstatic.com/steam/apps/570/library_600x900_2x.jpg',
+    banner: steamBanner(570),
+    ru: ['дота', 'дота2', 'моба'],
   },
   {
     code: 'deadlock',
@@ -147,7 +180,8 @@ export const GAMES = [
     gradient: 'linear-gradient(135deg, #8B0000 0%, #4A0000 100%)',
     formats: ['3x3', '5x5', 'duo'],
     steamAppId: 1422450,
-    banner: 'https://cdn.cloudflare.steamstatic.com/steam/apps/1422450/library_600x900_2x.jpg',
+    banner: steamBanner(1422450),
+    ru: ['дедлок'],
   },
   {
     code: 'valorant',
@@ -157,7 +191,8 @@ export const GAMES = [
     gradient: 'linear-gradient(135deg, #FF4655 0%, #BD3944 100%)',
     formats: ['2x2', '5x5', 'duo'],
     steamAppId: null,
-    banner: null,
+    banner: '/games/valorant.jpg',
+    ru: ['валорант', 'вало'],
   },
   {
     code: 'apex',
@@ -167,7 +202,8 @@ export const GAMES = [
     gradient: 'linear-gradient(135deg, #DA3030 0%, #8C1F1F 100%)',
     formats: ['duo', '3x3'],
     steamAppId: 1172470,
-    banner: 'https://cdn.cloudflare.steamstatic.com/steam/apps/1172470/library_600x900_2x.jpg',
+    banner: steamBanner(1172470),
+    ru: ['апекс', 'апex'],
   },
   {
     code: 'marvel_rivals',
@@ -177,7 +213,8 @@ export const GAMES = [
     gradient: 'linear-gradient(135deg, #E62429 0%, #8B0000 100%)',
     formats: ['3x3', '5x5', 'duo'],
     steamAppId: 2767030,
-    banner: 'https://cdn.cloudflare.steamstatic.com/steam/apps/2767030/library_600x900_2x.jpg',
+    banner: steamBanner(2767030),
+    ru: ['марвел', 'ривалс'],
   },
   {
     code: 'rust',
@@ -187,17 +224,8 @@ export const GAMES = [
     gradient: 'linear-gradient(135deg, #C16850 0%, #83452F 100%)',
     formats: ['3x3', '5x5'],
     steamAppId: 252490,
-    banner: 'https://cdn.cloudflare.steamstatic.com/steam/apps/252490/library_600x900_2x.jpg',
-  },
-  {
-    code: 'human_fall_flat',
-    name: 'Human Fall Flat',
-    fullName: 'Human Fall Flat',
-    color: '#9B59B6',
-    gradient: 'linear-gradient(135deg, #9B59B6 0%, #6C3483 100%)',
-    formats: ['duo', '3x3', '5x5'],
-    steamAppId: 477160,
-    banner: 'https://cdn.cloudflare.steamstatic.com/steam/apps/477160/library_600x900_2x.jpg',
+    banner: steamBanner(252490),
+    ru: ['раст', 'рафт'],
   },
   {
     code: 'pubg',
@@ -207,7 +235,8 @@ export const GAMES = [
     gradient: 'linear-gradient(135deg, #F5A623 0%, #B87D0A 100%)',
     formats: ['duo', '3x3', '5x5'],
     steamAppId: 578080,
-    banner: 'https://cdn.cloudflare.steamstatic.com/steam/apps/578080/library_600x900_2x.jpg',
+    banner: steamBanner(578080),
+    ru: ['пабг', 'батлграунд'],
   },
   {
     code: 'warframe',
@@ -217,7 +246,8 @@ export const GAMES = [
     gradient: 'linear-gradient(135deg, #0099CC 0%, #005577 100%)',
     formats: ['3x3', '5x5'],
     steamAppId: 230410,
-    banner: 'https://cdn.cloudflare.steamstatic.com/steam/apps/230410/library_600x900_2x.jpg',
+    banner: steamBanner(230410),
+    ru: ['варфрейм'],
   },
   {
     code: 'overwatch2',
@@ -226,8 +256,10 @@ export const GAMES = [
     color: '#F99E1A',
     gradient: 'linear-gradient(135deg, #F99E1A 0%, #B86E0A 100%)',
     formats: ['3x3', '5x5', 'duo'],
-    steamAppId: null,
-    banner: null,
+    // FIX: Overwatch 2 IS on Steam since Aug 2023 — appid 2357570
+    steamAppId: 2357570,
+    banner: steamBanner(2357570),
+    ru: ['овервотч', 'ов2', 'овервотч'],
   },
   {
     code: 'fortnite',
@@ -237,10 +269,169 @@ export const GAMES = [
     gradient: 'linear-gradient(135deg, #00B4D8 0%, #007088 100%)',
     formats: ['duo', '3x3', '5x5'],
     steamAppId: null,
-    banner: null,
+    banner: '/games/fortnite.jpg',
+    ru: ['фортнайт', 'фортик'],
   },
-] as const
+  {
+    code: 'human_fall_flat',
+    name: 'Human Fall Flat',
+    fullName: 'Human Fall Flat',
+    color: '#9B59B6',
+    gradient: 'linear-gradient(135deg, #9B59B6 0%, #6C3483 100%)',
+    formats: ['duo', 'trio', 'squad', 'full'],
+    coop: true,
+    steamAppId: 477160,
+    banner: steamBanner(477160),
+    ru: ['человечек', 'хаман фол флат'],
+  },
 
+  // ── Co-op classics (added) ──
+  {
+    code: 'helldivers2',
+    name: 'Helldivers 2',
+    fullName: 'Helldivers 2',
+    color: '#FFE600',
+    gradient: 'linear-gradient(135deg, #FFE600 0%, #B89D00 100%)',
+    formats: ['duo', 'trio', 'squad', 'full'],
+    coop: true,
+    steamAppId: 553850,
+    banner: steamBanner(553850),
+    ru: ['хелдайверы', 'адовые псы', 'хеллдайверс'],
+  },
+  {
+    code: 'it_takes_two',
+    name: 'It Takes Two',
+    fullName: 'It Takes Two',
+    color: '#E8C547',
+    gradient: 'linear-gradient(135deg, #E8C547 0%, #A3852B 100%)',
+    formats: ['duo'],
+    coop: true,
+    steamAppId: 1426210,
+    banner: steamBanner(1426210),
+    ru: ['двое', 'на двоих', 'ит тейкс ту'],
+  },
+  {
+    code: 'l4d2',
+    name: 'Left 4 Dead 2',
+    fullName: 'Left 4 Dead 2',
+    color: '#7D8B4C',
+    gradient: 'linear-gradient(135deg, #7D8B4C 0%, #4A5430 100%)',
+    formats: ['duo', 'trio', 'squad', 'full'],
+    coop: true,
+    steamAppId: 550,
+    banner: steamBanner(550),
+    ru: ['л4д', 'лефт 4 дед', 'выжившие'],
+  },
+  {
+    code: 'phasmophobia',
+    name: 'Phasmophobia',
+    fullName: 'Phasmophobia',
+    color: '#4EE1A0',
+    gradient: 'linear-gradient(135deg, #4EE1A0 0%, #1F6B4A 100%)',
+    formats: ['duo', 'trio', 'squad'],
+    coop: true,
+    steamAppId: 739630,
+    banner: steamBanner(739630),
+    ru: ['фазмофобия', 'фазмо', 'призраки'],
+  },
+  {
+    code: 'lethal_company',
+    name: 'Lethal Company',
+    fullName: 'Lethal Company',
+    color: '#C4A35A',
+    gradient: 'linear-gradient(135deg, #C4A35A 0%, #6E5A2C 100%)',
+    formats: ['duo', 'trio', 'squad', 'full'],
+    coop: true,
+    steamAppId: 1966720,
+    banner: steamBanner(1966720),
+    ru: ['летал', 'летальная компания', 'лесал'],
+  },
+  {
+    code: 'terraria',
+    name: 'Terraria',
+    fullName: 'Terraria',
+    color: '#5AA9E6',
+    gradient: 'linear-gradient(135deg, #5AA9E6 0%, #2D6A9F 100%)',
+    formats: ['duo', 'trio', 'squad', 'full'],
+    coop: true,
+    steamAppId: 105600,
+    banner: steamBanner(105600),
+    ru: ['террария', 'терка'],
+  },
+  {
+    code: 'valheim',
+    name: 'Valheim',
+    fullName: 'Valheim',
+    color: '#6ED3C7',
+    gradient: 'linear-gradient(135deg, #6ED3C7 0%, #2E7D74 100%)',
+    formats: ['duo', 'trio', 'squad', 'full'],
+    coop: true,
+    steamAppId: 892970,
+    banner: steamBanner(892970),
+    ru: ['вальхейм', 'викинги'],
+  },
+  {
+    code: 'portal2',
+    name: 'Portal 2',
+    fullName: 'Portal 2',
+    color: '#5B8DEF',
+    gradient: 'linear-gradient(135deg, #5B8DEF 0%, #2D4FA1 100%)',
+    formats: ['duo'],
+    coop: true,
+    steamAppId: 620,
+    banner: steamBanner(620),
+    ru: ['портал', 'портал 2', 'глэдос'],
+  },
+  {
+    code: 'deep_rock',
+    name: 'Deep Rock Galactic',
+    fullName: 'Deep Rock Galactic',
+    color: '#FFA51F',
+    gradient: 'linear-gradient(135deg, #FFA51F 0%, #9C5E00 100%)',
+    formats: ['duo', 'trio', 'squad', 'full'],
+    coop: true,
+    steamAppId: 548430,
+    banner: steamBanner(548430),
+    ru: ['дип рок', 'гномы', 'дипрок'],
+  },
+  {
+    code: 'stardew_valley',
+    name: 'Stardew Valley',
+    fullName: 'Stardew Valley',
+    color: '#63C74D',
+    gradient: 'linear-gradient(135deg, #63C74D 0%, #2E7D32 100%)',
+    formats: ['duo', 'trio', 'squad', 'full'],
+    coop: true,
+    steamAppId: 413150,
+    banner: steamBanner(413150),
+    ru: ['стардью', 'долина звёзд', 'ферма'],
+  },
+]
+
+// Search helper for autocomplete (name + fullName + RU aliases, case-insensitive)
+export function searchGames(query: string): GameDef[] {
+  const q = query.trim().toLowerCase()
+  if (!q) return GAMES
+  return GAMES.filter(
+    (g) =>
+      g.name.toLowerCase().includes(q) ||
+      g.fullName.toLowerCase().includes(q) ||
+      (g.ru ?? []).some((a) => a.includes(q))
+  )
+}
+
+// Format labels (RU)
+export const FORMAT_LABELS: Record<string, string> = {
+  '2x2': '2×2',
+  '3x3': '3×3',
+  '5x5': '5×5',
+  duo: 'Дуо',
+  trio: 'Трио',
+  squad: 'Отряд',
+  full: 'Полный состав',
+}
+
+// Legacy casual topics (kept for old rooms display; no longer selectable at creation)
 export const CASUAL_TOPICS = [
   { code: 'talk',     label: 'Поговорить по душам', emoji: '💬' },
   { code: 'cinema',   label: 'Обсудить кино',       emoji: '🎬' },
@@ -258,3 +449,16 @@ export const REVIEW_TYPES = {
   toxic:      { label: 'Токсик',           emoji: '🤬', score: -3 },
   leaver:     { label: 'Слил катку',       emoji: '💀', score: -2 },
 } as const
+
+// ─── Themes ─────────────────────────────────────────────────────────
+// 'steam' — Classic Steam style: dark graphite/blue, neon glow preserved
+
+export const THEME_COLORS = {
+  cyan:  { primary: '#00f0ff', glow: 'rgba(0, 240, 255, 0.4)',  name: 'Neon Cyan' },
+  pink:  { primary: '#ff3ec9', glow: 'rgba(255, 62, 201, 0.4)', name: 'Neon Pink' },
+  green: { primary: '#39ff14', glow: 'rgba(57, 255, 20, 0.4)',  name: 'Cyber Green' },
+  amber: { primary: '#ffb627', glow: 'rgba(255, 182, 39, 0.4)', name: 'Amber Glow' },
+  steam: { primary: '#66c0f4', glow: 'rgba(102, 192, 244, 0.4)', name: 'Steam Classic' },
+} as const
+
+export type ThemeColor = keyof typeof THEME_COLORS

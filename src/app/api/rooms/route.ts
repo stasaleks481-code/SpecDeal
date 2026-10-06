@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase, GAMES, CASUAL_TOPICS, type RoomRow } from '@/lib/supabase/client'
+import { supabase, GAMES, CASUAL_TOPICS, type RoomRow, type UserRow } from '@/lib/supabase/client'
+import { getUserAllowedForAction, ANON_ERROR } from '@/lib/server/auth-helpers'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -57,9 +58,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
 /**
  * POST /api/rooms
- * Body: { category, game_name?, game_format?, play_style?, topic_tags?, title, max_players }
+ * Body: { category, game_name?, game_format?, play_style?, topic_tags?, title?, max_players }
  *
  * Creates a new room. Host is auto-added as first member.
+ * Title is OPTIONAL — if empty, a friendly default is generated.
+ * Anonymous accounts cannot create rooms.
  */
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const userId = req.headers.get('x-user-id')
@@ -72,6 +75,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'Invalid user id' }, { status: 400 })
   }
 
+  // Anonymous accounts cannot create rooms
+  const host: UserRow | null = await getUserAllowedForAction(tgId, 'create_room')
+  if (!host) {
+    const user = await supabase.from('users').select('account_type').eq('id', tgId).maybeSingle()
+    if ((user.data as { account_type?: string } | null)?.account_type === 'anonymous') {
+      return NextResponse.json({ error: ANON_ERROR, error_code: 'ACCOUNT_REQUIRED' }, { status: 403 })
+    }
+    return NextResponse.json({ error: 'User not found' }, { status: 404 })
+  }
+
   const body = await req.json().catch(() => ({}))
 
   // Validate category
@@ -80,10 +93,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'Invalid category' }, { status: 400 })
   }
 
-  // Validate title
-  const title = (body.title as string)?.trim()
-  if (!title || title.length < 3 || title.length > 50) {
-    return NextResponse.json({ error: 'Title must be 3-50 chars' }, { status: 400 })
+  // Validate title — OPTIONAL: auto-generate when empty
+  let title = (body.title as string)?.trim() ?? ''
+  if (title) {
+    if (title.length < 1 || title.length > 50) {
+      return NextResponse.json({ error: 'Title must be 1-50 chars' }, { status: 400 })
+    }
+  } else {
+    // Friendly auto-title based on category and host
+    title = category === 'game'
+      ? `Лобби ${host.first_name}`
+      : `Комната ${host.first_name}`
   }
 
   // Validate max_players
@@ -106,12 +126,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     gameFormat = body.game_format ?? '5x5'
     playStyle = body.play_style ?? 'chill'
   } else {
-    topicTags = Array.isArray(body.topic_tags) ? body.topic_tags : ['talk']
-    topicTags = topicTags.filter((t) => CASUAL_TOPICS.find((c) => c.code === t))
-    if (topicTags.length === 0) topicTags = ['talk']
+    // Topics removed from creation form — keep legacy tags only if supplied
+    topicTags = Array.isArray(body.topic_tags)
+      ? body.topic_tags.filter((t: string) => CASUAL_TOPICS.find((c) => c.code === t))
+      : []
   }
 
   // Insert room
+  // voice_enabled is always true — rooms are voice-first now
   const { data: room, error: roomErr } = await supabase
     .from('rooms')
     .insert({
@@ -124,7 +146,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       title,
       max_players: maxPlayers,
       is_active: true,
-      voice_enabled: false,
+      voice_enabled: true,
     })
     .select('*')
     .single<RoomRow>()

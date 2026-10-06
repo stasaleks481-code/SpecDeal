@@ -7,11 +7,15 @@ export const dynamic = 'force-dynamic'
 /**
  * PATCH /api/users/me
  * Headers: X-User-Id (set by middleware from tg_uid cookie)
- * Body: { theme_color?: 'cyan'|'pink'|'green'|'amber', username?, photo_url? }
+ * Body: {
+ *   theme_color?: 'cyan'|'pink'|'green'|'amber'|'steam',
+ *   username?, photo_url?,
+ *   show_tg_profile?: boolean,   — Steam-primary: show linked TG profile to others
+ *   onboarding_done?: boolean,   — tour completion flag
+ * }
  *
  * Updates the current user's profile. Returns the updated user row.
- * Also sets a `theme_color` cookie so the theme persists on next page load
- * (cookie-based, not just localStorage — survives across sessions).
+ * Also sets a `theme_color` cookie so the theme persists on next page load.
  */
 export async function PATCH(req: NextRequest): Promise<NextResponse> {
   const userId = req.headers.get('x-user-id')
@@ -37,6 +41,12 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
 
   if (body.username !== undefined) updates.username = body.username
   if (body.photo_url !== undefined) updates.photo_url = body.photo_url
+  if (typeof body.show_tg_profile === 'boolean') {
+    updates.show_tg_profile = body.show_tg_profile
+  }
+  if (typeof body.onboarding_done === 'boolean') {
+    updates.onboarding_done = body.onboarding_done
+  }
 
   const { data, error } = await supabase
     .from('users')

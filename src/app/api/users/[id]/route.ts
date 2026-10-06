@@ -24,13 +24,20 @@ export async function GET(
     .select(`
       id, username, first_name, last_name, photo_url,
       steam_id, trust_score, reviews_count, matches_count,
-      badges, is_online, last_seen_at, created_at
+      badges, is_online, last_seen_at, created_at,
+      account_type, tg_link_data, show_tg_profile, steam_linked_at
     `)
     .eq('id', targetId)
     .maybeSingle()
 
   if (error || !user) {
     return NextResponse.json({ error: 'User not found' }, { status: 404 })
+  }
+
+  // Privacy: hide the linked TG profile if the user opted out
+  const u = user as Record<string, unknown>
+  if (!u.show_tg_profile) {
+    u.tg_link_data = null
   }
 
   // Get recent reviews

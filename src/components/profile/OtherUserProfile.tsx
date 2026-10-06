@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Star, Users, MessageCircle, UserPlus, Crown, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Star, Users, MessageCircle, UserPlus, Crown, ShieldCheck, Gamepad2, Send } from "lucide-react";
 import { REVIEW_TYPES, type UserRow } from "@/lib/supabase/client";
 import { useTelegramBackButton } from "@/lib/telegram/useBackButton";
 
@@ -20,6 +20,15 @@ interface OtherUser {
   is_online: boolean;
   last_seen_at: string;
   created_at: string;
+  account_type?: string;
+  tg_link_data?: {
+    id: number;
+    username: string | null;
+    first_name: string;
+    last_name: string | null;
+    photo_url: string | null;
+  } | null;
+  show_tg_profile?: boolean;
 }
 
 interface Review {
@@ -180,13 +189,21 @@ export function OtherUserProfile({ currentUser }: Props) {
               {user.username && (
                 <p className="text-sm text-muted-foreground mt-0.5">@{user.username}</p>
               )}
-              <div className="flex items-center gap-1.5 mt-2">
+              <div className="flex items-center gap-1.5 mt-2 flex-wrap">
                 <span
                   className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
                   style={{ background: `${trustColor}20`, color: trustColor, border: `1px solid ${trustColor}40` }}
                 >
                   {trustLevel} доверие
                 </span>
+                {user.steam_id && (
+                  <span
+                    className="text-[10px] px-2 py-0.5 rounded-full font-semibold flex items-center gap-1"
+                    style={{ background: "#1b2838", border: "1px solid #66c0f440", color: "#66c0f4" }}
+                  >
+                    <Gamepad2 className="w-3 h-3" /> Steam подключен
+                  </span>
+                )}
                 <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
                   {user.is_online ? "🟢 онлайн" : "⚪ оффлайн"}
                 </span>
@@ -215,6 +232,34 @@ export function OtherUserProfile({ currentUser }: Props) {
           )}
         </div>
       </div>
+
+      {/* Linked Telegram profile (Steam-primary users, respecting privacy toggle) */}
+      {user.tg_link_data && (
+        <div className="glass-card p-4">
+          <h3 className="font-semibold text-sm flex items-center gap-2 mb-3">
+            <Send className="w-4 h-4 text-[#229ED9]" />
+            Telegram-профиль
+          </h3>
+          <div className="flex items-center gap-3 p-3 rounded-xl border border-border" style={{ background: "rgba(255,255,255,0.03)" }}>
+            {user.tg_link_data.photo_url ? (
+              <img src={user.tg_link_data.photo_url} alt="" className="w-10 h-10 rounded-full object-cover" />
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-sm font-bold">
+                {user.tg_link_data.first_name?.[0] ?? "?"}
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold truncate">
+                {user.tg_link_data.first_name} {user.tg_link_data.last_name ?? ""}
+              </p>
+              {user.tg_link_data.username && (
+                <p className="text-xs text-muted-foreground">@{user.tg_link_data.username}</p>
+              )}
+            </div>
+            <ShieldCheck className="w-4 h-4 text-green-400 shrink-0" />
+          </div>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-2">

@@ -5,6 +5,44 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 /**
+ * GET /api/reviews?about=me
+ * Returns reviews about the current user (with author info), newest first.
+ */
+export async function GET(req: NextRequest): Promise<NextResponse> {
+  const userId = req.headers.get('x-user-id')
+  if (!userId) {
+    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+  }
+
+  const tgId = parseInt(userId, 10)
+  if (isNaN(tgId)) {
+    return NextResponse.json({ error: 'Invalid user id' }, { status: 400 })
+  }
+
+  const url = new URL(req.url)
+  if (url.searchParams.get('about') !== 'me') {
+    return NextResponse.json({ error: 'Use ?about=me' }, { status: 400 })
+  }
+
+  const { data, error } = await supabase
+    .from('reviews')
+    .select(`
+      id, rating_type, comment, room_id, created_at,
+      from_user:users!reviews_from_user_id_fkey(id, username, first_name, last_name, photo_url)
+    `)
+    .eq('to_user_id', tgId)
+    .order('created_at', { ascending: false })
+    .limit(30)
+
+  if (error) {
+    console.error('[reviews] GET error:', error)
+    return NextResponse.json({ error: 'DB error' }, { status: 500 })
+  }
+
+  return NextResponse.json({ reviews: data ?? [] })
+}
+
+/**
  * POST /api/reviews
  * Body: { to_user_id: number, rating_type: string, comment?: string, room_id?: string }
  * Leaves a review for another user. Updates their trust_score + reviews_count.
