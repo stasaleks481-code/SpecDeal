@@ -29,9 +29,10 @@ export function AppShell({ user, children }: Props) {
 
   // Derive active tab from pathname
   const activeTab: "games" | "friends" | "chill" | "profile" | null = (() => {
-    if (pathname === "/") return "games"; // default; /?tab=rooms handled in page
+    if (pathname === "/") return "games";
     if (pathname.startsWith("/friends")) return "friends";
     if (pathname.startsWith("/dm")) return "friends";
+    if (pathname.startsWith("/chill")) return "chill";
     if (pathname.startsWith("/profile")) return "profile";
     if (pathname.startsWith("/leaderboard")) return "profile";
     if (pathname.startsWith("/users")) return "profile";
@@ -42,6 +43,7 @@ export function AppShell({ user, children }: Props) {
   // Context label for header
   const contextLabel = (() => {
     if (pathname === "/") return "LFG Hub";
+    if (pathname.startsWith("/chill")) return "Chill Zone";
     if (pathname.startsWith("/friends")) return "Friends";
     if (pathname.startsWith("/dm")) return "Messages";
     if (pathname.startsWith("/profile")) return "Profile";
@@ -156,7 +158,7 @@ export function AppShell({ user, children }: Props) {
 
             <TabButton
               active={activeTab === "chill"}
-              onClick={() => navigate("/?tab=rooms")}
+              onClick={() => navigate("/chill")}
               icon={<MessageCircle className="w-5 h-5" />}
             />
 
@@ -187,15 +189,9 @@ export function AppShell({ user, children }: Props) {
 }
 
 /**
- * TabButton — icon only (no text label, like TikTok).
- * When active: renders the liquid glass pill via layoutId.
- * The pill appears at the new active position from below (y: +12),
- * rises up to settle (y: 0), then on next tab change it disappears.
- *
- * Because all tabs share the same layoutId="bottom-nav-active",
- * Framer Motion automatically animates the pill from old → new position.
- * The 'initial' prop with y:12 makes it APPEAR from below like a popup,
- * not slide from the previous tab.
+ * TabButton — icon only, like TikTok.
+ * Active state: subtle gray oval that SLIDES between tabs via layoutId.
+ * No popup, no scale, no y-offset — just clean horizontal slide.
  */
 const TabButton = memo(function TabButton({
   active,
@@ -209,33 +205,18 @@ const TabButton = memo(function TabButton({
   return (
     <button
       onClick={onClick}
-      className={`relative flex items-center justify-center w-12 h-12 rounded-xl transition-colors ${
-        active ? "text-primary" : "text-muted-foreground hover:text-foreground"
+      className={`relative flex items-center justify-center w-12 h-12 rounded-full transition-colors duration-150 ${
+        active ? "text-white" : "text-muted-foreground"
       }`}
     >
       {active && (
         <motion.div
           layoutId="bottom-nav-active"
-          className="absolute inset-0 rounded-xl"
+          className="absolute inset-0 rounded-full"
           style={{
-            background:
-              "linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02))",
-            border: "1px solid color-mix(in srgb, var(--primary) 30%, transparent)",
-            backdropFilter: "blur(12px)",
-            WebkitBackdropFilter: "blur(12px)",
-            boxShadow: `
-              0 0 12px color-mix(in srgb, var(--primary) 35%, transparent),
-              0 4px 12px rgba(0,0,0,0.3),
-              inset 0 1px 0 rgba(255,255,255,0.1)
-            `,
+            background: "rgba(255, 255, 255, 0.1)",
           }}
-          initial={{ y: 14, opacity: 0, scale: 0.85 }}
-          animate={{ y: 0, opacity: 1, scale: 1 }}
-          exit={{ y: 14, opacity: 0, scale: 0.85 }}
-          transition={{
-            layout: { type: "spring", damping: 24, stiffness: 320 },
-            default: { duration: 0.28, ease: [0.4, 0, 0.2, 1] },
-          }}
+          transition={{ type: "spring", damping: 30, stiffness: 400 }}
         />
       )}
       <div className="relative z-10">{icon}</div>

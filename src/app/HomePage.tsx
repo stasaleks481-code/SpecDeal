@@ -1,16 +1,13 @@
 "use client";
 
 import { useEffect, useState, useCallback, Suspense } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { AlertTriangle } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { GamesTab } from "@/components/games/GamesTab";
-import { RoomsTab } from "@/components/rooms/RoomsTab";
-import { ProfileView } from "@/components/profile/ProfileView";
 import { useUser } from "@/lib/UserContext";
 import type { UserRow } from "@/lib/supabase/client";
 import { usePresence } from "@/lib/telegram/usePresence";
-import { motion, AnimatePresence } from "framer-motion";
 
 interface AuthResponse {
   user: UserRow | null;
@@ -20,16 +17,10 @@ interface AuthResponse {
 function HomePageContent() {
   const { user, loading, updateUser } = useUser();
   const [error, setError] = useState<string | null>(null);
-
-  const searchParams = useSearchParams();
   const router = useRouter();
-  const tabParam = searchParams.get("tab");
-  const [tab, setTab] = useState<"games" | "rooms" | "profile">(
-    tabParam === "rooms" ? "rooms" : tabParam === "profile" ? "profile" : "games"
-  );
 
   const authenticate = useCallback(async () => {
-    if (user) return; // already have user from cache
+    if (user) return;
 
     try {
       setError(null);
@@ -72,7 +63,6 @@ function HomePageContent() {
         throw new Error(data.error ?? "No user in response");
       }
 
-      // Store in UserContext (which also writes to localStorage)
       updateUser(data.user);
     } catch (err) {
       console.error("[auth] error:", err);
@@ -86,16 +76,8 @@ function HomePageContent() {
     }
   }, [authenticate, user]);
 
-  // Clean up ?tab= param after applying
-  useEffect(() => {
-    if (tabParam) {
-      router.replace("/");
-    }
-  }, [tabParam, router]);
-
   usePresence(user?.id ?? null);
 
-  // Loading state — only on first ever load (no cache)
   if (loading && !user) {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center px-6">
@@ -110,7 +92,6 @@ function HomePageContent() {
     );
   }
 
-  // Error state
   if (error || !user) {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center px-6">
@@ -128,44 +109,9 @@ function HomePageContent() {
     );
   }
 
-  // Main UI — uses AppShell which provides header + bottom nav on every page
   return (
     <AppShell user={user}>
-      <AnimatePresence mode="wait">
-        {tab === "games" && (
-          <motion.div
-            key="games"
-            initial={{ opacity: 0, scale: 0.98, y: 12 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 1.02, y: -8 }}
-            transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
-          >
-            <GamesTab user={user} />
-          </motion.div>
-        )}
-        {tab === "rooms" && (
-          <motion.div
-            key="rooms"
-            initial={{ opacity: 0, scale: 0.98, y: 12 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 1.02, y: -8 }}
-            transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
-          >
-            <RoomsTab user={user} />
-          </motion.div>
-        )}
-        {tab === "profile" && (
-          <motion.div
-            key="profile"
-            initial={{ opacity: 0, scale: 0.98, y: 12 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 1.02, y: -8 }}
-            transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
-          >
-            <ProfileView user={user} onUserUpdate={updateUser} />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <GamesTab user={user} />
     </AppShell>
   );
 }
