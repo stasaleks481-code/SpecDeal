@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Crown, Star } from "lucide-react";
 import type { UserRow } from "@/lib/supabase/client";
+import { RankMedal } from "@/components/icons";
 import { useTelegramBackButton } from "@/lib/telegram/useBackButton";
 
 interface LeaderEntry {
@@ -102,7 +103,6 @@ export function LeaderboardView({ currentUser }: Props) {
           {entries.map((entry, idx) => {
             const rank = idx + 1;
             const isMe = entry.id === currentUser.id;
-            const medal = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : null;
             const value =
               sort === "trust" ? entry.trust_score :
               sort === "races" ? entry.matches_count :
@@ -121,8 +121,12 @@ export function LeaderboardView({ currentUser }: Props) {
               >
                 <div className="flex items-center gap-3">
                   {/* Rank */}
-                  <div className="w-8 text-center font-bold text-sm shrink-0">
-                    {medal ?? rank}
+                  <div className="w-8 flex justify-center shrink-0">
+                    {rank <= 3 ? (
+                      <RankMedal rank={rank} className="w-7 h-7" />
+                    ) : (
+                      <span className="font-bold text-sm">{rank}</span>
+                    )}
                   </div>
 
                   {/* Avatar */}

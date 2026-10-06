@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase/client'
+import { supabase, isEffectivelyOnline } from '@/lib/supabase/client'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -26,7 +26,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // ILIKE search on username OR first_name
   const { data, error } = await supabase
     .from('users')
-    .select('id, username, first_name, last_name, photo_url, is_online')
+    .select('id, username, first_name, last_name, photo_url, is_online, last_seen_at')
     .or(`username.ilike.%${q}%,first_name.ilike.%${q}%`)
     .neq('id', tgId)
     .limit(10)
@@ -36,5 +36,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'DB error' }, { status: 500 })
   }
 
-  return NextResponse.json({ users: data ?? [] })
+  // Effective online = flag + fresh heartbeat (fixes "stuck online")
+  const users = (data ?? []).map((u) => ({
+    ...u,
+    is_online: isEffectivelyOnline(u.is_online, u.last_seen_at),
+  }))
+
+  return NextResponse.json({ users })
 }

@@ -3,19 +3,24 @@
 import { useEffect } from "react";
 
 /**
- * usePresence — sets up a heartbeat that pings /api/ping every 30 seconds
- * to keep the user marked as online. On unmount / page hide, calls /api/offline.
+ * usePresence — presence heartbeat.
  *
- * Usage: const {} = usePresence(userId)
+ * Rules (fixes the "shows online after leaving the mini app" bug):
+ *  - While the app is VISIBLE: ping /api/ping every 30 s.
+ *  - The moment the app goes HIDDEN (background / closed WebView):
+ *      interval is stopped and /api/offline fires via sendBeacon.
+ *  - pagehide → sendBeacon offline (covers full WebView kill).
+ *  - pageshow after bfcache restore → back online.
  *
- * Returns nothing — pure side-effect hook.
+ * Even if none of the client events fire (WebView hard kill),
+ * the server treats online as "heartbeat fresher than 90 s"
+ * (see isEffectivelyOnline) and /api/ping sweeps stale rows.
  */
 export function usePresence(userId: number | null) {
   useEffect(() => {
     if (!userId) return;
 
-    let pingInterval: NodeJS.Timeout | null = null;
-    let isOnline = true;
+    let pingInterval: ReturnType<typeof setInterval> | null = null;
 
     const ping = async () => {
       try {
@@ -28,15 +33,13 @@ export function usePresence(userId: number | null) {
       }
     };
 
-    const setOffline = async () => {
-      if (!isOnline) return;
-      isOnline = false;
+    const goOffline = () => {
       try {
-        // Use sendBeacon for reliability on page unload
-        if (navigator.sendBeacon) {
-          navigator.sendBeacon("/api/offline");
+        // sendBeacon survives WebView teardown better than fetch
+        if (typeof navigator !== "undefined" && navigator.sendBeacon) {
+          navigator.sendBeacon("/api/offline", new Blob([], { type: "text/plain" }));
         } else {
-          await fetch("/api/offline", {
+          void fetch("/api/offline", {
             method: "POST",
             credentials: "include",
             keepalive: true,
@@ -47,29 +50,51 @@ export function usePresence(userId: number | null) {
       }
     };
 
-    const onVisibilityChange = () => {
-      if (document.hidden) {
-        setOffline();
-      } else {
-        isOnline = true;
-        ping();
+    const startPinging = () => {
+      if (pingInterval) return;
+      ping();
+      pingInterval = setInterval(ping, 30_000);
+    };
+
+    const stopPinging = () => {
+      if (pingInterval) {
+        clearInterval(pingInterval);
+        pingInterval = null;
       }
     };
 
-    // Initial ping
-    ping();
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        stopPinging();
+        goOffline();
+      } else {
+        startPinging();
+      }
+    };
 
-    // Set up interval — 30 seconds
-    pingInterval = setInterval(ping, 30_000);
+    const onPageHide = () => {
+      stopPinging();
+      goOffline();
+    };
 
-    // Listen for visibility changes (tab switch / app background)
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        // restored from bfcache — resume heartbeat
+        startPinging();
+      }
+    };
+
+    startPinging();
     document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("pagehide", onPageHide);
+    window.addEventListener("pageshow", onPageShow);
 
-    // On unmount: clean up + mark offline
     return () => {
-      if (pingInterval) clearInterval(pingInterval);
+      stopPinging();
       document.removeEventListener("visibilitychange", onVisibilityChange);
-      setOffline();
+      window.removeEventListener("pagehide", onPageHide);
+      window.removeEventListener("pageshow", onPageShow);
+      goOffline();
     };
   }, [userId]);
 }

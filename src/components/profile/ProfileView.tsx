@@ -6,11 +6,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Gamepad2, Star, Users, Crown, ShieldCheck, Sparkles, TrendingUp,
   Send, Link2, Eye, EyeOff, GraduationCap, Settings2, BarChart3, MessageSquareQuote,
-  UserX, ExternalLink,
+  UserX, ExternalLink, LifeBuoy, Check,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { SteamBadge, SteamLogo } from "@/components/profile/SteamBadge";
+import { SupportCenter } from "@/components/support/SupportCenter";
+import { ReviewTypeIcon } from "@/components/icons";
 import { THEME_COLORS, REVIEW_TYPES, type UserRow, type ThemeColor } from "@/lib/supabase/client";
 import { haptic } from "@/lib/telegram/haptics";
 
@@ -40,6 +42,7 @@ export function ProfileView({ user, onUserUpdate }: Props) {
   const [reviews, setReviews] = useState<ReviewItem[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [tgToggleBusy, setTgToggleBusy] = useState(false);
+  const [showSupport, setShowSupport] = useState(false);
 
   const isAnonymous = user.account_type === "anonymous";
   const isTelegram = user.account_type === "telegram";
@@ -532,7 +535,7 @@ export function ProfileView({ user, onUserUpdate }: Props) {
                           : `0 0 8px ${theme.glow}`,
                       }}
                     >
-                      {isActive && <span className="text-[#0e141d] text-sm font-bold">✓</span>}
+                      {isActive && <Check className="w-4 h-4 text-[#0e141d]" strokeWidth={3} />}
                     </div>
                     <span className={`text-[9px] font-medium text-center leading-tight ${isActive ? "text-primary" : "text-muted-foreground"}`}>
                       {theme.name.split(" ")[1] === "Classic" ? "Steam" : theme.name.split(" ")[1]}
@@ -558,11 +561,29 @@ export function ProfileView({ user, onUserUpdate }: Props) {
             </div>
           </button>
 
+          {/* Support */}
+          <button
+            onClick={() => { haptic.impact("light"); setShowSupport(true); }}
+            className="room-card w-full flex items-center gap-3 text-left"
+          >
+            <div className="w-11 h-11 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
+              <LifeBuoy className="w-5 h-5 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="font-semibold text-sm flex items-center gap-2">
+                Поддержка
+                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/15 text-primary font-bold">NEW</span>
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">Баги, идеи, вопросы — напиши нам, ответим здесь же</p>
+            </div>
+            <ExternalLink className="w-4 h-4 text-muted-foreground/50" />
+          </button>
+
           {/* About */}
           <div className="glass-card p-4">
             <h3 className="font-semibold text-sm mb-1">О приложении</h3>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              VoiceDeck v1.0 — Voice &amp; Party Hub. Голосовые комнаты, поиск тимейтов и настольные партии
+              VoiceDeck v1.1 — Voice &amp; Party Hub. Голосовые комнаты, поиск тимейтов и настольные партии
               прямо в Telegram Mini App.
             </p>
           </div>
@@ -610,13 +631,14 @@ export function ProfileView({ user, onUserUpdate }: Props) {
                           {review.from_user?.username ? `@${review.from_user.username}` : review.from_user?.first_name}
                         </p>
                         <span
-                          className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0"
+                          className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 flex items-center gap-1"
                           style={{
                             background: isNegative ? "rgba(218,48,48,0.15)" : "rgba(0,240,255,0.1)",
                             color: isNegative ? "#DA3030" : "var(--primary)",
                           }}
                         >
-                          {info?.emoji} {info?.label}
+                          <ReviewTypeIcon type={review.rating_type} className="w-3 h-3" />
+                          {info?.label}
                         </span>
                       </div>
                       {review.comment && (
@@ -647,6 +669,9 @@ export function ProfileView({ user, onUserUpdate }: Props) {
           </button>
         </TabsContent>
       </Tabs>
+
+      {/* Support center dialog */}
+      <SupportCenter open={showSupport} onClose={() => setShowSupport(false)} />
     </div>
   );
 }

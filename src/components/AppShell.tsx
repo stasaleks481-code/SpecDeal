@@ -3,14 +3,15 @@
 import { useState, useCallback, useRef, useEffect, memo, type ReactNode } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Gamepad2, MessageCircle, Plus, Users, Crown } from "lucide-react";
+import { Gamepad2, MessageCircle, Plus, Users, Crown, Megaphone, X } from "lucide-react";
 import { CreateRoomModal } from "@/components/games/CreateRoomModal";
 import { AccountGate } from "@/components/auth/AccountGate";
-import type { UserRow } from "@/lib/supabase/client";
+import type { UserRow, AnnouncementRow } from "@/lib/supabase/client";
 import { haptic } from "@/lib/telegram/haptics";
 import { useUser } from "@/lib/UserContext";
 
 const GATE_DISMISS_KEY = "stakapp_gate_dismissed";
+const ANNOUNCE_DISMISS_KEY = "voicedeck_announce_dismissed";
 
 interface Props {
   user: UserRow;
@@ -40,6 +41,45 @@ export function AppShell({ user, children }: Props) {
       setGateOpen(false);
     }
   }, [user.account_type]);
+
+  // Dismissed announcement ids (per browser)
+  const [dismissedAnnouncements, setDismissedAnnouncements] = useState<string[]>([]);
+  const [announcement, setAnnouncement] = useState<AnnouncementRow | null>(null);
+
+  // Fetch active announcement (admin broadcast)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        let dismissed: string[] = [];
+        try {
+          dismissed = JSON.parse(localStorage.getItem(ANNOUNCE_DISMISS_KEY) ?? "[]");
+        } catch { /* ignore */ }
+        if (cancelled) return;
+        setDismissedAnnouncements(dismissed);
+
+        const res = await fetch("/api/announcements", { credentials: "include" });
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        const first: AnnouncementRow | null = (data.announcements ?? [])[0] ?? null;
+        if (first && !dismissed.includes(first.id)) setAnnouncement(first);
+      } catch { /* ignore */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const dismissAnnouncement = useCallback(() => {
+    setAnnouncement((current) => {
+      if (current) {
+        const next = [...dismissedAnnouncements, current.id].slice(-10);
+        setDismissedAnnouncements(next);
+        try {
+          localStorage.setItem(ANNOUNCE_DISMISS_KEY, JSON.stringify(next));
+        } catch { /* ignore */ }
+      }
+      return null;
+    });
+  }, [dismissedAnnouncements]);
 
   // Derive active tab from pathname
   const activeTab: "games" | "friends" | "chill" | "profile" | null = (() => {
@@ -150,6 +190,41 @@ export function AppShell({ user, children }: Props) {
           </button>
         </div>
       </header>
+
+      {/* Announcement banner (admin broadcast) */}
+      <AnimatePresence>
+        {announcement && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className="max-w-md mx-auto px-4 mt-2"
+          >
+            <div
+              className="rounded-xl border p-3 pr-9 relative"
+              style={{
+                background: announcement.kind === "warning" ? "rgba(247,166,0,0.1)" : "rgba(0,240,255,0.06)",
+                borderColor: announcement.kind === "warning" ? "rgba(247,166,0,0.4)" : "rgba(0,240,255,0.3)",
+              }}
+            >
+              <div className="flex items-start gap-2">
+                <Megaphone className={`w-4 h-4 shrink-0 mt-0.5 ${announcement.kind === "warning" ? "text-amber-400" : "text-primary"}`} />
+                <div className="min-w-0">
+                  <p className="text-xs font-bold">{announcement.title}</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">{announcement.body}</p>
+                </div>
+              </div>
+              <button
+                onClick={dismissAnnouncement}
+                className="absolute top-2 right-2 p-1 rounded-lg text-muted-foreground hover:text-foreground"
+                aria-label="Скрыть анонс"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Page content */}
       <div className="flex-1 overflow-y-auto pb-28">

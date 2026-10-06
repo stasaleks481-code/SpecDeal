@@ -11,7 +11,7 @@ interface Props {
 /**
  * Voice call modal — currently a STUB.
  * Per master spec: "При нажатии на кнопку 'Подключиться к голосу' выводить
- * красивую модалку: 'Голосовая связь находится в разработке 🛠️. Используйте
+ * красивую модалку: 'Голосовая связь находится в разработке. Используйте
  * чат лобби!'"
  */
 export function VoiceCallModal({ onClose, roomTitle }: Props) {
@@ -51,7 +51,7 @@ export function VoiceCallModal({ onClose, roomTitle }: Props) {
 
         {/* Body */}
         <p className="text-sm text-muted-foreground mb-1">
-          🛠️ В разработке
+          В разработке
         </p>
         <p className="text-sm text-foreground/80 mb-5">
           Используйте чат лобби для общения!

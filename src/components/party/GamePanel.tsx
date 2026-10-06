@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { supabase, partyGame, type UserRow, type GameSessionRow } from "@/lib/supabase/client";
 import { haptic } from "@/lib/telegram/haptics";
+import { PartyGameIcon, SpyGlyph, MafiaRoleIcon } from "@/components/icons";
 
 /**
  * GamePanel — in-room party games UI (voice stays primary).
@@ -175,7 +176,7 @@ export function GamePanel({ roomId, room, user, memberCount, inCall }: Props) {
     if (!isHost) {
       return (
         <div className="glass-card p-4 text-center">
-          <p className="text-xl mb-1.5">{game?.emoji ?? "🎲"}</p>
+          <PartyGameIcon code={game?.code} className="w-7 h-7 mx-auto mb-1.5 text-purple-300" />
           <p className="text-sm font-semibold">
             {game?.name ?? "Парти"} · ждём хоста
           </p>
@@ -190,10 +191,10 @@ export function GamePanel({ roomId, room, user, memberCount, inCall }: Props) {
       <div className="glass-card p-4">
         <div className="flex items-center gap-3 mb-3">
           <span
-            className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
-            style={{ background: game?.gradient }}
+            className="w-10 h-10 rounded-xl flex items-center justify-center"
+            style={{ background: game?.gradient, boxShadow: game ? `0 0 12px ${game.color}45` : undefined }}
           >
-            {game?.emoji}
+            <PartyGameIcon code={game?.code} className="w-5 h-5 text-white" />
           </span>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold">Запустить «{game?.name}»</p>
@@ -225,7 +226,7 @@ export function GamePanel({ roomId, room, user, memberCount, inCall }: Props) {
     return (
       <GameShell
         title="Шпион"
-        emoji="🕵️"
+        icon={<PartyGameIcon code="spyfall" className="w-4.5 h-4.5 text-purple-300" />}
         color="#8B5CF6"
         hostControls={
           <>
@@ -246,7 +247,7 @@ export function GamePanel({ roomId, room, user, memberCount, inCall }: Props) {
             className="p-4 rounded-2xl text-center"
             style={{ background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.5)" }}
           >
-            <p className="text-3xl mb-2">🕵️</p>
+            <SpyGlyph className="w-9 h-9 mx-auto mb-2 text-purple-300" />
             <p className="text-base font-black text-purple-300">ТЫ ШПИОН</p>
             <p className="text-[11px] text-muted-foreground mt-1.5 leading-relaxed">
               Ты не знаешь локацию. Задавай хитрые вопросы, сливайся с толпой
@@ -301,11 +302,11 @@ export function GamePanel({ roomId, room, user, memberCount, inCall }: Props) {
     const role = (view?.your_role as string) ?? "civilian";
     const roleName = (view?.role_name as string) ?? "Мирный житель";
     const phaseDay = (view?.phase as string) === "day";
-    const roleMeta: Record<string, { emoji: string; color: string; hint: string }> = {
-      mafia: { emoji: "🔪", color: "#DC2626", hint: "Ночью мафия выбирает жертву. Днём притворяйся мирным." },
-      sheriff: { emoji: "⭐", color: "#F7A600", hint: "Каждую ночь проверяешь одного игрока — мафия он или нет." },
-      doctor: { emoji: "💉", color: "#3FB950", hint: "Каждую ночь можешь спасти одного игрока от мафии." },
-      civilian: { emoji: "👤", color: "#66c0f4", hint: "Днём обсуждай и голосуй за подозреваемых." },
+    const roleMeta: Record<string, { role: string; color: string; hint: string }> = {
+      mafia: { role: "mafia", color: "#DC2626", hint: "Ночью мафия выбирает жертву. Днём притворяйся мирным." },
+      sheriff: { role: "sheriff", color: "#F7A600", hint: "Каждую ночь проверяешь одного игрока — мафия он или нет." },
+      doctor: { role: "doctor", color: "#3FB950", hint: "Каждую ночь можешь спасти одного игрока от мафии." },
+      civilian: { role: "civilian", color: "#66c0f4", hint: "Днём обсуждай и голосуй за подозреваемых." },
     };
     const meta = roleMeta[role] ?? roleMeta.civilian;
     const hostView = view?.host_view as Record<string, string> | null;
@@ -313,7 +314,7 @@ export function GamePanel({ roomId, room, user, memberCount, inCall }: Props) {
     return (
       <GameShell
         title="Мафия"
-        emoji="🎭"
+        icon={<PartyGameIcon code="mafia" className="w-4.5 h-4.5 text-red-400" />}
         color="#DC2626"
         hostControls={
           <>
@@ -362,7 +363,7 @@ export function GamePanel({ roomId, room, user, memberCount, inCall }: Props) {
         >
           {roleRevealed ? (
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
-              <p className="text-4xl mb-2">{meta.emoji}</p>
+              <MafiaRoleIcon role={meta.role} className="w-10 h-10 mx-auto mb-2" style={{ color: meta.color }} />
               <p className="text-lg font-black" style={{ color: meta.color }}>{roleName}</p>
               <p className="text-[11px] text-muted-foreground mt-1.5 leading-relaxed px-2">{meta.hint}</p>
             </motion.div>
@@ -413,7 +414,7 @@ export function GamePanel({ roomId, room, user, memberCount, inCall }: Props) {
     return (
       <GameShell
         title="Бункер"
-        emoji="🏛️"
+        icon={<PartyGameIcon code="bunker" className="w-4.5 h-4.5 text-amber-400" />}
         color="#D97706"
         hostControls={
           <>
@@ -517,7 +518,7 @@ export function GamePanel({ roomId, room, user, memberCount, inCall }: Props) {
     return (
       <GameShell
         title="Кто я?"
-        emoji="❓"
+        icon={<PartyGameIcon code="whoami" className="w-4.5 h-4.5 text-sky-400" />}
         color="#0EA5E9"
         hostControls={
           <>
@@ -575,8 +576,9 @@ export function GamePanel({ roomId, room, user, memberCount, inCall }: Props) {
               </div>
             ))}
           </div>
-          <p className="text-[10px] text-muted-foreground/70 text-center mt-2">
-            Твоё слово скрыто — его видят остальные 🙈
+          <p className="text-[10px] text-muted-foreground/70 text-center mt-2 flex items-center justify-center gap-1">
+            <EyeOff className="w-3 h-3" />
+            Твоё слово скрыто — его видят остальные
           </p>
         </div>
       </GameShell>
@@ -597,10 +599,10 @@ const SPYFALL_LOCATIONS_SHORT = [
 ];
 
 function GameShell({
-  title, emoji, color, children, hostControls, error,
+  title, icon, color, children, hostControls, error,
 }: {
   title: string;
-  emoji: string;
+  icon: React.ReactNode;
   color: string;
   children: React.ReactNode;
   hostControls: React.ReactNode;
@@ -615,7 +617,7 @@ function GameShell({
     >
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <span className="text-lg">{emoji}</span>
+          <span className="w-7 h-7 rounded-lg bg-white/5 border border-border flex items-center justify-center">{icon}</span>
           <span className="text-sm font-black" style={{ color }}>{title}</span>
         </div>
         <div className="flex items-center gap-1.5">{hostControls}</div>
@@ -746,16 +748,17 @@ function TurnBar({
 
 function HostRoleList({ hostView }: { hostView: Record<string, string> }) {
   const labels: Record<string, string> = {
-    mafia: "🔪 Мафия",
-    sheriff: "⭐ Шериф",
-    doctor: "💉 Доктор",
-    civilian: "👤 Мирный",
+    mafia: "Мафия",
+    sheriff: "Шериф",
+    doctor: "Доктор",
+    civilian: "Мирный",
   };
   return (
     <div className="grid grid-cols-2 gap-1.5">
       {Object.entries(hostView).map(([uid, role]) => (
-        <div key={uid} className="text-[10px] px-2 py-1 rounded-lg bg-white/[0.04] border border-border">
-          Игрок {uid}: <b>{labels[role] ?? role}</b>
+        <div key={uid} className="text-[10px] px-2 py-1 rounded-lg bg-white/[0.04] border border-border flex items-center gap-1.5">
+          <MafiaRoleIcon role={role} className="w-3 h-3 shrink-0 text-muted-foreground" />
+          <span className="truncate">Игрок {uid}: <b>{labels[role] ?? role}</b></span>
         </div>
       ))}
     </div>

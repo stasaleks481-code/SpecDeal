@@ -6,6 +6,7 @@ import {
   Search, UserPlus, Check, X, MessageCircle, Users, Clock,
 } from "lucide-react";
 import type { UserRow } from "@/lib/supabase/client";
+import { OnlineDot } from "@/components/icons";
 import { useTelegramBackButton } from "@/lib/telegram/useBackButton";
 
 interface Friend {
@@ -288,8 +289,9 @@ export function FriendsView({ user: _user }: Props) {
                   <p className="text-sm font-semibold truncate">
                     {f.user.username ? `@${f.user.username}` : f.user.first_name}
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    {f.user.is_online ? "🟢 онлайн" : `был(а) ${formatLastSeen(f.user.last_seen_at)}`}
+                  <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    <OnlineDot online={f.user.is_online} />
+                    {f.user.is_online ? "онлайн" : `был(а) ${formatLastSeen(f.user.last_seen_at)}`}
                   </p>
                 </div>
                 <button

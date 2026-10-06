@@ -33,5 +33,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'User not found' }, { status: 401 })
   }
 
+  if (user.is_banned) {
+    return NextResponse.json(
+      { error: 'Ваш аккаунт заблокирован администрацией VoiceDeck', error_code: 'BANNED' },
+      { status: 403 }
+    )
+  }
+
   return NextResponse.json({ user })
 }

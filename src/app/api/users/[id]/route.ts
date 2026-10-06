@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase, REVIEW_TYPES } from '@/lib/supabase/client'
+import { supabase, REVIEW_TYPES, isEffectivelyOnline } from '@/lib/supabase/client'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -39,6 +39,12 @@ export async function GET(
   if (!u.show_tg_profile) {
     u.tg_link_data = null
   }
+
+  // Effective online = flag + fresh heartbeat (fixes "stuck online")
+  u.is_online = isEffectivelyOnline(
+    u.is_online as boolean,
+    u.last_seen_at as string
+  )
 
   // Get recent reviews
   const { data: reviews } = await supabase

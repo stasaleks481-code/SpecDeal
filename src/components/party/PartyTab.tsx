@@ -3,9 +3,10 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Users, Crown, Mic } from "lucide-react";
+import { Plus, Users, Crown, Mic, Dices, Drama } from "lucide-react";
 import { PARTY_GAMES, partyGame, type UserRow, type RoomRow } from "@/lib/supabase/client";
 import { CreateRoomModal } from "@/components/games/CreateRoomModal";
+import { PartyGameIcon } from "@/components/icons";
 import { haptic } from "@/lib/telegram/haptics";
 
 interface Props {
@@ -51,10 +52,10 @@ export function PartyTab({ user }: Props) {
         <div className="neon-strip" />
         <div className="p-4 flex items-center gap-3">
           <div
-            className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 text-xl"
-            style={{ background: "linear-gradient(135deg, #8B5CF6, #4C1D95)" }}
+            className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+            style={{ background: "linear-gradient(135deg, #8B5CF6, #4C1D95)", boxShadow: "0 0 16px rgba(139,92,246,0.4)" }}
           >
-            🎲
+            <Dices className="w-6 h-6 text-white" />
           </div>
           <div className="flex-1 min-w-0">
             <h1 className="text-base font-bold neon-text leading-tight">Настольные игры</h1>
@@ -113,10 +114,11 @@ export function PartyTab({ user }: Props) {
               haptic.impact("light");
               setFilterGame(g.code);
             }}
-            className={`chip shrink-0 ${filterGame === g.code ? "chip--active" : ""}`}
+            className={`chip shrink-0 flex items-center gap-1.5 ${filterGame === g.code ? "chip--active" : ""}`}
             style={filterGame === g.code ? { background: g.color, borderColor: g.color } : {}}
           >
-            {g.emoji} {g.name}
+            <PartyGameIcon code={g.code} className="w-3.5 h-3.5" />
+            {g.name}
           </button>
         ))}
       </div>
@@ -130,7 +132,7 @@ export function PartyTab({ user }: Props) {
         </div>
       ) : rooms.length === 0 ? (
         <div className="glass-card p-6 text-center">
-          <p className="text-2xl mb-2">🎭</p>
+          <Drama className="w-9 h-9 mx-auto mb-2 text-purple-300/70" />
           <p className="text-sm font-semibold mb-1">Пока пусто</p>
           <p className="text-xs text-muted-foreground">
             {filterGame
@@ -160,10 +162,10 @@ export function PartyTab({ user }: Props) {
                   className="w-full glass-card p-3.5 flex items-center gap-3 text-left hover:border-primary/40 transition-colors"
                 >
                   <div
-                    className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0"
-                    style={{ background: game?.gradient ?? "rgba(255,255,255,0.06)" }}
+                    className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
+                    style={{ background: game?.gradient ?? "rgba(255,255,255,0.06)", boxShadow: game ? `0 0 14px ${game.color}45` : undefined }}
                   >
-                    {game?.emoji ?? "🎲"}
+                    <PartyGameIcon code={game?.code} className="w-6 h-6 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold truncate">{room.title}</p>
@@ -179,15 +181,13 @@ export function PartyTab({ user }: Props) {
                         {game?.name ?? "Парти"}
                       </span>
                       {game?.code === "bunker" && (
-                        <span
-                          className="text-[10px] px-1.5 py-0.5 rounded-md"
-                          style={{
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-md flex items-center gap-1" style={{
                             background: autoMute ? "rgba(63,185,80,0.12)" : "rgba(255,255,255,0.06)",
                             color: autoMute ? "#3FB950" : "#888",
-                          }}
-                        >
-                          {autoMute ? "🎙 авто-мут" : "🎙 без мута"}
-                        </span>
+                          }}>
+                            <Mic className="w-3 h-3" />
+                            {autoMute ? "авто-мут" : "без мута"}
+                          </span>
                       )}
                       <span className="text-[10px] text-muted-foreground flex items-center gap-1">
                         <Users className="w-3 h-3" />

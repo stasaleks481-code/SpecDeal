@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Plus, ArrowLeft, Users, Search } from "lucide-react";
 import { GAMES, FORMAT_LABELS, SKILL_LEVELS, type UserRow, type RoomRow, type SkillLevel } from "@/lib/supabase/client";
+import { SkillIcon } from "@/components/icons";
 import { GameRoomList } from "./GameRoomList";
 import { CreateRoomModal } from "./CreateRoomModal";
 import { haptic } from "@/lib/telegram/haptics";
@@ -156,7 +157,7 @@ export function GamesTab({ user }: Props) {
         <div>
           <div className="section-label mb-2 px-1">Уровень игры</div>
           <div className="flex flex-wrap gap-2">
-            {(Object.entries(SKILL_LEVELS) as [SkillLevel, { label: string; short: string; color: string; emoji: string }][]).map(
+            {(Object.entries(SKILL_LEVELS) as [SkillLevel, { label: string; short: string; color: string; icon: string }][]).map(
               ([code, meta]) => {
                 const active = filterSkill === code;
                 return (
@@ -166,10 +167,11 @@ export function GamesTab({ user }: Props) {
                       haptic.impact("light");
                       setFilterSkill(active ? null : code);
                     }}
-                    className={`chip ${active ? "chip--active" : ""}`}
+                    className={`chip flex items-center gap-1 ${active ? "chip--active" : ""}`}
                     style={active ? { background: meta.color, borderColor: meta.color, color: "#0e141d" } : {}}
                   >
-                    {meta.emoji} {meta.short}
+                    <SkillIcon code={meta.icon} className="w-3.5 h-3.5" />
+                    {meta.short}
                   </button>
                 );
               }

@@ -28,6 +28,12 @@ const COOKIE_OPTS = {
   maxAge: 2592000, // 30 days
 }
 
+const BANNED_RESPONSE = () =>
+  NextResponse.json(
+    { error: 'Ваш аккаунт заблокирован администрацией VoiceDeck', error_code: 'BANNED' },
+    { status: 403 }
+  )
+
 function withCookies(user: UserRow): NextResponse {
   const response = NextResponse.json({ user })
   response.cookies.set('tg_uid', String(user.id), COOKIE_OPTS)
@@ -57,6 +63,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           .eq('id', parseInt(cookieUid, 10))
           .maybeSingle<UserRow>()
         if (sessionUser) {
+          if (sessionUser.is_banned) return BANNED_RESPONSE()
           return withCookies(sessionUser)
         }
       }
@@ -93,6 +100,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           .maybeSingle<UserRow>()
         if (sessionUser) {
           // touch last seen, return without touching identity
+          if (sessionUser.is_banned) return BANNED_RESPONSE()
           await supabase
             .from('users')
             .update({ last_seen_at: new Date().toISOString() })
@@ -129,6 +137,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         .maybeSingle<UserRow>()
 
       if (linkedSteamUser) {
+        if (linkedSteamUser.is_banned) return BANNED_RESPONSE()
         // Refresh the TG snapshot + online flag on the steam account
         const { data: refreshed } = await supabase
           .from('users')
@@ -169,6 +178,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     let user: UserRow
 
     if (existing) {
+      if (existing.is_banned) return BANNED_RESPONSE()
       // Update last-seen + Telegram fields (username/photo can change).
       // Do NOT overwrite photo/name if this is a Steam account (only linked).
       const { data: updated, error: updErr } = await supabase
@@ -206,6 +216,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           .eq('id', parseInt(cookieUid, 10))
           .maybeSingle<UserRow>()
         if (sessionUser) {
+          if (sessionUser.is_banned) return BANNED_RESPONSE()
           await supabase
             .from('users')
             .update({ last_seen_at: new Date().toISOString() })

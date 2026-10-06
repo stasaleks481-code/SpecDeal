@@ -67,9 +67,33 @@ export interface UserRow {
   theme_color: ThemeColor
   is_online: boolean
   last_seen_at: string
+  is_banned: boolean
   badges: string[]
   created_at: string
   updated_at: string
+}
+
+// ─── Presence ────────────────────────────────────────────────────────
+
+/**
+ * Online window: a user counts as online only if their heartbeat is
+ * fresher than this. Fixes the "stuck online" bug — WebView close
+ * doesn't always fire /api/offline, so the boolean flag alone lies.
+ */
+export const ONLINE_WINDOW_MS = 90_000
+
+/**
+ * Effective online status = flag AND fresh heartbeat.
+ * Pure function — safe on both server and client.
+ */
+export function isEffectivelyOnline(
+  isOnline: boolean | null | undefined,
+  lastSeenAt: string | null | undefined
+): boolean {
+  if (!isOnline || !lastSeenAt) return false
+  const seen = new Date(lastSeenAt).getTime()
+  if (Number.isNaN(seen)) return false
+  return Date.now() - seen < ONLINE_WINDOW_MS
 }
 
 export type RoomCategory = 'game' | 'casual' | 'party'
@@ -100,6 +124,30 @@ export interface RoomRow {
 }
 
 /** Server-authoritative party game session (sanitized per-user by the API) */
+export type SupportTicketType = 'bug' | 'idea' | 'question'
+export type SupportTicketStatus = 'new' | 'in_progress' | 'resolved'
+
+export interface SupportTicketRow {
+  id: string
+  user_id: number
+  type: SupportTicketType
+  subject: string
+  message: string
+  status: SupportTicketStatus
+  admin_reply: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface AnnouncementRow {
+  id: string
+  title: string
+  body: string
+  kind: 'info' | 'warning' | 'update'
+  is_active: boolean
+  created_at: string
+}
+
 export interface GameSessionRow {
   id: string
   room_id: string
@@ -446,7 +494,8 @@ export function searchGames(query: string): GameDef[] {
 export interface PartyGameDef {
   code: 'spyfall' | 'mafia' | 'bunker' | 'whoami'
   name: string
-  emoji: string
+  /** Icon key for the neon icon registry (src/components/icons.tsx) */
+  icon: string
   desc: string
   color: string
   gradient: string
@@ -459,7 +508,7 @@ export const PARTY_GAMES: PartyGameDef[] = [
   {
     code: 'spyfall',
     name: 'Шпион',
-    emoji: '🕵️',
+    icon: 'spy',
     desc: 'Все на одной локации. Один — Шпион. Задавай вопросы и вычисли его!',
     color: '#8B5CF6',
     gradient: 'linear-gradient(135deg, #8B5CF6 0%, #4C1D95 100%)',
@@ -469,7 +518,7 @@ export const PARTY_GAMES: PartyGameDef[] = [
   {
     code: 'mafia',
     name: 'Мафия',
-    emoji: '🎭',
+    icon: 'mafia',
     desc: 'Город засыпает. Мафия просыпается. Найди мафию до того, как она найдёт тебя.',
     color: '#DC2626',
     gradient: 'linear-gradient(135deg, #DC2626 0%, #7F1D1D 100%)',
@@ -479,7 +528,7 @@ export const PARTY_GAMES: PartyGameDef[] = [
   {
     code: 'bunker',
     name: 'Бункер',
-    emoji: '🏛️',
+    icon: 'bunker',
     desc: 'Катастрофа. Бункер вмещает не всех. Убеди, что выжить должен именно ты.',
     color: '#D97706',
     gradient: 'linear-gradient(135deg, #D97706 0%, #78350F 100%)',
@@ -489,7 +538,7 @@ export const PARTY_GAMES: PartyGameDef[] = [
   {
     code: 'whoami',
     name: 'Кто я?',
-    emoji: '❓',
+    icon: 'whoami',
     desc: 'Слово на лбу видно всем, кроме тебя. Задавай вопросы и угадай, кто ты.',
     color: '#0EA5E9',
     gradient: 'linear-gradient(135deg, #0EA5E9 0%, #0C4A6E 100%)',
@@ -506,9 +555,9 @@ export function partyGame(code: string | null | undefined): PartyGameDef | null 
 // ─── Skill levels (PC LFG) ──────────────────────────────────────────
 
 export const SKILL_LEVELS = {
-  casual:   { label: 'Casual / For Fun', short: 'Casual',   color: '#4EE1A0', emoji: '🌿', desc: 'Играем ради фанa, без напряжения' },
-  mid:      { label: 'Mid / Ranked',     short: 'Mid',      color: '#F7A600', emoji: '⚔️', desc: 'Обычный уровень, ранкед-матчи' },
-  hardcore: { label: 'Hardcore / Pro',   short: 'Hardcore', color: '#FF4655', emoji: '🔥', desc: 'Только серьёзная игра, про-уровень' },
+  casual:   { label: 'Casual / For Fun', short: 'Casual',   color: '#4EE1A0', icon: 'casual',   desc: 'Играем ради фанa, без напряжения' },
+  mid:      { label: 'Mid / Ranked',     short: 'Mid',      color: '#F7A600', icon: 'mid',      desc: 'Обычный уровень, ранкед-матчи' },
+  hardcore: { label: 'Hardcore / Pro',   short: 'Hardcore', color: '#FF4655', icon: 'hardcore', desc: 'Только серьёзная игра, про-уровень' },
 } as const
 
 export function skillLevel(code: string | null | undefined) {
@@ -529,21 +578,21 @@ export const FORMAT_LABELS: Record<string, string> = {
 
 // Legacy casual topics (kept for old rooms display; no longer selectable at creation)
 export const CASUAL_TOPICS = [
-  { code: 'talk',     label: 'Поговорить по душам', emoji: '💬' },
-  { code: 'cinema',   label: 'Обсудить кино',       emoji: '🎬' },
-  { code: 'night',    label: 'Ночной разговор',     emoji: '🌙' },
-  { code: 'music',    label: 'Музыка',              emoji: '🎵' },
-  { code: 'games',    label: 'Игры вобще',           emoji: '🎮' },
-  { code: 'tech',     label: 'Технологии',          emoji: '⚡' },
+  { code: 'talk',     label: 'Поговорить по душам', icon: 'talk' },
+  { code: 'cinema',   label: 'Обсудить кино',       icon: 'cinema' },
+  { code: 'night',    label: 'Ночной разговор',     icon: 'night' },
+  { code: 'music',    label: 'Музыка',              icon: 'music' },
+  { code: 'games',    label: 'Игры вобще',           icon: 'games' },
+  { code: 'tech',     label: 'Технологии',          icon: 'tech' },
 ] as const
 
 export const REVIEW_TYPES = {
-  friendly:  { label: 'Приятный соигрок', emoji: '👍', score: 2 },
-  good_aim:   { label: 'Хороший аим',      emoji: '🎯', score: 1 },
-  captain:    { label: 'Капитан',          emoji: '🎖️', score: 2 },
-  good_chat:  { label: 'Хороший собеседник', emoji: '🗣️', score: 2 },
-  toxic:      { label: 'Токсик',           emoji: '🤬', score: -3 },
-  leaver:     { label: 'Слил катку',       emoji: '💀', score: -2 },
+  friendly:  { label: 'Приятный соигрок',   icon: 'friendly',  score: 2 },
+  good_aim:  { label: 'Хороший аим',        icon: 'good_aim',  score: 1 },
+  captain:   { label: 'Капитан',            icon: 'captain',   score: 2 },
+  good_chat: { label: 'Хороший собеседник', icon: 'good_chat', score: 2 },
+  toxic:     { label: 'Токсик',             icon: 'toxic',     score: -3 },
+  leaver:    { label: 'Слил катку',         icon: 'leaver',    score: -2 },
 } as const
 
 // ─── Themes ─────────────────────────────────────────────────────────

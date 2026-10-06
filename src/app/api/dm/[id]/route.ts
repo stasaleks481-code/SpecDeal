@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase/client'
+import { supabase, isEffectivelyOnline } from '@/lib/supabase/client'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -64,9 +64,14 @@ export async function GET(
     .eq('id', partnerId)
     .maybeSingle()
 
+  // Effective online = flag + fresh heartbeat (fixes "stuck online")
+  const partnerFixed = partner
+    ? { ...partner, is_online: isEffectivelyOnline(partner.is_online, partner.last_seen_at) }
+    : partner
+
   return NextResponse.json({
     messages: (data ?? []).reverse(),
-    partner,
+    partner: partnerFixed,
   })
 }
 

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Star, Users, MessageCircle, UserPlus, Crown, ShieldCheck, Gamepad2, Send } from "lucide-react";
 import { REVIEW_TYPES, type UserRow } from "@/lib/supabase/client";
+import { OnlineDot, ReviewTypeIcon } from "@/components/icons";
 import { useTelegramBackButton } from "@/lib/telegram/useBackButton";
 
 interface OtherUser {
@@ -98,9 +99,9 @@ export function OtherUserProfile({ currentUser }: Props) {
       if (res.ok) {
         const data = await res.json();
         if (data.accepted) {
-          alert("✅ Вы теперь друзья!");
+          alert("Вы теперь друзья!");
         } else {
-          alert("📨 Заявка отправлена");
+          alert("Заявка отправлена");
         }
       } else {
         const data = await res.json().catch(() => ({}));
@@ -204,8 +205,9 @@ export function OtherUserProfile({ currentUser }: Props) {
                     <Gamepad2 className="w-3 h-3" /> Steam подключен
                   </span>
                 )}
-                <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
-                  {user.is_online ? "🟢 онлайн" : "⚪ оффлайн"}
+                <span className="text-[10px] text-muted-foreground flex items-center gap-1.5">
+                  <OnlineDot online={user.is_online} />
+                  {user.is_online ? "онлайн" : "оффлайн"}
                 </span>
               </div>
             </div>
@@ -322,7 +324,8 @@ export function OtherUserProfile({ currentUser }: Props) {
                         : "var(--border)",
                     }}
                   >
-                    {info.emoji} {info.label} ×{count}
+                    <ReviewTypeIcon type={type} className="w-3 h-3 inline mr-1 -mt-0.5" />
+                    {info.label} ×{count}
                   </span>
                 );
               })}
@@ -347,7 +350,7 @@ export function OtherUserProfile({ currentUser }: Props) {
                           {review.from_user.username ? `@${review.from_user.username}` : review.from_user.first_name}
                         </span>
                         {" — "}
-                        <span>{info?.emoji} {info?.label}</span>
+                        <span className="inline-flex items-center gap-1"><ReviewTypeIcon type={review.rating_type} className="w-3 h-3" /> {info?.label}</span>
                       </p>
                       {review.comment && (
                         <p className="text-xs text-muted-foreground mt-0.5 italic">"{review.comment}"</p>

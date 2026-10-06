@@ -1,8 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase/client'
+import { supabase, isEffectivelyOnline } from '@/lib/supabase/client'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+
+type FriendUser = {
+  is_online: boolean
+  last_seen_at: string
+  [key: string]: unknown
+}
+
+/** Effective online = flag + fresh heartbeat (fixes "stuck online") */
+function friendData(u: FriendUser | null): FriendUser | null {
+  if (!u) return u
+  return { ...u, is_online: isEffectivelyOnline(u.is_online, u.last_seen_at) }
+}
 
 /**
  * GET /api/friends
@@ -69,10 +81,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // Normalize friends — extract the OTHER user (not me)
   const friends = (accepted ?? []).map((row: Record<string, unknown>) => {
     const isUser1 = row.user_id_1 === tgId
-    const friendData = isUser1 ? row.friend2 : row.friend1
+    const friend = friendData((isUser1 ? row.friend2 : row.friend1) as FriendUser | null)
     return {
       friendship_id: row.id,
-      user: friendData,
+      user: friend,
       since: row.accepted_at ?? row.created_at,
     }
   })

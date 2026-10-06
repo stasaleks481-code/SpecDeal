@@ -15,6 +15,7 @@ import { useTelegramBackButton } from "@/lib/telegram/useBackButton";
 import { haptic } from "@/lib/telegram/haptics";
 import { useVoiceCall } from "@/lib/webrtc/useVoiceCall";
 import { GamePanel } from "@/components/party/GamePanel";
+import { PartyGameIcon } from "@/components/icons";
 
 interface RoomData {
   id: string;
@@ -353,10 +354,11 @@ export function RoomView({ user }: Props) {
               </button>
               {partyDef && (
                 <span
-                  className="text-[9px] font-bold px-1.5 py-0.5 rounded-md"
+                  className="text-[9px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-1"
                   style={{ background: `${partyDef.color}1E`, color: partyDef.color, border: `1px solid ${partyDef.color}44` }}
                 >
-                  {partyDef.emoji} {partyDef.name}
+                  <PartyGameIcon code={partyDef.code} className="w-3 h-3" />
+                  {partyDef.name}
                 </span>
               )}
               {skillMeta && (

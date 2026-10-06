@@ -52,6 +52,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
         const cached = localStorage.getItem(USER_CACHE_KEY);
         if (cached) {
           parsed = JSON.parse(cached) as UserRow;
+          // Banned accounts never get a session
+          if (parsed?.is_banned) {
+            localStorage.removeItem(USER_CACHE_KEY);
+            parsed = null;
+          }
         }
       } catch {
         // ignore parse errors
@@ -73,8 +78,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
         document.documentElement.setAttribute("data-accent", parsed.theme_color);
       }
     } else {
-      // No cache — if not on /, redirect for auth
-      if (typeof window !== "undefined" && window.location.pathname !== "/") {
+      // No cache — if not on / redirect for auth.
+      // /admin is a standalone dashboard with its own password auth — skip.
+      if (
+        typeof window !== "undefined" &&
+        window.location.pathname !== "/" &&
+        !window.location.pathname.startsWith("/admin")
+      ) {
         window.location.href = "/";
       } else {
         setLoading(false);
@@ -86,6 +96,17 @@ export function UserProvider({ children }: { children: ReactNode }) {
     // Force refresh from API (bypass cache)
     try {
       const res = await fetch("/api/me", { credentials: "include" });
+      if (res.status === 403) {
+        // Account banned (or restricted) — purge cache, kick to entry
+        try {
+          localStorage.removeItem(USER_CACHE_KEY);
+        } catch { /* ignore */ }
+        setUser(null);
+        if (typeof window !== "undefined") {
+          window.location.href = "/";
+        }
+        return;
+      }
       if (res.ok) {
         const data = await res.json();
         if (data.user) {

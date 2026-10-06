@@ -2,9 +2,10 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Send } from "lucide-react";
+import { ArrowLeft, Send, MessageCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import type { UserRow } from "@/lib/supabase/client";
+import { OnlineDot } from "@/components/icons";
 import { useTelegramBackButton } from "@/lib/telegram/useBackButton";
 
 interface DMMessage {
@@ -184,8 +185,9 @@ export function DMView({ user }: Props) {
             <h1 className="font-semibold text-sm truncate">
               {partner.username ? `@${partner.username}` : `${partner.first_name} ${partner.last_name ?? ""}`}
             </h1>
-            <p className="text-xs text-muted-foreground">
-              {partner.is_online ? "🟢 онлайн" : `был(а) ${formatLastSeen(partner.last_seen_at)}`}
+            <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+              <OnlineDot online={partner.is_online} />
+              {partner.is_online ? "онлайн" : `был(а) ${formatLastSeen(partner.last_seen_at)}`}
             </p>
           </div>
         </div>
@@ -194,8 +196,9 @@ export function DMView({ user }: Props) {
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
         {messages.length === 0 ? (
-          <div className="text-center text-sm text-muted-foreground py-12">
-            <p>👋 Начни общение с {partner.first_name}!</p>
+          <div className="text-center text-sm text-muted-foreground py-12 flex flex-col items-center gap-2">
+            <MessageCircle className="w-8 h-8 text-primary/50" />
+            <p>Начни общение с {partner.first_name}!</p>
           </div>
         ) : (
           messages.map((msg) => {

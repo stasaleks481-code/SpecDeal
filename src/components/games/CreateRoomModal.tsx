@@ -7,6 +7,7 @@ import {
   GAMES, searchGames, FORMAT_LABELS, PARTY_GAMES, SKILL_LEVELS,
   type UserRow, type GameDef, type SkillLevel, type RoomCategory,
 } from "@/lib/supabase/client";
+import { SkillIcon, PartyGameIcon } from "@/components/icons";
 import { Switch } from "@/components/ui/switch";
 
 interface Props {
@@ -283,7 +284,7 @@ export function CreateRoomModal({
                   <div>
                     <div className="section-label mb-2">Уровень игры</div>
                     <div className="flex flex-wrap gap-2">
-                      {(Object.entries(SKILL_LEVELS) as [SkillLevel, { label: string; short: string; color: string; emoji: string; desc: string }][]).map(
+                      {(Object.entries(SKILL_LEVELS) as [SkillLevel, { label: string; short: string; color: string; icon: string; desc: string }][]).map(
                         ([code, meta]) => {
                           const active = skill === code;
                           return (
@@ -297,8 +298,9 @@ export function CreateRoomModal({
                                 boxShadow: active ? `0 0 12px ${meta.color}40` : "none",
                               }}
                             >
-                              <p className="text-xs font-bold" style={{ color: active ? meta.color : undefined }}>
-                                {meta.emoji} {meta.short}
+                              <p className="text-xs font-bold flex items-center gap-1" style={{ color: active ? meta.color : undefined }}>
+                                <SkillIcon code={meta.icon} className="w-3.5 h-3.5" />
+                                {meta.short}
                               </p>
                               <p className="text-[9px] text-muted-foreground mt-0.5 leading-tight">{meta.label}</p>
                             </button>
@@ -361,7 +363,9 @@ export function CreateRoomModal({
                       boxShadow: active ? `0 0 14px ${g.color}35` : "none",
                     }}
                   >
-                    <p className="text-lg leading-none mb-1.5">{g.emoji}</p>
+                    <div className="w-6 h-6 rounded-lg flex items-center justify-center mb-1.5" style={{ background: `${g.color}22` }}>
+                      <PartyGameIcon code={g.code} className="w-4 h-4" style={{ color: g.color }} />
+                    </div>
                     <p className="text-xs font-bold" style={{ color: active ? g.color : undefined }}>
                       {g.name}
                     </p>
@@ -460,7 +464,7 @@ export function CreateRoomModal({
             : category === "game"
             ? "Создать лобби"
             : category === "party"
-            ? `Собрать партию${selectedPartyGame ? ` · ${selectedPartyGame.emoji}` : ""}`
+            ? `Собрать партию${selectedPartyGame ? ` · ${selectedPartyGame.name}` : ""}`
             : "Создать комнату"}
         </motion.button>
       </motion.div>
