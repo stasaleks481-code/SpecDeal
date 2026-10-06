@@ -240,15 +240,22 @@ const TabButton = memo(function TabButton({
             background: "rgba(255, 255, 255, 0.08)",
             border: "1px solid rgba(255, 255, 255, 0.15)",
             boxShadow: isMoving
-              ? "0 6px 20px rgba(0, 0, 0, 0.5), 0 0 12px rgba(255, 255, 255, 0.1)"
+              ? "0 8px 24px rgba(0, 0, 0, 0.6), 0 0 16px rgba(255, 255, 255, 0.15)"
               : "0 2px 8px rgba(0, 0, 0, 0.3)",
           }}
+          // Keyframes: grow → hold → shrink (the "detach" effect)
           animate={{
-            scale: isMoving ? 1.1 : 1,
+            scale: isMoving ? [1, 1.2, 1.2, 1] : 1,
           }}
           transition={{
-            layout: { type: "spring", damping: 22, stiffness: 280 },
-            scale: { duration: 0.15, ease: "easeOut" },
+            // Layout (horizontal slide) starts with delay so scale grows first
+            layout: { type: "spring", damping: 22, stiffness: 280, delay: 0.08 },
+            // Scale animation: detach at 20%, hold till 70%, settle at 100%
+            scale: {
+              duration: 0.5,
+              times: [0, 0.2, 0.7, 1],
+              ease: "easeInOut",
+            },
           }}
         />
       )}
