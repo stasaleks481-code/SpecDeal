@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { motion } from "framer-motion";
 import { Gamepad2, MessageCircle, AlertTriangle, Home as HomeIcon } from "lucide-react";
 import { GamesTab } from "@/components/games/GamesTab";
 import { RoomsTab } from "@/components/rooms/RoomsTab";
@@ -120,8 +121,10 @@ export default function HomePage() {
   // Main UI
   return (
     <main className="min-h-screen flex flex-col">
-      {/* Top header — sticky, no backdrop-blur (better perf) */}
+      {/* Top header — sticky with neon strip */}
       <header className="sticky top-0 z-20 bg-[#0e141d] border-b border-border">
+        {/* Neon strip at the very top — glowing accent line */}
+        <div className="neon-strip" />
         <div className="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div
@@ -170,7 +173,7 @@ export default function HomePage() {
         {tab === "profile" && <ProfileView user={user} onUserUpdate={setUser} />}
       </div>
 
-      {/* Bottom navigation — fixed, simple bg (no blur) */}
+      {/* Bottom navigation — fixed with liquid glass active indicator */}
       <nav className="fixed bottom-0 left-0 right-0 z-30 bg-[#0e141d] border-t border-border">
         <div className="max-w-md mx-auto grid grid-cols-3 gap-1 px-3 py-2 safe-area-inset-bottom">
           <TabButton
@@ -224,13 +227,25 @@ function TabButton({
     <button
       onClick={onClick}
       className={`relative flex flex-col items-center justify-center gap-1 py-2 rounded-xl transition-colors ${
-        active
-          ? "text-primary bg-primary/10"
-          : "text-muted-foreground hover:text-foreground"
+        active ? "text-primary" : "text-muted-foreground hover:text-foreground"
       }`}
     >
-      <div>{icon}</div>
-      <span className="text-[10px] font-semibold">{label}</span>
+      {/* Liquid glass active indicator — single motion.div with layoutId.
+          Framer Motion animates this between tabs (the only animated element). */}
+      {active && (
+        <motion.div
+          layoutId="bottom-nav-active"
+          className="absolute inset-0 rounded-xl bg-primary/10 border border-primary/30"
+          style={{
+            boxShadow:
+              "0 0 12px color-mix(in srgb, var(--primary) 30%, transparent), inset 0 0 8px color-mix(in srgb, var(--primary) 15%, transparent)",
+            backdropFilter: "blur(4px)",
+          }}
+          transition={{ type: "spring", damping: 22, stiffness: 280 }}
+        />
+      )}
+      <div className="relative z-10">{icon}</div>
+      <span className="relative z-10 text-[10px] font-semibold">{label}</span>
     </button>
   );
 }

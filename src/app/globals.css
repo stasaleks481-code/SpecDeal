@@ -170,13 +170,15 @@
       0 0 8px color-mix(in srgb, var(--primary) 30%, transparent);
   }
 
-  /* Game tile — flat, performant, with banner image overlay */
+  /* Game tile — flat, performant, with banner image overlay.
+     aspect-ratio 3:4 matches Steam library_600x900 (2:3 close enough,
+     with object-fit cover it shows full banner without weird cropping). */
   .game-tile {
     position: relative;
     overflow: hidden;
     border-radius: 14px;
     border: 1px solid rgba(255, 255, 255, 0.08);
-    aspect-ratio: 4 / 5;
+    aspect-ratio: 3 / 4;
     cursor: pointer;
     transition: border-color 0.15s ease;
     background: var(--game-gradient, linear-gradient(135deg, #1b2838, #0e141d));
@@ -188,8 +190,6 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
-    /* Slight darken so text is readable */
-    filter: brightness(0.85);
   }
 
   .game-tile__overlay {
@@ -320,6 +320,65 @@
     background: var(--primary);
     color: var(--primary-foreground);
     border-color: var(--primary);
+  }
+
+  /* Neon strip — glowing horizontal line, used as section divider */
+  .neon-strip {
+    position: relative;
+    height: 2px;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      var(--primary) 20%,
+      var(--primary) 80%,
+      transparent 100%
+    );
+    box-shadow:
+      0 0 6px var(--primary),
+      0 0 12px color-mix(in srgb, var(--primary) 50%, transparent);
+    opacity: 0.8;
+  }
+
+  /* Neon strip — vertical variant */
+  .neon-strip-v {
+    position: relative;
+    width: 2px;
+    background: linear-gradient(
+      180deg,
+      transparent 0%,
+      var(--primary) 20%,
+      var(--primary) 80%,
+      transparent 100%
+    );
+    box-shadow:
+      0 0 6px var(--primary),
+      0 0 12px color-mix(in srgb, var(--primary) 50%, transparent);
+  }
+
+  /* Slide-in animation for sub-views (game → rooms) */
+  .slide-in {
+    animation: slideInRight 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  @keyframes slideInRight {
+    from {
+      opacity: 0;
+      transform: translateX(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  /* Fade-in animation for content */
+  .fade-in {
+    animation: fadeIn 0.18s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
 }
 

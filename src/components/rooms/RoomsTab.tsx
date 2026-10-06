@@ -37,20 +37,23 @@ export function RoomsTab({ user }: Props) {
   return (
     <div className="max-w-md mx-auto px-4 py-4 pb-6 space-y-5">
       {/* Hero */}
-      <div className="flex items-center gap-3 p-3.5 rounded-2xl border border-border bg-[#1b2838]/40">
-        <div
-          className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
-          style={{ background: "var(--primary)" }}
-        >
-          <Moon className="w-5 h-5 text-[#0e141d]" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <h1 className="text-base font-bold neon-text leading-tight">
-            Чилл & Общение
-          </h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Поговори по душам или обсуди кино
-          </p>
+      <div className="relative overflow-hidden rounded-2xl border border-border bg-[#1b2838]/40">
+        <div className="neon-strip" />
+        <div className="p-4 flex items-center gap-3">
+          <div
+            className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+            style={{ background: "var(--primary)" }}
+          >
+            <Moon className="w-5 h-5 text-[#0e141d]" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-base font-bold neon-text leading-tight">
+              Чилл & Общение
+            </h1>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Поговори по душам или обсуди кино
+            </p>
+          </div>
         </div>
       </div>
 
