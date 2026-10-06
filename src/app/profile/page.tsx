@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { AppShell } from "@/components/AppShell";
-import { FriendsView } from "@/components/friends/FriendsView";
+import { ProfileView } from "@/components/profile/ProfileView";
 import type { UserRow } from "@/lib/supabase/client";
 
-export default function FriendsPage() {
+export default function ProfilePage() {
   const [user, setUser] = useState<UserRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [shouldRedirect, setShouldRedirect] = useState(false);
@@ -39,7 +39,7 @@ export default function FriendsPage() {
 
   return (
     <AppShell user={user}>
-      <FriendsView user={user} />
+      <ProfileView user={user} onUserUpdate={setUser} />
     </AppShell>
   );
 }

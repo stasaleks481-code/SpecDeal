@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Crown, Star } from "lucide-react";
+import { Crown, Star } from "lucide-react";
 import type { UserRow } from "@/lib/supabase/client";
 import { useTelegramBackButton } from "@/lib/telegram/useBackButton";
 
@@ -59,12 +59,6 @@ export function LeaderboardView({ currentUser }: Props) {
     <div className="max-w-md mx-auto px-4 py-4 pb-6 space-y-4">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <button
-          onClick={() => router.push("/")}
-          className="p-1.5 -ml-1.5 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </button>
         <div className="flex-1">
           <h1 className="text-lg font-bold flex items-center gap-2">
             <Crown className="w-5 h-5 text-amber-400" fill="currentColor" />

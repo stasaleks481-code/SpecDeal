@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { AppShell } from "@/components/AppShell";
 import { OtherUserProfile } from "@/components/profile/OtherUserProfile";
 import type { UserRow } from "@/lib/supabase/client";
 
@@ -15,6 +16,9 @@ export default function UserProfilePage() {
         if (!res.ok) throw new Error("Not authenticated");
         const data = await res.json();
         setUser(data.user);
+        if (data.user?.theme_color) {
+          document.documentElement.setAttribute("data-accent", data.user.theme_color);
+        }
       })
       .catch(() => setShouldRedirect(true))
       .finally(() => setLoading(false));
@@ -26,11 +30,16 @@ export default function UserProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center">
+      <main className="min-h-screen flex flex-col items-center justify-center">
         <div className="w-12 h-12 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
-      </div>
+      </main>
     );
   }
   if (!user) return null;
-  return <OtherUserProfile currentUser={user} />;
+
+  return (
+    <AppShell user={user}>
+      <OtherUserProfile currentUser={user} />
+    </AppShell>
+  );
 }

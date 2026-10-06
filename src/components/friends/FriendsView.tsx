@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
-  ArrowLeft, Search, UserPlus, Check, X, MessageCircle, Users, Clock,
+  Search, UserPlus, Check, X, MessageCircle, Users, Clock,
 } from "lucide-react";
 import type { UserRow } from "@/lib/supabase/client";
 import { useTelegramBackButton } from "@/lib/telegram/useBackButton";
@@ -175,12 +175,6 @@ export function FriendsView({ user: _user }: Props) {
     <div className="max-w-md mx-auto px-4 py-4 pb-6 space-y-4">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <button
-          onClick={() => router.push("/")}
-          className="p-1.5 -ml-1.5 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </button>
         <div className="flex-1">
           <h1 className="text-lg font-bold">Друзья</h1>
           <p className="text-xs text-muted-foreground">{totalCount} всего</p>
