@@ -18,8 +18,8 @@ const SPLASH_KEY = "voicedeck_splash_v1";
 const TOUR_STEPS: TourStep[] = [
   {
     targetId: "section-casual",
-    title: "Три раздела — равноправные",
-    description: "Общение, ПК-Игры и Настольные партии — переключайся одним тапом.",
+    title: "Общение — на первом месте",
+    description: "Голосовые комнаты для болтовни и знакомств. Заходи — тема найдётся сама.",
     position: "bottom",
   },
   {
@@ -27,6 +27,12 @@ const TOUR_STEPS: TourStep[] = [
     title: "Настольные игры",
     description: "Шпион, Мафия, Бункер и «Кто я?» — роли и таймеры выдаются автоматически.",
     position: "bottom",
+  },
+  {
+    targetId: "nav-steam",
+    title: "Steam Хаб",
+    description: "ПК-игры, подбор тиммейтов, аккаунт Steam и его рейтинг — всё на отдельной вкладке.",
+    position: "top",
   },
   {
     targetId: "nav-create",
@@ -43,7 +49,7 @@ const TOUR_STEPS: TourStep[] = [
   {
     targetId: "nav-profile",
     title: "Твой профиль",
-    description: "Статистика, отзывы, привязка Steam и настройки тем оформления.",
+    description: "Рейтинги по категориям, задания за монеты и магазин косметики.",
     position: "top",
   },
 ];

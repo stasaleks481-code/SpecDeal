@@ -218,6 +218,8 @@
     border: 1px solid var(--border);
     border-radius: 20px;
     padding: 0.875rem;
+    /* own compositing layer → hover/active transitions stay on the GPU */
+    transform: translateZ(0);
     transition: border-color 0.16s ease, transform 0.16s ease, box-shadow 0.16s ease;
   }
   .room-card:hover {
@@ -225,7 +227,7 @@
     box-shadow: 0 8px 28px -10px color-mix(in srgb, var(--primary) 26%, transparent);
   }
   .room-card:active {
-    transform: scale(0.985);
+    transform: scale(0.985) translateZ(0);
   }
 
   /* ── HERO CARD — big duotone gradient banner (section headers) ── */
@@ -249,21 +251,23 @@
       radial-gradient(260px 220px at -10% 120%, rgba(0, 0, 0, 0.32), transparent 62%);
     pointer-events: none;
   }
-  /* Animated sheen sweep — GPU transform, plays once */
+  /* Animated sheen sweep — GPU transform only (animating `left` would
+     repaint the whole hero every frame and jank the scroll) */
   .vd-hero::after {
     content: "";
     position: absolute;
     top: -40%;
     bottom: -40%;
-    left: -80%;
+    left: 0;
     width: 55%;
     background: linear-gradient(105deg, transparent, rgba(255, 255, 255, 0.14), transparent);
-    transform: skewX(-18deg);
+    transform: skewX(-18deg) translateX(-160%);
     animation: vdSheen 3.4s cubic-bezier(0.4, 0, 0.2, 1) 0.6s 1 both;
     pointer-events: none;
+    will-change: transform;
   }
   @keyframes vdSheen {
-    to { left: 130%; }
+    to { transform: skewX(-18deg) translateX(240%); }
   }
   @media (prefers-reduced-motion: reduce) {
     .vd-hero::after { animation: none; }

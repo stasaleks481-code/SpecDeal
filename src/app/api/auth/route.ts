@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase, type UserRow } from '@/lib/supabase/client'
+import { bumpQuest } from '@/lib/server/quests'
 import { validateInitData } from '@/lib/telegram/initdata'
 
 export const runtime = 'nodejs'
@@ -105,6 +106,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             .from('users')
             .update({ last_seen_at: new Date().toISOString() })
             .eq('id', sessionUser.id)
+          // Daily quest: opened the app today
+          void bumpQuest(sessionUser.id, 'login')
           return withCookies(sessionUser)
         }
       }

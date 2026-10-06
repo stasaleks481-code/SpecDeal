@@ -3,9 +3,11 @@
 import { useState, useCallback, useRef, useEffect, memo, type ReactNode } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Gamepad2, MessageCircle, Plus, Users, Crown, Megaphone, X } from "lucide-react";
+import { MessageCircle, Plus, Users, Crown, Megaphone, X } from "lucide-react";
 import { CreateRoomModal } from "@/components/games/CreateRoomModal";
 import { AccountGate } from "@/components/auth/AccountGate";
+import { SteamLogo } from "@/components/profile/SteamBadge";
+import { UserAvatar, UserName } from "@/components/cosmetics";
 import type { UserRow, AnnouncementRow } from "@/lib/supabase/client";
 import { haptic } from "@/lib/telegram/haptics";
 import { useUser } from "@/lib/UserContext";
@@ -82,15 +84,14 @@ export function AppShell({ user, children }: Props) {
   }, [dismissedAnnouncements]);
 
   // Derive active tab from pathname
-  const activeTab: "games" | "friends" | "chill" | "profile" | null = (() => {
-    if (pathname === "/") return "games";
+  const activeTab: "home" | "friends" | "steam" | "profile" | null = (() => {
+    if (pathname === "/") return "home";
     if (pathname.startsWith("/friends")) return "friends";
     if (pathname.startsWith("/dm")) return "friends";
-    if (pathname.startsWith("/chill")) return "chill";
+    if (pathname.startsWith("/pc")) return "steam";
     if (pathname.startsWith("/profile")) return "profile";
     if (pathname.startsWith("/leaderboard")) return "profile";
     if (pathname.startsWith("/users")) return "profile";
-    if (pathname.startsWith("/rooms")) return "chill";
     return null;
   })();
 
@@ -112,7 +113,7 @@ export function AppShell({ user, children }: Props) {
   // Context label for header
   const contextLabel = (() => {
     if (pathname === "/") return "Voice Hub";
-    if (pathname.startsWith("/chill")) return "Chill Zone";
+    if (pathname.startsWith("/pc")) return "Steam Hub";
     if (pathname.startsWith("/friends")) return "Friends";
     if (pathname.startsWith("/dm")) return "Messages";
     if (pathname.startsWith("/profile")) return "Profile";
@@ -152,9 +153,9 @@ export function AppShell({ user, children }: Props) {
       <header
         className="sticky top-0 z-20 border-b border-border"
         style={{
-          background: "linear-gradient(180deg, rgba(11,17,26,0.94) 0%, rgba(11,17,26,0.82) 100%)",
-          backdropFilter: "blur(14px)",
-          WebkitBackdropFilter: "blur(14px)",
+          background: "linear-gradient(180deg, rgba(11,17,26,0.97) 0%, rgba(11,17,26,0.9) 100%)",
+          backdropFilter: "blur(10px)",
+          WebkitBackdropFilter: "blur(10px)",
         }}
       >
         <div className="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
@@ -192,23 +193,11 @@ export function AppShell({ user, children }: Props) {
             }`}
           >
             {user.photo_url ? (
-              <img
-                src={user.photo_url}
-                alt={user.first_name}
-                className="w-7 h-7 rounded-full object-cover ring-2"
-                style={{
-                  // @ts-expect-error css var in ring color
-                  "--tw-ring-color": "color-mix(in srgb, var(--primary) 35%, transparent)",
-                }}
-              />
+              <UserAvatar user={user} size={30} />
             ) : (
-              <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold neon-text">
-                {user.first_name?.[0] ?? "?"}
-              </div>
+              <UserAvatar user={user} size={30} />
             )}
-            <span className="text-xs font-bold max-w-[80px] truncate">
-              {user.username ? user.username : user.first_name}
-            </span>
+            <UserName user={user} className="text-xs font-bold max-w-[80px] truncate" />
           </button>
         </div>
       </header>
@@ -263,18 +252,19 @@ export function AppShell({ user, children }: Props) {
           <div
             className="flex items-center justify-around rounded-3xl px-2 py-2"
             style={{
-              background: "linear-gradient(180deg, rgba(20,28,40,0.92), rgba(11,17,26,0.94))",
-              backdropFilter: "blur(18px)",
-              WebkitBackdropFilter: "blur(18px)",
+              background: "linear-gradient(180deg, rgba(20,28,40,0.95), rgba(11,17,26,0.97))",
+              backdropFilter: "blur(12px)",
+              WebkitBackdropFilter: "blur(12px)",
               border: "1px solid rgba(255,255,255,0.09)",
               boxShadow: "0 16px 44px -12px rgba(0, 0, 0, 0.7), 0 1px 0 rgba(255, 255, 255, 0.08) inset",
+              transform: "translateZ(0)",
             }}
           >
             <TabButton
               tourId="nav-games"
-              active={activeTab === "games"}
+              active={activeTab === "home"}
               onClick={() => navigate("/")}
-              icon={<Gamepad2 className="w-5 h-5" />}
+              icon={<MessageCircle className="w-5 h-5" />}
               isMoving={isMoving}
             />
 
@@ -306,10 +296,10 @@ export function AppShell({ user, children }: Props) {
             </button>
 
             <TabButton
-              tourId="nav-chill"
-              active={activeTab === "chill"}
-              onClick={() => navigate("/chill")}
-              icon={<MessageCircle className="w-5 h-5" />}
+              tourId="nav-steam"
+              active={activeTab === "steam"}
+              onClick={() => navigate("/pc")}
+              icon={<SteamLogo className="w-5 h-5" />}
               isMoving={isMoving}
             />
 

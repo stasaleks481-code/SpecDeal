@@ -4,15 +4,18 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Gamepad2, Star, Users, Crown, ShieldCheck, Sparkles, TrendingUp,
+  Star, Users, Crown, ShieldCheck, Sparkles, TrendingUp,
   Send, Link2, Eye, EyeOff, GraduationCap, Settings2, BarChart3, MessageSquareQuote,
-  UserX, ExternalLink, LifeBuoy, Check,
+  UserX, ExternalLink, LifeBuoy, Check, Gift, ShoppingBag, Mic, Dices, MonitorSmartphone,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { SteamBadge, SteamLogo } from "@/components/profile/SteamBadge";
 import { SupportCenter } from "@/components/support/SupportCenter";
+import { QuestsSheet } from "@/components/quests/QuestsSheet";
+import { ShopSheet, ShopEntry } from "@/components/shop/ShopSheet";
 import { ReviewTypeIcon } from "@/components/icons";
+import { UserAvatar, UserName, UserTitleChip, CoinIcon } from "@/components/cosmetics";
 import { THEME_COLORS, REVIEW_TYPES, type UserRow, type ThemeColor } from "@/lib/supabase/client";
 import { haptic } from "@/lib/telegram/haptics";
 
@@ -43,6 +46,8 @@ export function ProfileView({ user, onUserUpdate }: Props) {
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [tgToggleBusy, setTgToggleBusy] = useState(false);
   const [showSupport, setShowSupport] = useState(false);
+  const [showQuests, setShowQuests] = useState(false);
+  const [showShop, setShowShop] = useState(false);
 
   const isAnonymous = user.account_type === "anonymous";
   const isTelegram = user.account_type === "telegram";
@@ -160,38 +165,23 @@ export function ProfileView({ user, onUserUpdate }: Props) {
             boxShadow: "0 0 12px color-mix(in srgb, var(--primary) 55%, transparent)",
           }}
         />
-        {/* Steam neon icon + info popup (top-right) */}
-        {(isSteam || user.steam_id) && (
-          <div className="absolute top-3 right-3 z-10">
-            <SteamBadge
-              connected
-              personaName={(user.steam_data as { persona_name?: string } | null)?.persona_name ?? null}
-            />
+        {/* Steam neon icon + info popup (top-right) — Steam живёт на вкладке Steam */}
+        <div className="absolute top-3 right-3 z-10">
+          <div
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
+            style={{
+              background: "linear-gradient(135deg, rgba(255,215,111,0.16), rgba(255,157,61,0.08))",
+              border: "1px solid rgba(255,215,111,0.35)",
+            }}
+          >
+            <CoinIcon size={14} />
+            <span className="text-xs font-black text-[#ffd76f] tabular-nums">{user.coins}</span>
           </div>
-        )}
+        </div>
         <div className="p-5">
           <div className="flex items-center gap-4">
             <div className="relative">
-              {/* Gradient ring around avatar */}
-              <div
-                className="p-[2.5px] rounded-[19px]"
-                style={{
-                  background: "linear-gradient(135deg, color-mix(in srgb, var(--primary) 90%, #fff), var(--primary) 40%, color-mix(in srgb, var(--primary) 35%, #0a2a3a))",
-                  boxShadow: "0 6px 20px -6px color-mix(in srgb, var(--primary) 55%, transparent)",
-                }}
-              >
-                {user.photo_url ? (
-                  <img
-                    src={user.photo_url}
-                    alt={user.first_name}
-                    className="w-20 h-20 rounded-[17px] object-cover"
-                  />
-                ) : (
-                  <div className="w-20 h-20 rounded-[17px] flex items-center justify-center text-3xl font-black" style={{ background: "rgba(11,17,26,0.92)", color: "var(--primary)" }}>
-                    {user.first_name?.[0] ?? "?"}
-                  </div>
-                )}
-              </div>
+              <UserAvatar user={user} size={84} />
               <div
                 className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full border-2 flex items-center justify-center"
                 style={{ background: trustColor, borderColor: "#0b111a", boxShadow: `0 0 10px ${trustColor}70` }}
@@ -201,8 +191,8 @@ export function ProfileView({ user, onUserUpdate }: Props) {
             </div>
 
             <div className="flex-1 min-w-0">
-              <h1 className="text-xl font-black truncate leading-tight tracking-tight">
-                {user.first_name} {user.last_name}
+              <h1 className="text-xl font-black truncate leading-tight tracking-tight flex items-center gap-2">
+                <UserName user={user} fallback={`${user.first_name} ${user.last_name ?? ""}`} />
               </h1>
               {user.username && (
                 <p className="text-sm text-muted-foreground mt-0.5">@{user.username}</p>
@@ -214,14 +204,7 @@ export function ProfileView({ user, onUserUpdate }: Props) {
                 >
                   {trustLevel} доверие
                 </span>
-                {isSteam && (
-                  <span
-                    className="text-[10px] px-2 py-1 rounded-full font-bold flex items-center gap-1"
-                    style={{ background: "rgba(27,40,56,0.9)", border: "1px solid rgba(102,192,244,0.35)", color: "#66c0f4" }}
-                  >
-                    <SteamLogo className="w-3 h-3" color="#66c0f4" /> Steam
-                  </span>
-                )}
+                <UserTitleChip user={user} />
                 {isAnonymous && (
                   <span className="text-[10px] px-2 py-1 rounded-full font-bold bg-amber-400/15 text-amber-300 border border-amber-400/30">
                     Аноним
@@ -238,7 +221,7 @@ export function ProfileView({ user, onUserUpdate }: Props) {
                   className="text-[10px] px-2 py-1 rounded-full flex items-center gap-1 font-semibold"
                   style={{ background: "#3FB95020", color: "#3FB950", border: "1px solid #3FB95040" }}
                 >
-                  <ShieldCheck className="w-3 h-3" /> Steam подключен
+                  <ShieldCheck className="w-3 h-3" /> Аккаунт подтверждён
                 </span>
               )}
               {user.badges.includes("captain") && (
@@ -292,7 +275,7 @@ export function ProfileView({ user, onUserUpdate }: Props) {
           <div className="grid grid-cols-3 gap-2">
             <div className="stat-block">
               <div className="stat-block__value">{user.matches_count}</div>
-              <div className="stat-block__label">Матчей</div>
+              <div className="stat-block__label">Каток</div>
             </div>
             <div className="stat-block">
               <div className="stat-block__value">{user.reviews_count}</div>
@@ -303,6 +286,81 @@ export function ProfileView({ user, onUserUpdate }: Props) {
               <div className="stat-block__label">Рейтинг</div>
             </div>
           </div>
+
+          {/* Category ratings — общение / настолки / ПК */}
+          <div className="glass-card p-4">
+            <h3 className="font-semibold text-sm flex items-center gap-2 mb-3">
+              <BarChart3 className="w-4 h-4 text-primary" />
+              Рейтинги по категориям
+            </h3>
+            <div className="space-y-3">
+              {[
+                { label: "Общение и знакомства", value: user.casual_matches, icon: <Mic className="w-3.5 h-3.5" />, color: "#5e6cf3" },
+                { label: "Настольные игры", value: user.party_matches, icon: <Dices className="w-3.5 h-3.5" />, color: "#c25ef0" },
+                { label: "ПК-игры", value: user.pc_matches, icon: <MonitorSmartphone className="w-3.5 h-3.5" />, color: "#ff7a50" },
+              ].map((row) => {
+                const max = Math.max(10, user.casual_matches, user.party_matches, user.pc_matches);
+                const pct = Math.min(100, Math.round((row.value / max) * 100));
+                return (
+                  <div key={row.label}>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span
+                        className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0"
+                        style={{ background: `${row.color}1c`, color: row.color, border: `1px solid ${row.color}40` }}
+                      >
+                        {row.icon}
+                      </span>
+                      <span className="text-xs font-semibold flex-1">{row.label}</span>
+                      <span className="text-xs font-black" style={{ color: row.color }}>{row.value}</span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden ml-8">
+                      <motion.div
+                        className="h-full rounded-full"
+                        initial={{ width: 0 }}
+                        animate={{ width: `${pct}%` }}
+                        transition={{ duration: 0.5, ease: "easeOut" }}
+                        style={{ background: `linear-gradient(90deg, ${row.color}90, ${row.color})` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-3">
+              Катка засчитывается после 3+ минут в голосе комнаты
+            </p>
+          </div>
+
+          {/* Quests entry — gold gradient row */}
+          <button
+            onClick={() => { haptic.impact("light"); setShowQuests(true); }}
+            className="room-card w-full flex items-center gap-3 text-left"
+            style={{
+              background: "linear-gradient(135deg, rgba(255,215,111,0.1), rgba(255,157,61,0.04))",
+              borderColor: "rgba(255,200,90,0.3)",
+            }}
+          >
+            <div
+              className="vd-tile w-11 h-11"
+              style={{ background: "linear-gradient(140deg, #ffd76f, #ff9d3d)", border: "1px solid rgba(255,220,140,0.4)", boxShadow: "0 8px 20px -6px rgba(255,170,80,0.5)" }}
+            >
+              <Gift className="w-5 h-5 text-[#3a2506]" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="font-bold text-sm">Задания дня</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">Зарабатывай VoiceDeck Coins каждый день</p>
+            </div>
+            <span className="flex items-center gap-1 text-xs font-black text-[#ffd76f]">
+              <CoinIcon size={13} />
+              {user.coins}
+            </span>
+          </button>
+
+          {/* Shop entry */}
+          <ShopEntry
+            coins={user.coins}
+            onClick={() => { haptic.impact("light"); setShowShop(true); }}
+          />
 
           {/* Trust progress */}
           <div className="glass-card p-4">
@@ -357,7 +415,7 @@ export function ProfileView({ user, onUserUpdate }: Props) {
             </h3>
             <p className="text-xs text-muted-foreground">
               {user.matches_count > 0
-                ? `Сыграно каток: ${user.matches_count}. Заходи в лобби, чтобы увеличить счётчик.`
+                ? `Сыграно каток: ${user.matches_count}. Заходи в голос, чтобы увеличить счётчик.`
                 : "Сыграй первую катку — счётчик появится здесь."}
             </p>
           </div>
@@ -381,60 +439,40 @@ export function ProfileView({ user, onUserUpdate }: Props) {
             </div>
           )}
 
-          {/* Steam link (Telegram-primary) */}
+          {/* Steam — moved to the dedicated Steam tab */}
           {isTelegram && (
-            <div className="glass-card overflow-hidden">
-              <div className="p-4 flex items-center gap-3 border-b border-border">
-                <div
-                  className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
-                  style={{ background: "linear-gradient(135deg, #1b2838, #0e141d)", border: "1px solid #66c0f430" }}
-                >
-                  <SteamLogo className="w-5 h-5" color="#66c0f4" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-sm flex items-center gap-2">
-                    Steam
-                    {user.steam_id && (
-                      <span
-                        className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold flex items-center gap-1"
-                        style={{ background: "#3FB95020", color: "#3FB950" }}
-                      >
-                        <ShieldCheck className="w-2.5 h-2.5" /> подключен
-                      </span>
-                    )}
-                  </h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {user.steam_id
-                      ? (user.steam_data as { persona_name?: string } | null)?.persona_name ?? `ID: ${user.steam_id}`
-                      : "Привяжи для бейджа верификации"}
-                  </p>
-                </div>
-                {!user.steam_id && (
-                  <button
-                    onClick={linkSteam}
-                    disabled={linking}
-                    className="neon-btn text-[11px] shrink-0 flex items-center gap-1.5"
-                  >
-                    <Link2 className="w-3.5 h-3.5" />
-                    {linking ? "Открываем..." : "Привязать"}
-                  </button>
-                )}
+            <button
+              onClick={() => { haptic.impact("light"); router.push("/pc"); }}
+              className="room-card w-full flex items-center gap-3 text-left"
+            >
+              <div
+                className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+                style={{ background: "linear-gradient(135deg, #1b2838, #0e141d)", border: "1px solid #66c0f430" }}
+              >
+                <SteamLogo className="w-5 h-5" color="#66c0f4" />
               </div>
-
-              {/* Telegram identity row */}
-              <div className="p-4 flex items-center gap-3">
-                <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ background: "rgba(34, 158, 217, 0.15)" }}>
-                  <Send className="w-5 h-5 text-[#229ED9]" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-sm">Telegram — основной</h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {user.username ? `@${user.username}` : "Профиль из Telegram"}
-                  </p>
-                </div>
-                <ShieldCheck className="w-4 h-4 text-green-400 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-sm flex items-center gap-2">
+                  Steam
+                  {user.steam_id && (
+                    <span
+                      className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold flex items-center gap-1"
+                      style={{ background: "#3FB95020", color: "#3FB950" }}
+                    >
+                      <ShieldCheck className="w-2.5 h-2.5" /> подключен
+                    </span>
+                  )}
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {user.steam_id
+                    ? (user.steam_data as { persona_name?: string } | null)?.persona_name ?? `ID: ${user.steam_id}`
+                    : "Аккаунт, тиммейты и рейтинг — на вкладке Steam"}
+                </p>
               </div>
-            </div>
+              <span className="text-[10px] font-black uppercase tracking-wider text-[#66c0f4] shrink-0">
+                Открыть →
+              </span>
+            </button>
           )}
 
           {/* Steam-primary account card */}
@@ -705,6 +743,30 @@ export function ProfileView({ user, onUserUpdate }: Props) {
 
       {/* Support center dialog */}
       <SupportCenter open={showSupport} onClose={() => setShowSupport(false)} />
+
+      {/* Quests & shop sheets */}
+      <QuestsSheet
+        open={showQuests}
+        onClose={() => setShowQuests(false)}
+        onOpenShop={() => {
+          setShowQuests(false);
+          setTimeout(() => setShowShop(true), 220);
+        }}
+        onCoinsChange={(coins) => onUserUpdate({ ...user, coins })}
+      />
+      <ShopSheet
+        open={showShop}
+        onClose={() => setShowShop(false)}
+        onCoinsChange={(coins) => onUserUpdate({ ...user, coins })}
+        onEquippedChange={(eq) =>
+          onUserUpdate({
+            ...user,
+            avatar_frame: eq.frame,
+            name_style: eq.name_style,
+            user_title: eq.title,
+          })
+        }
+      />
     </div>
   );
 }

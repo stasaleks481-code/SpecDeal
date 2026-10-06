@@ -24,7 +24,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .select(`
       id, username, first_name, last_name, photo_url, account_type,
       trust_score, reviews_count, matches_count, badges, is_banned,
-      is_online, last_seen_at, steam_id, theme_color, created_at
+      is_online, last_seen_at, steam_id, theme_color, coins, created_at
     `, { count: 'exact' })
 
   if (q) {

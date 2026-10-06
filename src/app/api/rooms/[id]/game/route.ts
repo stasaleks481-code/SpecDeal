@@ -5,6 +5,7 @@ import {
   type GameEngineState, type TurnAdvanceResult,
 } from '@/lib/server/games'
 import { getUserAllowedForAction, ANON_ERROR } from '@/lib/server/auth-helpers'
+import { bumpQuest } from '@/lib/server/quests'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -240,6 +241,9 @@ export async function POST(
       const res = advanceTurn(gameType, state, memberIds, 0)
       await broadcastMute(roomId, tgId, res.muteTargets, res.unmuteTarget)
     }
+
+    // Daily quest: started a party game (host counts it for everyone's motivation)
+    void bumpQuest(tgId, 'play_party')
 
     return NextResponse.json({ session })
   }

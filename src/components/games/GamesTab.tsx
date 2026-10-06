@@ -11,9 +11,11 @@ import { haptic } from "@/lib/telegram/haptics";
 
 interface Props {
   user: UserRow;
+  /** When true — rendered inside the Steam hub (hero card is hidden) */
+  embedded?: boolean;
 }
 
-export function GamesTab({ user }: Props) {
+export function GamesTab({ user, embedded = false }: Props) {
   const [selectedGame, setSelectedGame] = useState<string | null>(null);
   const [rooms, setRooms] = useState<RoomRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -246,7 +248,8 @@ export function GamesTab({ user }: Props) {
   // ━━━ Main view: games grid ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   return (
     <div className="max-w-md mx-auto px-4 py-4 pb-6 space-y-5 fade-in">
-      {/* Hero header — gaming duotone */}
+      {/* Hero header — gaming duotone (hidden inside the Steam hub) */}
+      {!embedded && (
       <div className="vd-hero" style={{ background: "var(--grad-gaming)", "--hero-color": "#ff7a50" } as React.CSSProperties}>
         <div className="flex items-center gap-3.5">
           <div className="vd-tile w-12 h-12">
@@ -262,6 +265,7 @@ export function GamesTab({ user }: Props) {
           </div>
         </div>
       </div>
+      )}
 
       {/* Games grid */}
       <div data-tour="games-grid">

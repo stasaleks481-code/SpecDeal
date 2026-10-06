@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/client'
+import { bumpQuest } from '@/lib/server/quests'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -101,6 +102,9 @@ export async function POST(
   if (error || !data) {
     return NextResponse.json({ error: 'DB error' }, { status: 500 })
   }
+
+  // Daily quest: message sent
+  void bumpQuest(tgId, 'messages')
 
   return NextResponse.json({ message: data })
 }

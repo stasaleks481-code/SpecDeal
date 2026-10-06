@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { Crown, Star } from "lucide-react";
 import type { UserRow } from "@/lib/supabase/client";
 import { RankMedal } from "@/components/icons";
+import { UserAvatar, UserName } from "@/components/cosmetics";
 import { useTelegramBackButton } from "@/lib/telegram/useBackButton";
 
 interface LeaderEntry {
@@ -17,6 +18,9 @@ interface LeaderEntry {
   trust_score: number;
   reviews_count: number;
   matches_count: number;
+  avatar_frame: string | null;
+  name_style: string | null;
+  user_title: string | null;
 }
 
 interface Props {
@@ -150,27 +154,12 @@ export function LeaderboardView({ currentUser }: Props) {
                   </div>
 
                   {/* Avatar */}
-                  {entry.photo_url ? (
-                    <img
-                      src={entry.photo_url}
-                      alt=""
-                      className="w-10 h-10 rounded-full object-cover"
-                      style={{
-                        boxShadow: rank <= 3
-                          ? "0 0 0 2px rgba(255,200,90,0.55), 0 0 14px -2px rgba(255,190,80,0.5)"
-                          : "0 0 0 2px rgba(255,255,255,0.08)",
-                      }}
-                    />
-                  ) : (
-                    <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-sm font-bold">
-                      {entry.first_name?.[0] ?? "?"}
-                    </div>
-                  )}
+                  <UserAvatar user={entry} size={40} />
 
                   {/* Name */}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold truncate flex items-center gap-1">
-                      {entry.username ? `@${entry.username}` : entry.first_name}
+                      <UserName user={entry} fallback={entry.username ? `@${entry.username}` : entry.first_name} />
                       {isMe && <span className="text-[10px] text-primary font-black">(Вы)</span>}
                     </p>
                     <p className="text-xs text-muted-foreground truncate">

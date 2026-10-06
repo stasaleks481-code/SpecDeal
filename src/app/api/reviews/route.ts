@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase, REVIEW_TYPES } from '@/lib/supabase/client'
+import { bumpQuest } from '@/lib/server/quests'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -112,6 +113,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (error) {
     return NextResponse.json({ error: 'DB error' }, { status: 500 })
   }
+
+  // Daily quest: review submitted
+  void bumpQuest(tgId, 'review')
 
   // Update target's trust_score + reviews_count
   const scoreDelta = REVIEW_TYPES[ratingType].score

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase, GAMES, CASUAL_TOPICS, PARTY_GAMES, SKILL_LEVELS, type RoomRow, type UserRow, type SkillLevel } from '@/lib/supabase/client'
 import { getUserAllowedForAction, ANON_ERROR } from '@/lib/server/auth-helpers'
+import { bumpQuest } from '@/lib/server/quests'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -234,6 +235,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (memberErr) {
     console.error('[rooms] member insert error:', memberErr)
   }
+
+  // Daily quest: created a room
+  void bumpQuest(tgId, 'create_room')
 
   return NextResponse.json({ room })
 }

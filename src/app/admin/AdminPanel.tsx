@@ -299,6 +299,7 @@ interface AdminUser {
   trust_score: number;
   reviews_count: number;
   matches_count: number;
+  coins: number;
   badges: string[];
   is_banned: boolean;
   is_online: boolean;
@@ -423,7 +424,7 @@ function UsersTab() {
                     <span className="text-[9px] px-1 py-0.5 rounded bg-white/5 border border-border uppercase text-muted-foreground">{u.account_type}</span>
                   </p>
                   <p className="text-[11px] text-muted-foreground">
-                    ID {u.id} · рейтинг {u.trust_score} · отзывов {u.reviews_count} · {u.is_online ? "онлайн" : fmtDate(u.last_seen_at)}
+                    ID {u.id} · рейтинг {u.trust_score} · отзывов {u.reviews_count} · монет {u.coins ?? 0} · {u.is_online ? "онлайн" : fmtDate(u.last_seen_at)}
                   </p>
                 </div>
                 <button
@@ -493,6 +494,26 @@ function UsersTab() {
                     onClick={() => patchUser(editing.id, { trust_score: editing.trust_score + d })}
                     className="text-[10px] px-2 py-1 rounded-lg border border-border hover:border-primary/40 font-bold"
                     style={{ color: d > 0 ? "#3FB950" : "#FF4655" }}
+                  >
+                    {d > 0 ? `+${d}` : d}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Coins grant */}
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold mb-1.5">
+                VoiceDeck Coins (баланс: {editing.coins ?? 0})
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {[+50, +100, +500, +1000, -50, -100].map((d) => (
+                  <button
+                    key={d}
+                    disabled={busy}
+                    onClick={() => patchUser(editing.id, { coins_delta: d })}
+                    className="text-[10px] px-2.5 py-1.5 rounded-lg border border-border hover:border-[#ffd76f]/50 font-bold"
+                    style={{ color: d > 0 ? "#ffd76f" : "#FF4655" }}
                   >
                     {d > 0 ? `+${d}` : d}
                   </button>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/client'
+import { countVoiceMatch } from '@/lib/server/quests'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -20,6 +21,14 @@ export async function POST(
   const tgId = parseInt(userId, 10)
   const { id } = await params
 
+  // Read membership before delete — needed for the voice-time match counter
+  const { data: membership } = await supabase
+    .from('room_members')
+    .select('joined_at')
+    .eq('room_id', id)
+    .eq('user_id', tgId)
+    .maybeSingle()
+
   // Remove membership
   const { error } = await supabase
     .from('room_members')
@@ -29,6 +38,13 @@ export async function POST(
 
   if (error) {
     return NextResponse.json({ error: 'DB error' }, { status: 500 })
+  }
+
+  // Voice session length ≥3 min counts as a match (per category) + quest minutes
+  if (membership?.joined_at) {
+    const mins = (Date.now() - new Date(membership.joined_at).getTime()) / 60000
+    const { data: roomCat } = await supabase.from('rooms').select('category').eq('id', id).maybeSingle()
+    void countVoiceMatch(tgId, roomCat?.category ?? null, mins)
   }
 
   // Check if user was host — if so, transfer to next member or close room

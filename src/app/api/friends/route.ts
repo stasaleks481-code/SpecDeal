@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase, isEffectivelyOnline } from '@/lib/supabase/client'
+import { bumpQuest } from '@/lib/server/quests'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -38,8 +39,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       status,
       created_at,
       accepted_at,
-      friend1:users!friends_user_id_1_fkey(id, username, first_name, last_name, photo_url, is_online, last_seen_at, trust_score),
-      friend2:users!friends_user_id_2_fkey(id, username, first_name, last_name, photo_url, is_online, last_seen_at, trust_score)
+      friend1:users!friends_user_id_1_fkey(id, username, first_name, last_name, photo_url, is_online, last_seen_at, trust_score, avatar_frame, name_style, user_title),
+      friend2:users!friends_user_id_2_fkey(id, username, first_name, last_name, photo_url, is_online, last_seen_at, trust_score, avatar_frame, name_style, user_title)
     `)
     .or(`user_id_1.eq.${tgId},user_id_2.eq.${tgId}`)
     .eq('status', 'accepted')
@@ -58,7 +59,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       user_id_1,
       user_id_2,
       created_at,
-      from_user:users!friends_user_id_1_fkey(id, username, first_name, last_name, photo_url, is_online, trust_score)
+      from_user:users!friends_user_id_1_fkey(id, username, first_name, last_name, photo_url, is_online, trust_score, avatar_frame, name_style, user_title)
     `)
     .eq('user_id_2', tgId)
     .eq('status', 'pending')
@@ -72,7 +73,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       user_id_1,
       user_id_2,
       created_at,
-      to_user:users!friends_user_id_2_fkey(id, username, first_name, last_name, photo_url, is_online, trust_score)
+      to_user:users!friends_user_id_2_fkey(id, username, first_name, last_name, photo_url, is_online, trust_score, avatar_frame, name_style, user_title)
     `)
     .eq('user_id_1', tgId)
     .eq('status', 'pending')
@@ -178,6 +179,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     console.error('[friends] POST error:', error)
     return NextResponse.json({ error: 'DB error' }, { status: 500 })
   }
+
+  // Daily quest: friend request sent
+  void bumpQuest(tgId, 'add_friend')
 
   return NextResponse.json({ ok: true, accepted: false })
 }

@@ -23,7 +23,7 @@ export async function GET(
     .from('users')
     .select(`
       id, username, first_name, last_name, photo_url,
-      steam_id, trust_score, reviews_count, matches_count,
+      steam_id, trust_score, reviews_count, matches_count, coins, avatar_frame, name_style, user_title, casual_matches, party_matches, pc_matches,
       badges, is_online, last_seen_at, created_at,
       account_type, tg_link_data, show_tg_profile, steam_linked_at
     `)

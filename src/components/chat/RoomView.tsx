@@ -16,6 +16,7 @@ import { haptic } from "@/lib/telegram/haptics";
 import { useVoiceCall } from "@/lib/webrtc/useVoiceCall";
 import { GamePanel } from "@/components/party/GamePanel";
 import { PartyGameIcon } from "@/components/icons";
+import { UserAvatar } from "@/components/cosmetics";
 
 interface RoomData {
   id: string;
@@ -44,6 +45,9 @@ interface Member {
     first_name: string;
     last_name: string | null;
     photo_url: string | null;
+    avatar_frame?: string | null;
+    name_style?: string | null;
+    user_title?: string | null;
   };
 }
 
@@ -671,33 +675,38 @@ export function RoomView({ user }: Props) {
                     )}
 
                     <div className="relative">
-                      {p.photoUrl ? (
-                        <img
-                          src={p.photoUrl}
-                          alt=""
-                          className="w-16 h-16 rounded-full object-cover transition-shadow"
-                          style={{
-                            boxShadow: speaking
-                              ? "0 0 0 3px #3FB950, 0 0 16px rgba(63,185,80,0.5)"
-                              : p.connectionState === "connected"
-                              ? "0 0 0 2px rgba(63,185,80,0.3)"
-                              : "0 0 0 2px rgba(255,182,39,0.4)",
-                          }}
-                        />
-                      ) : (
-                        <div
-                          className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center text-2xl font-bold transition-shadow"
-                          style={{
-                            boxShadow: speaking
-                              ? "0 0 0 3px #3FB950, 0 0 16px rgba(63,185,80,0.5)"
-                              : p.connectionState === "connected"
-                              ? "0 0 0 2px rgba(63,185,80,0.3)"
-                              : "0 0 0 2px rgba(255,182,39,0.4)",
-                          }}
-                        >
-                          {p.firstName?.[0] ?? "?"}
-                        </div>
-                      )}
+                      {(() => {
+                        const member = members.find((mm) => mm.user_id === p.userId);
+                        const ringShadow = speaking
+                          ? "0 0 0 3px #3FB950, 0 0 16px rgba(63,185,80,0.5)"
+                          : p.connectionState === "connected"
+                          ? "0 0 0 2px rgba(63,185,80,0.3)"
+                          : "0 0 0 2px rgba(255,182,39,0.4)";
+                        // Player with an equipped avatar frame → draw the frame,
+                        // connection/speaking ring stays on the outer wrapper
+                        if (member?.user.avatar_frame) {
+                          return (
+                            <div className="rounded-full" style={{ boxShadow: ringShadow }}>
+                              <UserAvatar user={member.user} size={64} />
+                            </div>
+                          );
+                        }
+                        return p.photoUrl ? (
+                          <img
+                            src={p.photoUrl}
+                            alt=""
+                            className="w-16 h-16 rounded-full object-cover transition-shadow"
+                            style={{ boxShadow: ringShadow }}
+                          />
+                        ) : (
+                          <div
+                            className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center text-2xl font-bold transition-shadow"
+                            style={{ boxShadow: ringShadow }}
+                          >
+                            {p.firstName?.[0] ?? "?"}
+                          </div>
+                        );
+                      })()}
                       {/* Speaking halo */}
                       <AnimatePresence>
                         {speaking && (

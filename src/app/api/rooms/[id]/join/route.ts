@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/client'
+import { bumpQuest } from '@/lib/server/quests'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -54,6 +55,9 @@ export async function POST(
     console.error('[join] error:', error)
     return NextResponse.json({ error: 'DB error' }, { status: 500 })
   }
+
+  // Daily quest: joined a voice channel
+  void bumpQuest(tgId, 'voice_join')
 
   return NextResponse.json({ ok: true })
 }

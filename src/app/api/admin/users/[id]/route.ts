@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase, type UserRow } from '@/lib/supabase/client'
 import { requireAdmin } from '@/lib/server/admin'
+import { grantCoins } from '@/lib/server/quests'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -52,6 +53,27 @@ export async function PATCH(
   if (body.username !== undefined) {
     const un = String(body.username).trim().replace(/^@/, '')
     patch.username = un === '' ? null : un
+  }
+
+  // Currency grant (admin top-up / fine): delta applied to current balance
+  if (body.coins_delta !== undefined) {
+    const delta = Math.round(Number(body.coins_delta))
+    if (isNaN(delta) || delta < -100000 || delta > 100000 || delta === 0) {
+      return NextResponse.json({ error: 'coins_delta: -100000..100000, != 0' }, { status: 400 })
+    }
+    const coins = await grantCoins(id, delta)
+    if (coins === null) {
+      return NextResponse.json({ error: 'Grant failed' }, { status: 500 })
+    }
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, username, first_name, trust_score, is_banned, badges, coins')
+      .eq('id', id)
+      .maybeSingle()
+    if (error || !data) {
+      return NextResponse.json({ error: 'Update failed' }, { status: 500 })
+    }
+    return NextResponse.json({ user: data })
   }
 
   const { data, error } = await supabase

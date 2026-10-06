@@ -28,7 +28,7 @@ export async function GET(
         user_id,
         joined_at,
         is_ready,
-        user:users!room_members_user_id_fkey(id, username, first_name, last_name, photo_url)
+        user:users!room_members_user_id_fkey(id, username, first_name, last_name, photo_url, avatar_frame, name_style, user_title)
       )
     `)
     .eq('id', id)

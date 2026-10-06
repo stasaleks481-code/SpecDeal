@@ -64,6 +64,16 @@ export interface UserRow {
   trust_score: number
   reviews_count: number
   matches_count: number
+  /** VoiceDeck Coins — earned from daily quests or admin grants */
+  coins: number
+  /** Equipped cosmetics (codes from SHOP_ITEMS) */
+  avatar_frame: string | null
+  name_style: string | null
+  user_title: string | null
+  /** Match counters per category (voice ≥3 min counts as a match) */
+  casual_matches: number
+  party_matches: number
+  pc_matches: number
   theme_color: ThemeColor
   is_online: boolean
   last_seen_at: string
@@ -607,3 +617,210 @@ export const THEME_COLORS = {
 } as const
 
 export type ThemeColor = keyof typeof THEME_COLORS
+
+// ─── Currency, cosmetics & quests ───────────────────────────────────
+
+export type CosmeticKind = 'frame' | 'name_style' | 'title'
+
+export interface InventoryRow {
+  id: number
+  user_id: number
+  kind: CosmeticKind
+  code: string
+  acquired_at: string
+}
+
+export interface QuestProgressRow {
+  quest_code: string
+  period: string
+  progress: number
+  claimed: boolean
+}
+
+export type Rarity = 'common' | 'rare' | 'epic' | 'legendary'
+
+export const RARITY_META: Record<Rarity, { label: string; color: string; glow: string }> = {
+  common:    { label: 'Обычный',     color: '#8fa8c0', glow: 'rgba(143,168,192,0.35)' },
+  rare:      { label: 'Редкий',      color: '#3d9bff', glow: 'rgba(61,155,255,0.4)' },
+  epic:      { label: 'Эпический',   color: '#b36bff', glow: 'rgba(179,107,255,0.45)' },
+  legendary: { label: 'Легендарный', color: '#ffb627', glow: 'rgba(255,182,39,0.5)' },
+}
+
+export interface ShopItemDef {
+  kind: CosmeticKind
+  code: string
+  name: string
+  desc: string
+  price: number
+  rarity: Rarity
+  /** frame: ring gradient (border-image style) + glow shadow */
+  ring?: string
+  shadow?: string
+  /** name_style: CSS background for the gradient text */
+  gradient?: string
+  /** title: chip colors */
+  chipBg?: string
+  chipColor?: string
+}
+
+/**
+ * Shop catalog — ships with the release (no DB table needed).
+ * Prices in VoiceDeck Coins (VC). Earn coins from daily quests
+ * or via admin grants.
+ */
+export const SHOP_ITEMS: ShopItemDef[] = [
+  // ── Avatar frames ──
+  {
+    kind: 'frame', code: 'frame_steel', name: 'Сталь', price: 150, rarity: 'common',
+    desc: 'Строгое стальное кольцо вокруг аватара',
+    ring: 'linear-gradient(140deg, #9fb3c8, #5a6f85)',
+    shadow: '0 0 10px rgba(143,168,192,0.4)',
+  },
+  {
+    kind: 'frame', code: 'frame_neon', name: 'Неон', price: 300, rarity: 'common',
+    desc: 'Кольцо в стиле неонового сияния VoiceDeck',
+    ring: 'linear-gradient(140deg, #00f0ff, #2f7cf6)',
+    shadow: '0 0 14px rgba(0,240,255,0.55)',
+  },
+  {
+    kind: 'frame', code: 'frame_virus', name: 'Кислотный', price: 450, rarity: 'rare',
+    desc: 'Ядовито-зелёное свечение для смелых',
+    ring: 'linear-gradient(140deg, #39ff14, #00c853)',
+    shadow: '0 0 14px rgba(57,255,20,0.55)',
+  },
+  {
+    kind: 'frame', code: 'frame_sakura', name: 'Сакура', price: 450, rarity: 'rare',
+    desc: 'Нежный розовый ореол весны',
+    ring: 'linear-gradient(140deg, #ff8ad4, #ff3ec9)',
+    shadow: '0 0 14px rgba(255,62,201,0.5)',
+  },
+  {
+    kind: 'frame', code: 'frame_aurora', name: 'Аврора', price: 800, rarity: 'epic',
+    desc: 'Северное сияние в каждом пикселе',
+    ring: 'linear-gradient(140deg, #22d3ee, #a855f7, #ec4899)',
+    shadow: '0 0 18px rgba(168,85,247,0.6)',
+  },
+  {
+    kind: 'frame', code: 'frame_inferno', name: 'Инферно', price: 800, rarity: 'epic',
+    desc: 'Пламя, которое видно из космоса',
+    ring: 'linear-gradient(140deg, #ffd76f, #ff5e62, #d32f2f)',
+    shadow: '0 0 18px rgba(255,94,98,0.6)',
+  },
+  {
+    kind: 'frame', code: 'frame_gold', name: 'Золото', price: 1500, rarity: 'legendary',
+    desc: 'Позолота для настоящих легенд хаба',
+    ring: 'linear-gradient(140deg, #fff3c4, #ffd76f, #c9971c)',
+    shadow: '0 0 20px rgba(255,215,111,0.65)',
+  },
+  {
+    kind: 'frame', code: 'frame_void', name: 'Пустота', price: 2000, rarity: 'legendary',
+    desc: 'Рамка из глубин космоса — с пульсирующим контуром',
+    ring: 'conic-gradient(from 0deg, #7b5cf0, #00f0ff, #ec4899, #7b5cf0)',
+    shadow: '0 0 22px rgba(123,92,240,0.7)',
+  },
+
+  // ── Nickname styles ──
+  {
+    kind: 'name_style', code: 'nick_ice', name: 'Лёд', price: 200, rarity: 'common',
+    desc: 'Холодный голубой градиент ника',
+    gradient: 'linear-gradient(92deg, #9be7ff, #38bdf8)',
+  },
+  {
+    kind: 'name_style', code: 'nick_fire', name: 'Огонь', price: 350, rarity: 'common',
+    desc: 'Имя, горящее оранжевым пламенем',
+    gradient: 'linear-gradient(92deg, #ffd76f, #ff5e62)',
+  },
+  {
+    kind: 'name_style', code: 'nick_toxic', name: 'Токсик', price: 500, rarity: 'rare',
+    desc: 'Кислотный зелёный — для тех, кто любит драйв',
+    gradient: 'linear-gradient(92deg, #d9ff45, #39ff14)',
+  },
+  {
+    kind: 'name_style', code: 'nick_berry', name: 'Ягода', price: 500, rarity: 'rare',
+    desc: 'Сочный фиолетово-розовый градиент',
+    gradient: 'linear-gradient(92deg, #b36bff, #ff3ec9)',
+  },
+  {
+    kind: 'name_style', code: 'nick_gold', name: 'Золото', price: 1200, rarity: 'epic',
+    desc: 'Позолоченный ник — заметно в любом списке',
+    gradient: 'linear-gradient(92deg, #fff3c4, #ffd76f, #d9a422)',
+  },
+  {
+    kind: 'name_style', code: 'nick_rainbow', name: 'Радуга', price: 1800, rarity: 'legendary',
+    desc: 'Переливающийся градиент всех цветов хаба',
+    gradient: 'linear-gradient(92deg, #ff3ec9, #ffb627, #39ff14, #00f0ff, #b36bff)',
+  },
+
+  // ── Titles ──
+  {
+    kind: 'title', code: 'title_voice', name: 'Голос улиц', price: 250, rarity: 'common',
+    desc: 'Титул для тех, кто живёт в голосовых',
+    chipBg: 'linear-gradient(135deg, #2f7cf6, #7b5cf0)', chipColor: '#ffffff',
+  },
+  {
+    kind: 'title', code: 'title_party', name: 'Душа компании', price: 400, rarity: 'common',
+    desc: 'Титул для заводил настольных вечеров',
+    chipBg: 'linear-gradient(135deg, #a855f7, #ec4899)', chipColor: '#ffffff',
+  },
+  {
+    kind: 'title', code: 'title_sniper', name: 'Снайпер', price: 600, rarity: 'rare',
+    desc: 'Меткий тиммейт для любого лобби',
+    chipBg: 'linear-gradient(135deg, #ff9a3d, #ff5e62)', chipColor: '#ffffff',
+  },
+  {
+    kind: 'title', code: 'title_veteran', name: 'Ветеран', price: 1000, rarity: 'epic',
+    desc: 'Для тех, кто с VoiceDeck с первых дней',
+    chipBg: 'linear-gradient(135deg, #34d399, #22d3ee)', chipColor: '#071019',
+  },
+  {
+    kind: 'title', code: 'title_legend', name: 'Легенда', price: 2500, rarity: 'legendary',
+    desc: 'Легендарный титул — уважение без слов',
+    chipBg: 'linear-gradient(135deg, #ffd76f, #ff9d3d)', chipColor: '#2b1a04',
+  },
+]
+
+export function shopItem(kind: CosmeticKind, code: string | null | undefined): ShopItemDef | null {
+  if (!code) return null
+  return SHOP_ITEMS.find((i) => i.kind === kind && i.code === code) ?? null
+}
+
+export interface QuestDef {
+  code: string
+  title: string
+  desc: string
+  reward: number
+  /** daily reset at UTC midnight */
+  target: number
+  icon: string
+}
+
+/**
+ * Daily quests catalog. Progress bumps come from the API layer:
+ *   login      — /api/auth (first resume of the day)
+ *   voice_join — room join
+ *   voice_time — minutes in voice (room leave with duration)
+ *   messages   — room + DM messages
+ *   create_room — POST /api/rooms
+ *   play_party — starting a party game session
+ *   add_friend — friend request sent
+ *   review     — review submitted
+ */
+export const QUEST_DEFS: QuestDef[] = [
+  { code: 'login',       title: 'Заходи в VoiceDeck',        desc: 'Открой приложение — счёт уже твой',          reward: 10, target: 1,  icon: 'login' },
+  { code: 'voice_join',  title: 'Зайди в голосовой канал',   desc: 'Любая комната — главное, чтобы голос',       reward: 15, target: 1,  icon: 'mic' },
+  { code: 'voice_time',  title: 'Проведи 10 минут в голосе', desc: 'Болтай, знакомься — минуты считаются',       reward: 30, target: 10, icon: 'timer' },
+  { code: 'messages',    title: 'Отправь 10 сообщений',      desc: 'В комнатах или в личке — неважно',           reward: 20, target: 10, icon: 'chat' },
+  { code: 'create_room', title: 'Создай свою комнату',       desc: 'Стань хостом и собери народ',                reward: 15, target: 1,  icon: 'plus' },
+  { code: 'play_party',  title: 'Запусти настольную игру',   desc: 'Шпион, Мафия, Бункер — что душа просит',     reward: 30, target: 1,  icon: 'dices' },
+  { code: 'add_friend',  title: 'Добавь друга',              desc: 'Найди тиммейта и отправь заявку',            reward: 20, target: 1,  icon: 'user' },
+  { code: 'review',      title: 'Оставь отзыв',              desc: 'После катки — честный отзыв о соигроке',     reward: 25, target: 1,  icon: 'star' },
+]
+
+export function questDef(code: string): QuestDef | null {
+  return QUEST_DEFS.find((q) => q.code === code) ?? null
+}
+
+/** UTC date string used as the daily quest period key */
+export function questPeriod(d: Date = new Date()): string {
+  return d.toISOString().slice(0, 10)
+}

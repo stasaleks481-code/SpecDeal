@@ -4,23 +4,34 @@ import { supabase } from '@/lib/supabase/client'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
+const FIELDS = `id, username, first_name, last_name, photo_url, trust_score, reviews_count, matches_count, avatar_frame, name_style, user_title, steam_id, steam_data`
+
 /**
- * GET /api/leaderboard?sort=trust|races|matches
- * Returns top 10 users sorted by metric. Default: trust_score.
+ * GET /api/leaderboard?sort=trust|races|reviews&steam=1&limit=10
+ * Returns top users sorted by metric. Default: trust_score.
+ * steam=1 — only Steam-linked users (Steam tab rating).
  */
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const url = new URL(req.url)
   const sort = url.searchParams.get('sort') ?? 'trust'
+  const steamOnly = url.searchParams.get('steam') === '1'
+  const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') ?? '10', 10) || 10, 1), 50)
 
   let sortCol = 'trust_score'
   if (sort === 'races') sortCol = 'matches_count'
   if (sort === 'reviews') sortCol = 'reviews_count'
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('users')
-    .select('id, username, first_name, last_name, photo_url, trust_score, reviews_count, matches_count')
+    .select(FIELDS)
     .order(sortCol, { ascending: false })
-    .limit(10)
+    .limit(limit)
+
+  if (steamOnly) {
+    query = query.not('steam_id', 'is', null)
+  }
+
+  const { data, error } = await query
 
   if (error) {
     return NextResponse.json({ error: 'DB error' }, { status: 500 })
@@ -34,18 +45,17 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const tgId = parseInt(userId, 10)
     myData = (data ?? []).find((u: Record<string, unknown>) => u.id === tgId) ?? null
     if (!myData) {
-      // Get total count of users with higher score
-      const { data: me } = await supabase
-        .from('users')
-        .select(`id, username, first_name, last_name, photo_url, trust_score, reviews_count, matches_count`)
-        .eq('id', tgId)
-        .maybeSingle()
+      let meQuery = supabase.from('users').select(FIELDS).eq('id', tgId)
+      if (steamOnly) meQuery = meQuery.not('steam_id', 'is', null)
+      const { data: me } = await meQuery.maybeSingle()
       if (me) {
         myData = me
-        const { count } = await supabase
+        let countQuery = supabase
           .from('users')
           .select('id', { count: 'exact', head: true })
-          .gt(sortCol, me.trust_score as number)
+          .gt(sortCol, (me as Record<string, unknown>)[sortCol] as number)
+        if (steamOnly) countQuery = countQuery.not('steam_id', 'is', null)
+        const { count } = await countQuery
         myRank = (count ?? 0) + 1
       }
     } else {
@@ -58,5 +68,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     my_rank: myRank,
     my_data: myData,
     sort,
+    steam: steamOnly,
   })
 }

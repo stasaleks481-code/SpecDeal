@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import type { UserRow } from "@/lib/supabase/client";
 import { OnlineDot } from "@/components/icons";
+import { UserAvatar, UserName } from "@/components/cosmetics";
 import { useTelegramBackButton } from "@/lib/telegram/useBackButton";
 
 interface Friend {
@@ -21,6 +22,9 @@ interface Friend {
     is_online: boolean;
     last_seen_at: string;
     trust_score: number;
+    avatar_frame?: string | null;
+    name_style?: string | null;
+    user_title?: string | null;
   };
   since: string;
 }
@@ -293,29 +297,14 @@ export function FriendsView({ user: _user }: Props) {
             {friends.map((f) => (
               <div key={f.friendship_id} className="room-card p-3 flex items-center gap-3">
                 <div className="relative">
-                  {f.user.photo_url ? (
-                    <img
-                      src={f.user.photo_url}
-                      alt=""
-                      className="w-11 h-11 rounded-full object-cover"
-                      style={{
-                        boxShadow: f.user.is_online
-                          ? "0 0 0 2px rgba(63,185,80,0.55), 0 0 14px -2px rgba(63,185,80,0.5)"
-                          : "0 0 0 2px rgba(255,255,255,0.08)",
-                      }}
-                    />
-                  ) : (
-                    <div className="w-11 h-11 rounded-full bg-primary/20 flex items-center justify-center text-sm font-bold">
-                      {f.user.first_name?.[0] ?? "?"}
-                    </div>
-                  )}
+                  <UserAvatar user={f.user} size={44} />
                   {f.user.is_online && (
                     <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-[#0b111a] shadow-[0_0_8px_rgba(63,185,80,0.8)]" />
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold truncate">
-                    {f.user.username ? `@${f.user.username}` : f.user.first_name}
+                    <UserName user={f.user} fallback={f.user.username ? `@${f.user.username}` : f.user.first_name} />
                   </p>
                   <p className="text-xs text-muted-foreground flex items-center gap-1.5">
                     <OnlineDot online={f.user.is_online} />
