@@ -30,7 +30,7 @@ export function GamesTab({ user }: Props) {
       if (filterFormat) params.set("format", filterFormat);
       if (filterStyle) params.set("style", filterStyle);
 
-      const res = await fetch(`/api/rooms?${params}`);
+      const res = await fetch(`/api/rooms?${params}`, { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         setRooms(data.rooms ?? []);

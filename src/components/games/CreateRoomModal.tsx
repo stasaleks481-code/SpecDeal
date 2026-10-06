@@ -44,6 +44,7 @@ export function CreateRoomModal({
       const res = await fetch("/api/rooms", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           category,
           game_name: category === "game" ? game : null,

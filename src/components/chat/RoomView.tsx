@@ -80,7 +80,7 @@ export function RoomView({ user }: Props) {
   // Fetch room + members + messages
   const fetchRoom = useCallback(async () => {
     try {
-      const res = await fetch(`/api/rooms/${roomId}`);
+      const res = await fetch(`/api/rooms/${roomId}`, { credentials: "include" });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error ?? `HTTP ${res.status}`);
@@ -94,13 +94,13 @@ export function RoomView({ user }: Props) {
         (m: Member) => m.user_id === user.id
       );
       if (!isMember && data.room.host_id !== user.id) {
-        const joinRes = await fetch(`/api/rooms/${roomId}/join`, { method: "POST" });
+        const joinRes = await fetch(`/api/rooms/${roomId}/join`, { method: "POST", credentials: "include" });
         if (!joinRes.ok) {
           const jdata = await joinRes.json().catch(() => ({}));
           throw new Error(jdata.error ?? "Failed to join");
         }
         // Refetch to get updated member list including me
-        const refetch = await fetch(`/api/rooms/${roomId}`);
+        const refetch = await fetch(`/api/rooms/${roomId}`, { credentials: "include" });
         if (refetch.ok) {
           const rdata = await refetch.json();
           setMembers(rdata.members ?? []);
@@ -115,7 +115,7 @@ export function RoomView({ user }: Props) {
 
   const fetchMessages = useCallback(async () => {
     try {
-      const res = await fetch(`/api/rooms/${roomId}/messages?limit=50`);
+      const res = await fetch(`/api/rooms/${roomId}/messages?limit=50`, { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         setMessages(data.messages ?? []);
@@ -173,7 +173,7 @@ export function RoomView({ user }: Props) {
         { event: "*", schema: "public", table: "room_members", filter: `room_id=eq.${roomId}` },
         async () => {
           // Refetch members
-          const res = await fetch(`/api/rooms/${roomId}`);
+          const res = await fetch(`/api/rooms/${roomId}`, { credentials: "include" });
           if (res.ok) {
             const data = await res.json();
             setMembers(data.members ?? []);
@@ -227,7 +227,7 @@ export function RoomView({ user }: Props) {
   const leaveRoom = async () => {
     if (!confirm("Выйти из комнаты?")) return;
     try {
-      await fetch(`/api/rooms/${roomId}/leave`, { method: "POST" });
+      await fetch(`/api/rooms/${roomId}/leave`, { method: "POST", credentials: "include" });
       router.push("/");
     } catch (err) {
       console.error("[leave] error:", err);

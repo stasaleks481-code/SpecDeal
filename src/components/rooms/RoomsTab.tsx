@@ -21,7 +21,7 @@ export function RoomsTab({ user }: Props) {
     try {
       const params = new URLSearchParams({ category: "casual" });
       if (filterTopic) params.set("topic", filterTopic);
-      const res = await fetch(`/api/rooms?${params}`);
+      const res = await fetch(`/api/rooms?${params}`, { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         setRooms(data.rooms ?? []);

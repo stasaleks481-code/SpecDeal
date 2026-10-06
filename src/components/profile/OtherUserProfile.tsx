@@ -55,7 +55,7 @@ export function OtherUserProfile({ currentUser }: Props) {
 
   const fetchUser = useCallback(async () => {
     try {
-      const res = await fetch(`/api/users/${userId}`);
+      const res = await fetch(`/api/users/${userId}`, { credentials: "include" });
       if (!res.ok) {
         throw new Error("Not found");
       }
