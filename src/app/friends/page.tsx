@@ -1,34 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { AppShell } from "@/components/AppShell";
 import { FriendsView } from "@/components/friends/FriendsView";
-import type { UserRow } from "@/lib/supabase/client";
+import { useUser } from "@/lib/UserContext";
 
 export default function FriendsPage() {
-  const [user, setUser] = useState<UserRow | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [shouldRedirect, setShouldRedirect] = useState(false);
+  const { user, loading } = useUser();
 
-  useEffect(() => {
-    fetch("/api/me", { credentials: "include" })
-      .then(async (res) => {
-        if (!res.ok) throw new Error("Not authenticated");
-        const data = await res.json();
-        setUser(data.user);
-        if (data.user?.theme_color) {
-          document.documentElement.setAttribute("data-accent", data.user.theme_color);
-        }
-      })
-      .catch(() => setShouldRedirect(true))
-      .finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => {
-    if (shouldRedirect) window.location.href = "/";
-  }, [shouldRedirect]);
-
-  if (loading) {
+  if (loading && !user) {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center">
         <div className="w-12 h-12 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />

@@ -7,6 +7,7 @@ import { AppShell } from "@/components/AppShell";
 import { GamesTab } from "@/components/games/GamesTab";
 import { RoomsTab } from "@/components/rooms/RoomsTab";
 import { ProfileView } from "@/components/profile/ProfileView";
+import { useUser } from "@/lib/UserContext";
 import type { UserRow } from "@/lib/supabase/client";
 import { usePresence } from "@/lib/telegram/usePresence";
 import { motion, AnimatePresence } from "framer-motion";
@@ -17,8 +18,7 @@ interface AuthResponse {
 }
 
 function HomePageContent() {
-  const [user, setUser] = useState<UserRow | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, loading, updateUser } = useUser();
   const [error, setError] = useState<string | null>(null);
 
   const searchParams = useSearchParams();
@@ -29,8 +29,9 @@ function HomePageContent() {
   );
 
   const authenticate = useCallback(async () => {
+    if (user) return; // already have user from cache
+
     try {
-      setLoading(true);
       setError(null);
 
       let initData = "";
@@ -71,21 +72,19 @@ function HomePageContent() {
         throw new Error(data.error ?? "No user in response");
       }
 
-      setUser(data.user);
-      if (data.user.theme_color) {
-        document.documentElement.setAttribute("data-accent", data.user.theme_color);
-      }
+      // Store in UserContext (which also writes to localStorage)
+      updateUser(data.user);
     } catch (err) {
       console.error("[auth] error:", err);
       setError(err instanceof Error ? err.message : "Unknown error");
-    } finally {
-      setLoading(false);
     }
-  }, []);
+  }, [user, updateUser]);
 
   useEffect(() => {
-    authenticate();
-  }, [authenticate]);
+    if (!user) {
+      authenticate();
+    }
+  }, [authenticate, user]);
 
   // Clean up ?tab= param after applying
   useEffect(() => {
@@ -96,8 +95,8 @@ function HomePageContent() {
 
   usePresence(user?.id ?? null);
 
-  // Loading state
-  if (loading) {
+  // Loading state — only on first ever load (no cache)
+  if (loading && !user) {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center px-6">
         <div className="flex flex-col items-center gap-4">
@@ -121,7 +120,7 @@ function HomePageContent() {
           </div>
           <h2 className="text-lg font-bold text-red-300 mb-1">Ошибка входа</h2>
           <p className="text-sm text-muted-foreground mb-5">{error ?? "Unknown error"}</p>
-          <button onClick={authenticate} className="neon-btn text-sm w-full">
+          <button onClick={() => authenticate()} className="neon-btn text-sm w-full">
             Попробовать снова
           </button>
         </div>
@@ -136,10 +135,10 @@ function HomePageContent() {
         {tab === "games" && (
           <motion.div
             key="games"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.18 }}
+            initial={{ opacity: 0, scale: 0.98, y: 12 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 1.02, y: -8 }}
+            transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
           >
             <GamesTab user={user} />
           </motion.div>
@@ -147,10 +146,10 @@ function HomePageContent() {
         {tab === "rooms" && (
           <motion.div
             key="rooms"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.18 }}
+            initial={{ opacity: 0, scale: 0.98, y: 12 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 1.02, y: -8 }}
+            transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
           >
             <RoomsTab user={user} />
           </motion.div>
@@ -158,28 +157,15 @@ function HomePageContent() {
         {tab === "profile" && (
           <motion.div
             key="profile"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.18 }}
+            initial={{ opacity: 0, scale: 0.98, y: 12 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 1.02, y: -8 }}
+            transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
           >
-            <ProfileView user={user} onUserUpdate={setUser} />
+            <ProfileView user={user} onUserUpdate={updateUser} />
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Hidden tab switcher — clicks from profile button go to /leaderboard now,
-          so we only need games/rooms/profile here for direct navigation.
-          Profile is reached via the avatar in the header. */}
-      <div className="fixed bottom-24 right-4 z-40 flex flex-col gap-2">
-        {tab !== "games" && (
-          <button
-            onClick={() => setTab("games")}
-            className="hidden"
-            aria-hidden
-          />
-        )}
-      </div>
     </AppShell>
   );
 }
